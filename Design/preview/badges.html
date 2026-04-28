@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Badges</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .row:last-child { margin: 0; }
+  .label { font-family: var(--font-mono); font-size: 10px; color: var(--fg-muted); width: 100px; flex-shrink: 0; }
+  .badge { display: inline-flex; align-items: center; padding: 4px 10px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 2px; line-height: 1; }
+  .b-hit { background: var(--accent); color: #fff; }
+  .b-new { background: var(--ink-10); color: #fff; }
+  .b-prem { background: var(--gold); color: var(--ink-10); }
+  .b-soft { background: var(--accent-soft); color: var(--accent); }
+  .b-stock { background: #E0F0E6; color: #2F6F4F; }
+  .b-out { background: var(--ink-95); color: var(--fg-muted); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 13px; font-weight: 500; border: 1px solid var(--ink-85); border-radius: 999px; background: #fff; }
+  .chip.active { background: var(--ink-10); color: #fff; border-color: var(--ink-10); }
+  .chip .x { font-size: 14px; opacity: 0.6; }
+</style></head>
+<body>
+<div class="row"><span class="label">Метки</span>
+  <span class="badge b-hit">Хит</span>
+  <span class="badge b-new">Новинка</span>
+  <span class="badge b-prem">Premium</span>
+  <span class="badge b-soft">−15%</span>
+  <span class="badge b-stock">В наличии</span>
+  <span class="badge b-out">Под заказ</span>
+</div>
+<div class="row"><span class="label">Фильтр-чипы</span>
+  <span class="chip active">Япония <span class="x">×</span></span>
+  <span class="chip">Седан</span>
+  <span class="chip">2020+</span>
+  <span class="chip">До 3 млн ₽</span>
+</div>
+</body></html>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Colors — Semantic</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .swatch { border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; }
+  .chip { height: 64px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .meta { padding: 8px 10px; background: #fff; }
+  .name { font-size: 11px; font-weight: 600; color: var(--ink-30); }
+  .hex { font-family: var(--font-mono); font-size: 10px; color: var(--fg-muted); margin-top: 2px; }
+</style></head>
+<body>
+<div class="grid">
+  <div class="swatch"><div class="chip" style="background:#2F6F4F">Success</div><div class="meta"><div class="name">success</div><div class="hex">#2F6F4F</div></div></div>
+  <div class="swatch"><div class="chip" style="background:#B07A1A">Warn</div><div class="meta"><div class="name">warn</div><div class="hex">#B07A1A</div></div></div>
+  <div class="swatch"><div class="chip" style="background:#8A2B2B">Danger</div><div class="meta"><div class="name">danger</div><div class="hex">#8A2B2B</div></div></div>
+  <div class="swatch"><div class="chip" style="background:#3A3833">Info</div><div class="meta"><div class="name">info</div><div class="hex">#3A3833</div></div></div>
+</div>
+</body></html>

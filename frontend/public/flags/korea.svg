@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16" width="24" height="16">
+  <rect width="24" height="16" fill="#FFFFFF" stroke="#D4CFC2" stroke-width="0.5"></rect>
+  <g transform="translate(12 8)">
+    <path d="M -3.2 0 A 3.2 3.2 0 0 1 3.2 0 A 1.6 1.6 0 0 1 0 0 A 1.6 1.6 0 0 0 -3.2 0 Z" fill="#CD2E3A"></path>
+    <path d="M 3.2 0 A 3.2 3.2 0 0 1 -3.2 0 A 1.6 1.6 0 0 0 0 0 A 1.6 1.6 0 0 1 3.2 0 Z" fill="#0047A0"></path>
+  </g>
+  <g stroke="#0F1115" stroke-width="0.4" fill="none">
+    <g transform="translate(4.5 3.5) rotate(-30)"><line x1="-1.6" y1="-0.4" x2="1.6" y2="-0.4"></line><line x1="-1.6" y1="0" x2="1.6" y2="0"></line><line x1="-1.6" y1="0.4" x2="1.6" y2="0.4"></line></g>
+    <g transform="translate(19.5 3.5) rotate(30)"><line x1="-1.6" y1="-0.4" x2="-0.4" y2="-0.4"></line><line x1="0.4" y1="-0.4" x2="1.6" y2="-0.4"></line><line x1="-1.6" y1="0" x2="1.6" y2="0"></line><line x1="-1.6" y1="0.4" x2="-0.4" y2="0.4"></line><line x1="0.4" y1="0.4" x2="1.6" y2="0.4"></line></g>
+    <g transform="translate(4.5 12.5) rotate(30)"><line x1="-1.6" y1="-0.4" x2="-0.4" y2="-0.4"></line><line x1="0.4" y1="-0.4" x2="1.6" y2="-0.4"></line><line x1="-1.6" y1="0" x2="-0.4" y2="0"></line><line x1="0.4" y1="0" x2="1.6" y2="0"></line><line x1="-1.6" y1="0.4" x2="1.6" y2="0.4"></line></g>
+    <g transform="translate(19.5 12.5) rotate(-30)"><line x1="-1.6" y1="-0.4" x2="1.6" y2="-0.4"></line><line x1="-1.6" y1="0" x2="-0.4" y2="0"></line><line x1="0.4" y1="0" x2="1.6" y2="0"></line><line x1="-1.6" y1="0.4" x2="-0.4" y2="0.4"></line><line x1="0.4" y1="0.4" x2="1.6" y2="0.4"></line></g>
+  </g>
+</svg>

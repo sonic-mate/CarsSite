@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Colors — Accents</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px; }
+  .row { display: flex; gap: 12px; margin-bottom: 12px; }
+  .row:last-child { margin: 0; }
+  .swatch { flex: 1; border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; }
+  .chip { height: 56px; display: flex; align-items: flex-end; padding: 8px 10px; }
+  .chip .label { color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .chip.light .label { color: var(--ink-10); }
+  .meta { padding: 6px 10px; background: #fff; display: flex; justify-content: space-between; }
+  .name { font-size: 11px; font-weight: 600; color: var(--ink-30); }
+  .hex { font-family: var(--font-mono); font-size: 10px; color: var(--fg-muted); }
+</style></head>
+<body>
+<div class="row">
+  <div class="swatch"><div class="chip" style="background:#8A2B2B"><span class="label">CTA / Цена</span></div><div class="meta"><span class="name">accent</span><span class="hex">#8A2B2B</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#6F1F1F"><span class="label">Hover</span></div><div class="meta"><span class="name">accent-hover</span><span class="hex">#6F1F1F</span></div></div>
+  <div class="swatch"><div class="chip light" style="background:#F0E4E4"><span class="label">Tag fill</span></div><div class="meta"><span class="name">accent-soft</span><span class="hex">#F0E4E4</span></div></div>
+</div>
+<div class="row">
+  <div class="swatch"><div class="chip" style="background:#C8A45C"><span class="label">Premium</span></div><div class="meta"><span class="name">gold</span><span class="hex">#C8A45C</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#A8884A"><span class="label">Hover</span></div><div class="meta"><span class="name">gold-hover</span><span class="hex">#A8884A</span></div></div>
+  <div class="swatch"><div class="chip light" style="background:#F4ECD8"><span class="label">Soft fill</span></div><div class="meta"><span class="name">gold-soft</span><span class="hex">#F4ECD8</span></div></div>
+</div>
+</body></html>

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Inputs</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-muted); margin-bottom: 6px; }
+  .input { width: 100%; padding: 12px 14px; font-family: var(--font-sans); font-size: 15px; color: var(--ink-10); background: #fff; border: 1px solid var(--ink-85); border-radius: 4px; outline: none; }
+  .input::placeholder { color: var(--ink-70); }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(138,43,43,0.12); }
+  .input.filled { border-color: var(--ink-30); }
+  select.input { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--ink-30) 50%), linear-gradient(135deg, var(--ink-30) 50%, transparent 50%); background-position: calc(100% - 18px) 19px, calc(100% - 13px) 19px; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+  .check { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .check input { width: 18px; height: 18px; accent-color: var(--accent); }
+</style></head>
+<body>
+<div class="grid">
+  <div class="field"><label>Имя</label><input class="input" placeholder="Александр"></div>
+  <div class="field"><label>Телефон</label><input class="input filled" value="+7 (495) 000-00-00"></div>
+  <div class="field"><label>Марка</label><select class="input"><option>Toyota</option></select></div>
+  <div class="field"><label>Бюджет, ₽</label><input class="input" placeholder="2 000 000"></div>
+  <div class="field"><label class="check"><input type="checkbox" checked> Согласен на обработку данных</label></div>
+  <div class="field"><label class="check"><input type="checkbox"> Только в наличии</label></div>
+</div>
+</body></html>

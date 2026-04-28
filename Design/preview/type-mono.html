@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Type — Mono / Numeric</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; }
+  .row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--border-soft); }
+  .row:last-child { border: 0; }
+  .label { font-size: 13px; color: var(--ink-30); font-weight: 600; }
+  .val { font-family: var(--font-mono); font-size: 16px; color: var(--ink-10); font-feature-settings: 'tnum' 1; }
+  .price { font-family: var(--font-display); font-size: 28px; color: var(--accent); letter-spacing: 0.01em; }
+  .meta { font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); }
+</style></head>
+<body>
+<div class="row"><span class="label">VIN</span><span class="val">JTHBK1GG7E2125391</span></div>
+<div class="row"><span class="label">Пробег</span><span class="val">48 230 км</span></div>
+<div class="row"><span class="label">Цена</span><span class="price">2 350 000 ₽</span></div>
+<div class="row"><span class="label">Срок доставки</span><span class="val numeric">35–55 дней</span></div>
+<div class="row"><span class="meta">JetBrains Mono 500 · tabular-nums · zero ✓</span><span class="meta">14/16</span></div>
+</body></html>

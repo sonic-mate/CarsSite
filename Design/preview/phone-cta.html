@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Phone CTA</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; background: var(--ink-100); }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .cta-block { background: var(--ink-10); color: #fff; border-radius: 8px; padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .lhs { display: flex; flex-direction: column; gap: 4px; }
+  .eyebrow-gold { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
+  .num { font-family: var(--font-display); font-size: 32px; letter-spacing: 0.04em; line-height: 1; color: #fff; }
+  .btn-call { background: var(--accent); color: #fff; padding: 14px 22px; font-weight: 600; font-size: 14px; border-radius: 4px; border: 0; cursor: pointer; }
+  .inline { display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; border: 1px solid var(--ink-30); border-radius: 4px; font-weight: 600; }
+  .inline .num-s { font-family: var(--font-display); font-size: 18px; letter-spacing: 0.04em; }
+</style></head>
+<body>
+<div class="stack">
+  <div class="cta-block">
+    <div class="lhs">
+      <span class="eyebrow-gold">Звонок бесплатный · ежедневно 9–21</span>
+      <span class="num">8 800 101 29 18</span>
+    </div>
+    <button class="btn-call">Позвонить</button>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <span class="inline"><span class="num-s">8 800 101 29 18</span></span>
+    <span style="font-size:12px;color:var(--fg-muted)">Inline-вариант для header</span>
+  </div>
+</div>
+</body></html>

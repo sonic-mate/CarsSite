@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Voice</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; }
+  .row { display: grid; grid-template-columns: 24px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border-soft); align-items: start; }
+  .row:last-child { border: 0; }
+  .ok { color: var(--success); font-weight: 700; font-size: 14px; }
+  .no { color: var(--accent); font-weight: 700; font-size: 14px; }
+  .text { font-size: 14px; line-height: 1.5; color: var(--ink-30); }
+  .text strong { color: var(--ink-10); }
+  h4 { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-muted); margin: 0 0 8px; font-weight: 600; }
+  section { margin-bottom: 16px; }
+  section:last-child { margin: 0; }
+</style></head>
+<body>
+<section>
+  <h4>Уверенно, по делу</h4>
+  <div class="row"><span class="ok">✓</span><span class="text">«АВТО ИЗ ЯПОНИИ, КИТАЯ И КОРЕИ — ПОД КЛЮЧ»</span></div>
+  <div class="row"><span class="ok">✓</span><span class="text">«Доставка 35–55 дней. Все расходы прозрачны.»</span></div>
+  <div class="row"><span class="ok">✓</span><span class="text">«1 247 авто доставлено за 8 лет работы»</span></div>
+</section>
+<section>
+  <h4>Не так</h4>
+  <div class="row"><span class="no">×</span><span class="text">«🔥 ЛУЧШИЕ АВТО ИЗ ЯПОНИИ!!!» <em style="color:var(--fg-muted)">— эмоджи и крик</em></span></div>
+  <div class="row"><span class="no">×</span><span class="text">«Команда профессионалов с многолетним опытом» <em style="color:var(--fg-muted)">— вода</em></span></div>
+  <div class="row"><span class="no">×</span><span class="text">«Закажи свою мечту прямо сейчас!» <em style="color:var(--fg-muted)">— фамильярно</em></span></div>
+</section>
+</body></html>

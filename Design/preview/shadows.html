@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Shadows</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 28px; background: var(--ink-100); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .box { width: 100%; height: 70px; background: #fff; border: 1px solid var(--ink-85); border-radius: 8px; }
+  .name { font-family: var(--font-mono); font-size: 11px; color: var(--ink-30); font-weight: 600; }
+  .desc { font-size: 11px; color: var(--fg-muted); text-align: center; }
+</style></head>
+<body>
+<div class="grid">
+  <div class="item"><div class="box" style="box-shadow:0 1px 0 rgba(15,17,21,0.04), 0 1px 2px rgba(15,17,21,0.06)"></div><span class="name">--shadow-1</span><span class="desc">Карточка покоя</span></div>
+  <div class="item"><div class="box" style="box-shadow:0 2px 0 rgba(15,17,21,0.04), 0 8px 24px -8px rgba(15,17,21,0.12)"></div><span class="name">--shadow-2</span><span class="desc">Hover · Lift</span></div>
+  <div class="item"><div class="box" style="box-shadow:0 24px 64px -16px rgba(15,17,21,0.24)"></div><span class="name">--shadow-3</span><span class="desc">Модалка</span></div>
+</div>
+</body></html>

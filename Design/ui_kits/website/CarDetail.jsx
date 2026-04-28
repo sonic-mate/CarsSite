@@ -1,0 +1,97 @@
+// Car detail screen
+const CarDetail = ({ car, onBack }) => {
+  const c = car || window.CARS[0];
+  const [mainTint, setMainTint] = React.useState(c.photoTint);
+  const variations = ["#1a1d24", "#0f1218", "#15181f", "#171a22", "#13161d"];
+
+  return (
+    <main data-screen-label="03 Car Detail">
+      <div className="container" style={{ paddingTop: 32, paddingBottom: 16 }}>
+        <button className="btn btn-ghost" onClick={onBack} style={{ padding: 0 }}>← Назад в каталог</button>
+      </div>
+
+      <section style={{ paddingBottom: 48 }}>
+        <div className="container">
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              {c.badge && <Badge kind={c.badge}/>}
+              <span className="eyebrow" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <img src={window.COUNTRY_FLAG[c.country]} alt="" style={{ width: 20, height: 14 }}/>
+                {window.COUNTRY_LABEL[c.country]}
+              </span>
+            </div>
+            <h1 style={{ fontSize: 72, lineHeight: 0.95, marginBottom: 8 }}>{c.brand} {c.model}</h1>
+            <p style={{ fontSize: 16, color: "var(--fg-muted)", fontFeatureSettings: "'tnum' 1" }}>{c.year} · {window.formatKm(c.mileage)} · {c.engine} · {c.body}</p>
+          </div>
+
+          <div className="detail-grid">
+            <div>
+              <div className="gallery-main">
+                <CarPhotoStage tint={mainTint} silhouette={c.silhouette}/>
+              </div>
+              <div className="gallery-thumbs">
+                {variations.map((t, i) => (
+                  <div key={i} className={"gallery-thumb" + (mainTint === t ? " active" : "")} onClick={() => setMainTint(t)}>
+                    <CarPhotoStage tint={t} silhouette={c.silhouette}/>
+                  </div>
+                ))}
+              </div>
+
+              <h3 style={{ marginTop: 48, marginBottom: 24 }}>Характеристики</h3>
+              <div className="spec-table" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
+                <div className="spec-row"><span className="k">Год выпуска</span><span className="v">{c.year}</span></div>
+                <div className="spec-row"><span className="k">Пробег</span><span className="v">{window.formatKm(c.mileage)}</span></div>
+                <div className="spec-row"><span className="k">Двигатель</span><span className="v">{c.engine}</span></div>
+                <div className="spec-row"><span className="k">Кузов</span><span className="v">{c.body}</span></div>
+                <div className="spec-row"><span className="k">Привод</span><span className="v">Полный</span></div>
+                <div className="spec-row"><span className="k">КПП</span><span className="v">Автомат</span></div>
+                <div className="spec-row"><span className="k">Цвет</span><span className="v">Чёрный металлик</span></div>
+                <div className="spec-row"><span className="k">Состояние</span><span className="v">Отличное · R 4.5</span></div>
+                <div className="spec-row"><span className="k">Аукцион</span><span className="v">USS Tokyo</span></div>
+                <div className="spec-row"><span className="k">VIN</span><span className="v" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>JTHBK1GG7E2125391</span></div>
+              </div>
+
+              <h3 style={{ marginTop: 48, marginBottom: 16 }}>Комплектация</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 24px" }}>
+                {["Кожаный салон", "Подогрев сидений", "Климат-контроль 3 зоны", "Камеры 360°", "Адаптивный круиз", "Электропривод сидений", "Premium audio", "Панорамная крыша"].map(f => (
+                  <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
+                    <Icon name="check" size={16} style={{ color: "var(--gold)" }}/>
+                    {f}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="detail-cta" style={{ position: "sticky", top: 96 }}>
+                <span className="eyebrow-gold">Цена под ключ</span>
+                <div className="price">{window.formatPrice(c.price)}</div>
+                <div className="price-note">Включая доставку, растаможку и&nbsp;услуги</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 24 }}>
+                  <Button variant="primary" size="lg" block icon={<Icon name="phone" size={18}/>}>Позвонить: {window.PHONE}</Button>
+                  <Button variant="secondary" size="lg" block style={{ borderColor: "rgba(245,243,238,0.3)", color: "#fff" }}>Заказать звонок</Button>
+                </div>
+                <div style={{ marginTop: 24, paddingTop: 24, borderTop: "1px solid rgba(245,243,238,0.1)", display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+                    <Icon name="shield" size={16} style={{ color: "var(--gold)" }}/>
+                    <span>Гарантия на&nbsp;документы</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+                    <Icon name="clock" size={16} style={{ color: "var(--gold)" }}/>
+                    <span>Доставка 35–55 дней</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+                    <Icon name="layers" size={16} style={{ color: "var(--gold)" }}/>
+                    <span>Прозрачная стоимость</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+};
+
+window.CarDetail = CarDetail;

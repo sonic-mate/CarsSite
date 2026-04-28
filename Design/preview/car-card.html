@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Car Card</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; background: var(--ink-100); }
+  .card { width: 320px; background: #fff; border: 1px solid var(--ink-85); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 0 rgba(15,17,21,0.04), 0 1px 2px rgba(15,17,21,0.06); }
+  .photo { position: relative; aspect-ratio: 16/10; background: linear-gradient(135deg, #1a1d24 0%, #0F1115 100%); overflow: hidden; }
+  .photo::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 80%, rgba(255,255,255,0.04) 0%, transparent 50%); }
+  .car-silhouette { position: absolute; bottom: 18%; left: 50%; transform: translateX(-50%); width: 78%; height: 36%; background: #2a2d34; border-radius: 50% 50% 12% 12% / 90% 90% 30% 30%; opacity: 0.7; }
+  .badge { position: absolute; top: 10px; left: 10px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 8px; border-radius: 2px; }
+  .country { position: absolute; top: 10px; right: 10px; background: rgba(15,17,21,0.72); color: #fff; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 8px; border-radius: 2px; }
+  .body { padding: 14px 16px 16px; }
+  .name { font-family: var(--font-display); font-size: 22px; letter-spacing: 0.01em; color: var(--ink-10); line-height: 1.05; text-transform: uppercase; }
+  .meta { font-size: 12px; color: var(--fg-muted); margin-top: 4px; font-feature-settings: 'tnum' 1; }
+  .row { display: flex; align-items: baseline; justify-content: space-between; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+  .price { font-family: var(--font-display); font-size: 26px; color: var(--accent); letter-spacing: 0.01em; }
+  .cta { font-size: 12px; font-weight: 600; color: var(--ink-30); }
+</style></head>
+<body>
+<div class="card">
+  <div class="photo">
+    <div class="car-silhouette"></div>
+    <span class="badge">Хит</span>
+    <span class="country">Япония</span>
+  </div>
+  <div class="body">
+    <div class="name">Toyota Camry 70</div>
+    <div class="meta">2021 · 48 230 км · 2.5 AT · Бензин</div>
+    <div class="row">
+      <span class="price">2 350 000 ₽</span>
+      <span class="cta">Подробнее →</span>
+    </div>
+  </div>
+</div>
+</body></html>

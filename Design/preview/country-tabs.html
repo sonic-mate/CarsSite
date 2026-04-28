@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Country Tabs</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; }
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--ink-85); }
+  .tab { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-bottom: 2px solid transparent; cursor: pointer; color: var(--fg-muted); font-weight: 600; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .tab.active { color: var(--ink-10); border-bottom-color: var(--accent); }
+  .tab img { width: 24px; height: 16px; border: 1px solid var(--ink-85); }
+  .tab .count { font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); font-weight: 500; letter-spacing: 0; }
+</style></head>
+<body>
+<div class="tabs">
+  <div class="tab active"><img src="../assets/flags/japan.svg" alt=""><span>Япония</span><span class="count">412</span></div>
+  <div class="tab"><img src="../assets/flags/china.svg" alt=""><span>Китай</span><span class="count">283</span></div>
+  <div class="tab"><img src="../assets/flags/korea.svg" alt=""><span>Корея</span><span class="count">196</span></div>
+  <div class="tab"><span>Все</span><span class="count">891</span></div>
+</div>
+</body></html>

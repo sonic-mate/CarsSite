@@ -1,0 +1,284 @@
+/* ==========================================================================
+   Vostok AutoImport — Design Tokens
+   Premium, restrained, dark-accented light theme.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* ----------------------------------------------------------------------
+     Color — Neutrals
+     ---------------------------------------------------------------------- */
+  --ink-100: #F5F3EE;   /* page background, off-white paper */
+  --ink-95:  #EDEAE2;   /* surface / hover light */
+  --ink-90:  #E2DED3;   /* surface alt */
+  --ink-85:  #D4CFC2;   /* divider / border default */
+  --ink-70:  #B8B2A6;   /* muted UI */
+  --ink-60:  #8A8478;   /* secondary text, eyebrows */
+  --ink-40:  #555048;   /* body emphasis */
+  --ink-30:  #3A3833;   /* heading on light */
+  --ink-20:  #1F1F1C;   /* deep text */
+  --ink-10:  #0F1115;   /* primary ink, dark surface */
+  --ink-05:  #08090C;   /* extra dark, footer */
+
+  /* ----------------------------------------------------------------------
+     Color — Accents
+     ---------------------------------------------------------------------- */
+  --accent:        #8A2B2B;  /* wine / brand red */
+  --accent-hover:  #6F1F1F;
+  --accent-press:  #571616;
+  --accent-soft:   #F0E4E4;
+  --accent-fg:     #FFFFFF;  /* text on accent */
+
+  --gold:          #C8A45C;  /* sand gold, premium accent */
+  --gold-hover:    #A8884A;
+  --gold-soft:     #F4ECD8;
+
+  /* ----------------------------------------------------------------------
+     Color — Semantic
+     ---------------------------------------------------------------------- */
+  --success: #2F6F4F;
+  --warn:    #B07A1A;
+  --danger:  #8A2B2B;
+  --info:    #3A3833;
+
+  /* ----------------------------------------------------------------------
+     Color — Surfaces (semantic aliases)
+     ---------------------------------------------------------------------- */
+  --bg:         var(--ink-100);
+  --bg-alt:     var(--ink-95);
+  --bg-dark:    var(--ink-10);
+  --bg-darker:  var(--ink-05);
+
+  --fg:         var(--ink-10);
+  --fg-muted:   var(--ink-60);
+  --fg-soft:    var(--ink-40);
+  --fg-on-dark: var(--ink-100);
+
+  --border:        var(--ink-85);
+  --border-soft:   color-mix(in srgb, var(--ink-85) 60%, transparent);
+  --border-strong: var(--ink-30);
+
+  /* ----------------------------------------------------------------------
+     Typography — Families
+     ---------------------------------------------------------------------- */
+  --font-display: 'Unbounded', 'Druk Wide', 'Helvetica Neue', sans-serif;
+  --font-sans:    'Manrope', 'Söhne', 'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
+  /* ----------------------------------------------------------------------
+     Typography — Scale
+     ---------------------------------------------------------------------- */
+  --fs-display-xl: 96px;
+  --fs-display-l:  64px;   /* H1 */
+  --fs-display-m:  48px;   /* H2 */
+  --fs-h3:         32px;
+  --fs-h4:         24px;
+  --fs-h5:         18px;
+  --fs-body-l:     18px;
+  --fs-body:       16px;
+  --fs-body-s:     14px;
+  --fs-caption:    12px;
+
+  --lh-tight:   1.0;
+  --lh-display: 1.05;
+  --lh-heading: 1.2;
+  --lh-body:    1.55;
+
+  --tracking-display: 0.01em;
+  --tracking-eyebrow: 0.12em;
+  --tracking-tight:   -0.01em;
+
+  /* ----------------------------------------------------------------------
+     Spacing (4px base)
+     ---------------------------------------------------------------------- */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  24px;
+  --s-6:  32px;
+  --s-7:  48px;
+  --s-8:  64px;
+  --s-9:  96px;
+  --s-10: 128px;
+
+  --container-max: 1280px;
+  --container-pad: 48px;
+  --container-pad-mobile: 24px;
+
+  /* ----------------------------------------------------------------------
+     Radii — minimal, premium
+     ---------------------------------------------------------------------- */
+  --r-xs:   2px;
+  --r-sm:   4px;
+  --r-md:   8px;
+  --r-lg:   12px;
+  --r-xl:   16px;
+  --r-pill: 999px;
+
+  /* ----------------------------------------------------------------------
+     Shadows — pinpoint, low-contrast
+     ---------------------------------------------------------------------- */
+  --shadow-1: 0 1px 0 rgba(15,17,21,0.04), 0 1px 2px rgba(15,17,21,0.06);
+  --shadow-2: 0 2px 0 rgba(15,17,21,0.04), 0 8px 24px -8px rgba(15,17,21,0.12);
+  --shadow-3: 0 24px 64px -16px rgba(15,17,21,0.24);
+  --shadow-inner-focus: inset 0 0 0 2px var(--accent);
+
+  /* ----------------------------------------------------------------------
+     Motion
+     ---------------------------------------------------------------------- */
+  --ease-luxe: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-micro:    120ms;
+  --dur-base:     200ms;
+  --dur-section:  320ms;
+  --dur-hero:     600ms;
+
+  /* ----------------------------------------------------------------------
+     Z-index
+     ---------------------------------------------------------------------- */
+  --z-header:  100;
+  --z-sticky:  90;
+  --z-modal:   1000;
+  --z-toast:   1100;
+}
+
+/* ==========================================================================
+   Base reset & semantic styles
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ----- Headings (display / heading) ----- */
+.display-xl, .display-l, .display-m, h1, h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: var(--lh-display);
+  margin: 0;
+  text-transform: uppercase;
+  color: var(--ink-10);
+}
+
+.display-xl { font-size: var(--fs-display-xl); line-height: var(--lh-tight); }
+.display-l, h1 { font-size: var(--fs-display-l); line-height: var(--lh-tight); }
+.display-m, h2 { font-size: var(--fs-display-m); }
+
+h3, .h3, h4, .h4, h5, .h5 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--lh-heading);
+  margin: 0;
+  color: var(--ink-10);
+}
+
+h3, .h3 { font-size: var(--fs-h3); }
+h4, .h4 { font-size: var(--fs-h4); }
+h5, .h5 { font-size: var(--fs-h5); font-weight: 600; }
+
+/* ----- Body text ----- */
+p, .body { font-size: var(--fs-body); line-height: var(--lh-body); margin: 0; }
+.body-l { font-size: var(--fs-body-l); line-height: var(--lh-body); }
+.body-s { font-size: var(--fs-body-s); line-height: 1.5; font-weight: 500; }
+
+/* ----- Eyebrow / caption ----- */
+.eyebrow {
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+.caption {
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+  color: var(--fg-muted);
+}
+
+/* ----- Mono / numeric ----- */
+.mono, code, kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-body-s);
+  font-weight: 500;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* ----- Links ----- */
+a {
+  color: var(--ink-10);
+  text-decoration: none;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color var(--dur-base) var(--ease-luxe),
+              text-decoration-thickness var(--dur-base) var(--ease-luxe);
+}
+a:hover { color: var(--accent); text-decoration-thickness: 2px; text-decoration-line: underline; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+/* ----- Selection ----- */
+::selection { background: var(--ink-10); color: var(--ink-100); }
+
+/* ==========================================================================
+   Utility — containers
+   ========================================================================== */
+.container {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding-left: var(--container-pad);
+  padding-right: var(--container-pad);
+}
+@media (max-width: 720px) {
+  .container {
+    padding-left: var(--container-pad-mobile);
+    padding-right: var(--container-pad-mobile);
+  }
+  :root {
+    --fs-display-xl: 56px;
+    --fs-display-l:  44px;
+    --fs-display-m:  32px;
+    --fs-h3:         24px;
+    --fs-h4:         20px;
+  }
+}
+
+/* ==========================================================================
+   Dark surface helper
+   ========================================================================== */
+.surface-dark {
+  background: var(--ink-10);
+  color: var(--ink-100);
+}
+.surface-dark h1, .surface-dark h2, .surface-dark h3,
+.surface-dark h4, .surface-dark h5,
+.surface-dark .display-xl, .surface-dark .display-l, .surface-dark .display-m,
+.section-dark h1, .section-dark h2, .section-dark h3,
+.section-dark h4, .section-dark h5,
+.section-dark .display-xl, .section-dark .display-l, .section-dark .display-m,
+.hero h1, .hero h2, .hero h3, .hero h4, .hero h5 {
+  color: var(--ink-100);
+}
+.surface-dark .eyebrow { color: var(--gold); }
+.surface-dark a { color: var(--ink-100); }
+.surface-dark a:hover { color: var(--gold); }

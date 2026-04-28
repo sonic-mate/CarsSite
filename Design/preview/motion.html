@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Motion</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; }
+  .row { display: flex; gap: 24px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-soft); }
+  .row:last-child { border: 0; }
+  .name { font-family: var(--font-mono); font-size: 11px; color: var(--ink-30); font-weight: 600; width: 120px; }
+  .desc { font-size: 12px; color: var(--fg-muted); width: 200px; }
+  .demo { flex: 1; height: 28px; position: relative; background: var(--ink-95); border-radius: 2px; overflow: hidden; }
+  .dot { position: absolute; top: 50%; transform: translateY(-50%); left: 6px; width: 16px; height: 16px; background: var(--accent); border-radius: 50%; animation-iteration-count: infinite; animation-direction: alternate; }
+  .d1 { animation: slide 0.12s var(--ease-luxe) infinite alternate; }
+  .d2 { animation: slide 0.2s var(--ease-luxe) infinite alternate; }
+  .d3 { animation: slide 0.32s var(--ease-luxe) infinite alternate; }
+  .d4 { animation: slide 0.6s var(--ease-luxe) infinite alternate; }
+  @keyframes slide { from { left: 6px; } to { left: calc(100% - 22px); } }
+</style></head>
+<body>
+<div class="row"><span class="name">--dur-micro</span><span class="desc">120ms · hover ссылок</span><div class="demo"><div class="dot d1"></div></div></div>
+<div class="row"><span class="name">--dur-base</span><span class="desc">200ms · карточки, кнопки</span><div class="demo"><div class="dot d2"></div></div></div>
+<div class="row"><span class="name">--dur-section</span><span class="desc">320ms · появление при скролле</span><div class="demo"><div class="dot d3"></div></div></div>
+<div class="row"><span class="name">--dur-hero</span><span class="desc">600ms · hero параллакс</span><div class="demo"><div class="dot d4"></div></div></div>
+<div style="margin-top:12px;font-size:11px;color:var(--fg-muted);font-family:var(--font-mono)">Все анимации на cubic-bezier(0.2, 0.8, 0.2, 1) · «luxe»</div>
+</body></html>

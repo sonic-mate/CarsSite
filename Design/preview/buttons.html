@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Buttons</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .btn { font-family: var(--font-sans); font-weight: 600; font-size: 14px; padding: 12px 20px; border: 1px solid transparent; border-radius: 4px; cursor: pointer; line-height: 1; letter-spacing: 0.005em; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-dark { background: var(--ink-10); color: #fff; }
+  .btn-secondary { background: transparent; color: var(--ink-10); border-color: var(--ink-10); }
+  .btn-ghost { background: transparent; color: var(--ink-30); }
+  .btn-ghost:hover { color: var(--accent); }
+  .btn-gold { background: transparent; color: var(--ink-10); border-color: var(--gold); }
+  .btn-lg { padding: 16px 28px; font-size: 16px; }
+  .btn-sm { padding: 8px 14px; font-size: 13px; }
+  .btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+  .label { font-family: var(--font-mono); font-size: 10px; color: var(--fg-muted); width: 80px; }
+</style></head>
+<body>
+<div class="stack">
+  <div class="row"><span class="label">Primary</span><button class="btn btn-primary btn-lg">Подобрать авто</button><button class="btn btn-primary">Позвонить</button><button class="btn btn-primary btn-sm">Оставить заявку</button></div>
+  <div class="row"><span class="label">Dark</span><button class="btn btn-dark btn-lg">Каталог</button><button class="btn btn-dark">Рассчитать</button></div>
+  <div class="row"><span class="label">Secondary</span><button class="btn btn-secondary btn-lg">Подробнее</button><button class="btn btn-secondary">Сравнить</button></div>
+  <div class="row"><span class="label">Ghost</span><button class="btn btn-ghost">Все марки →</button><button class="btn btn-ghost" disabled>Disabled</button></div>
+</div>
+</body></html>
