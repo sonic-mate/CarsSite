@@ -11,8 +11,8 @@ export default function MobileCta() {
         <Icon name="phone" size={18}/>
         Позвонить
       </a>
-      <a href={SOCIALS.whatsapp} target="_blank" rel="noopener noreferrer" className="btn btn-lg" style={{ borderColor: "var(--gold)", color: "var(--gold)", background: "transparent", border: "1px solid var(--gold)" }}>
-        WhatsApp
+      <a href={SOCIALS.max} target="_blank" rel="noopener noreferrer" className="btn btn-lg" style={{ borderColor: "var(--gold)", color: "var(--gold)", background: "transparent", border: "1px solid var(--gold)" }}>
+        Max
       </a>
     </div>
   );

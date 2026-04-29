@@ -19,8 +19,11 @@ export default function Header() {
   return (
     <header className="site-header">
       <div className="site-header-row">
-        <Link href="/" className="site-logo">
-          <img src="/logo.svg" alt="Восток АвтоИмпорт" height={38}/>
+        <Link href="/" className="site-logo" style={{ textDecoration: "none" }}>
+          <span style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--gold)", letterSpacing: "0.14em", fontWeight: 700 }}>ВОСТОК</span>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: 10, color: "var(--cream)", letterSpacing: "0.2em", fontWeight: 400, marginTop: 4, opacity: 0.85 }}>АВТО ИМПОРТ</span>
+          </span>
         </Link>
         <nav className="site-nav">
           {NAV.map(({ href, label }) => (

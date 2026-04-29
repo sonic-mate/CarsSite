@@ -1,16 +1,15 @@
 """
 Japanese auction cars — ajes.com SQL API
-Endpoint: http://78.46.90.228/api/?ip=IP&json&code=KEY&sql=QUERY
+Endpoint: http://78.46.90.228/api/?json&code=KEY&sql=QUERY
 Table: main
 """
 import os
 import httpx
 from typing import Optional
+import tariff_cache
 
-API_KEY  = os.getenv("AJES_API_KEY", "DvemR43s")
+API_KEY  = os.getenv("AJES_API_KEY", "VAInBvFrU76d")
 API_HOST = os.getenv("AJES_HOST", "78.46.90.228")
-
-JPY_TO_RUB = 0.60
 
 
 async def fetch(
@@ -23,56 +22,62 @@ async def fetch(
     **_,
 ) -> list[dict]:
     offset = (page - 1) * limit
-    where = ["STATUS='sold'"]
+    where = ["1=1"]
     if brand:
         where.append(f"MARKA_NAME LIKE '%{brand}%'")
     if year_min:
         where.append(f"YEAR>={year_min}")
 
     sql = f"SELECT * FROM main WHERE {' AND '.join(where)} ORDER BY AUCTION_DATE DESC LIMIT {limit} OFFSET {offset}"
-
     data = await _call(sql)
-    if data is None:
+    if not data:
         return []
 
-    cars = [_norm(i, "japan") for i in data if i]
+    cars = [_norm(i) for i in data if i]
     if price_max:
         cars = [c for c in cars if c["price"] <= price_max]
     return cars
 
 
 async def _call(sql: str) -> list | None:
-    params = {"ip": "1.1.1.1", "json": "", "code": API_KEY, "sql": sql}
+    url = f"http://{API_HOST}/api/?json&code={API_KEY}&sql={sql}"
     try:
         async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.get(f"http://{API_HOST}/api/", params=params)
+            r = await c.get(url)
             if r.status_code != 200:
                 return None
             data = r.json()
             if isinstance(data, list):
                 return data
+            if isinstance(data, dict) and "error" in data:
+                return None
             return data.get("data", data.get("result", []))
     except Exception:
         return None
 
 
-def _norm(i: dict, country: str) -> dict:
+def _photo_url(images_raw: str) -> str | None:
+    photos = [p.strip() for p in (images_raw or "").split("#") if p.strip()]
+    if not photos:
+        return None
+    img = photos[0]
+    if img.startswith("http"):
+        return f"{img}&w=320"
+    return f"https://7.ajes.com/imgs/{img}&w=320"
+
+
+def _norm(i: dict) -> dict:
     finish = int(i.get("FINISH", i.get("START", 0)) or 0)
-    price_rub = int(finish * JPY_TO_RUB)
+    price_rub = int(finish * tariff_cache.get().jpy_to_rub)
 
-    images_raw = i.get("IMAGES", "") or ""
-    photos = [p.strip() for p in images_raw.split("#") if p.strip()]
-    photo = photos[0] if photos else None
-    if photo and not photo.startswith("http"):
-        photo = f"https://img.ajes.com/{photo}"
-
+    photo = _photo_url(i.get("IMAGES", ""))
     brand = (i.get("MARKA_NAME") or "").strip()
     model = (i.get("MODEL_NAME") or "").strip()
     year = int(i.get("YEAR", 0) or 0)
     mileage = int(str(i.get("MILEAGE", "0")).replace(",", "").replace(" ", "") or 0)
 
     kuzov = str(i.get("KUZOV", "")).lower()
-    suv = any(k in kuzov for k in ["suv", "кросс", "внедор", "4wd", "van"])
+    suv = any(k in kuzov for k in ["suv", "кросс", "внедор", "4wd", "van", "minivan"])
 
     eng = i.get("ENG_V", "")
     kpp = i.get("KPP", "")
@@ -104,4 +109,5 @@ def _norm(i: dict, country: str) -> dict:
         "photo_url": photo,
         "source": "ajes",
         "source_url": f"https://ajes.com/?lot={lot_id}",
+        "_raw_images": i.get("IMAGES", ""),
     }

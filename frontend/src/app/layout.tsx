@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import MobileCta from "@/components/MobileCta";
 
 export const metadata: Metadata = {
-  title: "Восток АвтоИмпорт — Авто из Японии, Китая, Кореи",
+  title: "Восток Авто Импорт — Авто из Японии, Китая, Кореи",
   description: "Подбираем, выкупаем и доставляем автомобили с аукционов. Доставка 35–55 дней. Звонок бесплатный: 8 800 101 29 18",
 };
 

@@ -23,7 +23,8 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://carssite:carssite@db:5432/carssite
-      AJES_API_KEY: ""   # set to enable Japan source
+      AJES_API_KEY: "VAInBvFrU76d"
+      ADMIN_TOKEN: "change-me-before-deploy"
     depends_on:
       db:
         condition: service_healthy

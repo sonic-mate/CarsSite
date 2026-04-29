@@ -1,16 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">
-  <defs>
-    
-  </defs>
-  
   <g transform="translate(8 14)">
-    <rect x="0" y="0" width="52" height="52" fill="none" stroke="#0F1115" stroke-width="1.5"></rect>
-    <path d="M 26 8 L 30 26 L 26 44 L 22 26 Z" class="wm-mark"></path>
-    <path d="M 8 26 L 26 22 L 44 26 L 26 30 Z" fill="#0F1115"></path>
-    <circle cx="26" cy="26" r="2" fill="#C8A45C"></circle>
+    <rect x="0" y="0" width="52" height="52" fill="none" stroke="#C8A45C" stroke-width="1.5"/>
+    <path d="M 26 8 L 30 26 L 26 44 L 22 26 Z" fill="#C8A45C"/>
+    <path d="M 8 26 L 26 22 L 44 26 L 26 30 Z" fill="#F5F3EE"/>
+    <circle cx="26" cy="26" r="2" fill="#C8A45C"/>
   </g>
-  
-  <text x="76" y="38" class="wm-top">ВОСТОК</text>
-  <line x1="76" y1="44" x2="248" y2="44" class="wm-rule"></line>
-  <text x="76" y="62" class="wm-bot">АВТОИМПОРТ</text>
+  <text x="76" y="38" font-family="'Helvetica Neue', sans-serif" font-size="22" font-weight="700" letter-spacing="5" fill="#C8A45C">ВОСТОК</text>
+  <line x1="76" y1="44" x2="300" y2="44" stroke="#C8A45C" stroke-width="0.5"/>
+  <text x="76" y="62" font-family="'Helvetica Neue', sans-serif" font-size="13" font-weight="400" letter-spacing="4" fill="#F5F3EE" opacity="0.85">АВТО ИМПОРТ</text>
 </svg>

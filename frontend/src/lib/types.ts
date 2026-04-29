@@ -34,7 +34,7 @@ export const EMAIL = "vostokavtoimport@bk.ru";
 export const ADDRESS = "г. Омск, ул. Лукашевича 8, корп. 3, офис 8";
 
 export const SOCIALS = {
-  whatsapp: "https://wa.me/79045846333",
+  max: "https://max.ru/id5507301043_biz",
   telegram: "https://t.me/VostokAvtoImport",
   vk: "https://vk.com/vostokavtoimport",
 };

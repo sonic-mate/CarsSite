@@ -124,7 +124,7 @@ export default async function HomePage() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
             <div>
               <span className="eyebrow" style={{ color: "var(--accent)", marginBottom: 12 }}>О компании</span>
-              <h2 style={{ marginBottom: 24 }}>Восток АвтоИмпорт</h2>
+              <h2 style={{ marginBottom: 24 }}>Восток Авто Импорт</h2>
               <p style={{ fontSize: 17, lineHeight: 1.7, color: "var(--fg-soft)", marginBottom: 20 }}>
                 Мы специализируемся на подборе, покупке и доставке автомобилей из Японии, Китая и Кореи. Наша компания стремится предоставить клиентам лучшие предложения на рынке, высокий уровень сервиса и надёжность.
               </p>
@@ -163,12 +163,12 @@ export default async function HomePage() {
               {
                 key: "japan",
                 title: "Япония",
-                text: "Компания Восток АвтоИмпорт привезёт любой автомобиль, представленный на аукционных площадках Японии. Подбор авто и участие в аукционе осуществляется после заключения договора и внесения обеспечительного платежа, а также согласования технических параметров, бюджета и аукционного листа.",
+                text: "Компания Восток Авто Импорт привезёт любой автомобиль, представленный на аукционных площадках Японии. Подбор авто и участие в аукционе осуществляется после заключения договора и внесения обеспечительного платежа, а также согласования технических параметров, бюджета и аукционного листа.",
               },
               {
                 key: "china",
                 title: "Китай",
-                text: "За последние годы Китай стал одним из главных центров автомобильного производства в мире. На авторынке Китая представлены не только китайские бренды, но также европейские и американские. Компания Восток АвтоИмпорт привезёт любой автомобиль, представленный на торговых площадках Китая.",
+                text: "За последние годы Китай стал одним из главных центров автомобильного производства в мире. На авторынке Китая представлены не только китайские бренды, но также европейские и американские. Компания Восток Авто Импорт привезёт любой автомобиль, представленный на торговых площадках Китая.",
               },
               {
                 key: "korea",
@@ -310,8 +310,8 @@ export default async function HomePage() {
               <Icon name="phone" size={18}/>
               Позвонить
             </a>
-            <a href={SOCIALS.whatsapp} target="_blank" rel="noopener noreferrer" className="btn btn-lg" style={{ borderColor: "var(--gold)", color: "var(--gold)", background: "transparent", border: "1px solid var(--gold)", display: "inline-flex", gap: 8, alignItems: "center" }}>
-              WhatsApp
+            <a href={SOCIALS.max} target="_blank" rel="noopener noreferrer" className="btn btn-lg" style={{ borderColor: "var(--gold)", color: "var(--gold)", background: "transparent", border: "1px solid var(--gold)", display: "inline-flex", gap: 8, alignItems: "center" }}>
+              Max
             </a>
             <a href={SOCIALS.telegram} target="_blank" rel="noopener noreferrer" className="btn btn-lg" style={{ borderColor: "rgba(245,243,238,0.3)", color: "#fff", background: "transparent", border: "1px solid rgba(245,243,238,0.3)", display: "inline-flex", gap: 8, alignItems: "center" }}>
               Telegram

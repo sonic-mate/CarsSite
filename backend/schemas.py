@@ -42,3 +42,17 @@ class CalculatorOut(BaseModel):
     customs: int
     services: int
     total: int
+
+
+class TariffsSchema(BaseModel):
+    jpy_to_rub: float
+    krw_to_rub: float
+    cny_to_rub: float
+    customs_rate: float
+    customs_coef_new: float
+    customs_coef_mid: float
+    customs_coef_old: float
+    delivery_japan: int
+    delivery_korea: int
+    delivery_china: int
+    services: int

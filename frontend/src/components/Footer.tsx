@@ -7,7 +7,10 @@ export default function Footer() {
       <div className="container">
         <div className="footer-grid">
           <div>
-            <img src="/logo.svg" alt="Восток АвтоИмпорт" height={36} style={{ marginBottom: 16 }}/>
+            <span style={{ display: "flex", flexDirection: "column", lineHeight: 1, marginBottom: 16 }}>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--gold)", letterSpacing: "0.14em", fontWeight: 700 }}>ВОСТОК</span>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 10, color: "var(--cream)", letterSpacing: "0.2em", fontWeight: 400, marginTop: 4, opacity: 0.85 }}>АВТО ИМПОРТ</span>
+            </span>
             <p style={{ fontSize: 14, color: "rgba(245,243,238,0.6)", lineHeight: 1.6, maxWidth: 280, marginBottom: 20 }}>
               Подбор, выкуп и доставка автомобилей из Японии, Китая и Кореи. На 30% дешевле рынка.
             </p>
@@ -18,7 +21,7 @@ export default function Footer() {
               Ежедневно · Звонок бесплатный
             </div>
             <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
-              <a href={SOCIALS.whatsapp} target="_blank" rel="noopener noreferrer" className="social-btn">WA</a>
+              <a href={SOCIALS.max} target="_blank" rel="noopener noreferrer" className="social-btn">MAX</a>
               <a href={SOCIALS.telegram} target="_blank" rel="noopener noreferrer" className="social-btn">TG</a>
               <a href={SOCIALS.vk} target="_blank" rel="noopener noreferrer" className="social-btn">VK</a>
             </div>
@@ -46,14 +49,17 @@ export default function Footer() {
               <li><a href={`tel:${PHONE.replace(/\s/g, "")}`}>{PHONE}</a></li>
               <li><a href={`mailto:${EMAIL}`}>{EMAIL}</a></li>
               <li><span style={{ color: "rgba(245,243,238,0.5)", fontSize: 13 }}>{ADDRESS}</span></li>
-              <li><a href={SOCIALS.whatsapp} target="_blank" rel="noopener noreferrer">WhatsApp</a></li>
+              <li><a href={SOCIALS.max} target="_blank" rel="noopener noreferrer">Max</a></li>
               <li><a href={SOCIALS.telegram} target="_blank" rel="noopener noreferrer">Telegram</a></li>
             </ul>
           </div>
         </div>
         <div className="footer-legal">
-          <span>© 2026 Восток АвтоИмпорт. Все права защищены.</span>
+          <span>© 2026 Восток Авто Импорт. Все права защищены.</span>
           <span>{ADDRESS}</span>
+        </div>
+        <div style={{ textAlign: "center", paddingBottom: 20, fontSize: 11, color: "rgba(245,243,238,0.2)", letterSpacing: "0.04em" }}>
+          Website created by Oridium digital
         </div>
       </div>
     </footer>

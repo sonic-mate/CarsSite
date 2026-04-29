@@ -84,8 +84,8 @@ export default function ProcessPage() {
               <Icon name="phone" size={18}/>
               Позвонить: {PHONE}
             </a>
-            <a href={SOCIALS.whatsapp} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-lg">
-              Написать в WhatsApp
+            <a href={SOCIALS.max} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-lg">
+              Написать в Max
             </a>
           </div>
         </div>
