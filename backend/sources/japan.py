@@ -40,7 +40,8 @@ async def fetch(
 
 
 async def _call(sql: str) -> list | None:
-    url = f"http://{API_HOST}/api/?json&code={API_KEY}&sql={sql}"
+    from urllib.parse import quote
+    url = f"http://{API_HOST}/api/?json&code={API_KEY}&sql={quote(sql)}"
     try:
         async with httpx.AsyncClient(timeout=15) as c:
             r = await c.get(url)
