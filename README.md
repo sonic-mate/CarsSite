@@ -129,3 +129,6 @@ GET /api/auction/status
 ## Почта
 
 Создать ящик `info@vostokavtoimport.ru` на beget.ru (даже если не используется — нужен для доверия).
+
+### server
+ssh root@85.239.61.178
