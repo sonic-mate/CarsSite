@@ -44,14 +44,12 @@ async def search(
     kw = dict(brand=brand, body=body, price_max=price_max,
               year_min=year_min, page=page, limit=limit)
 
-    if country == "japan":
+    if country in ("korea", "china"):
+        tasks = []
+    elif country == "japan":
         tasks = [japan.fetch(**kw)]
-    elif country == "korea":
-        tasks = [korea.fetch(**kw)]
-    elif country == "china":
-        tasks = [china.fetch(**kw)]
     else:
-        tasks = [japan.fetch(**kw), korea.fetch(**kw), china.fetch(**kw)]
+        tasks = [japan.fetch(**kw)]
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
     cars: list[dict] = []
@@ -66,7 +64,7 @@ async def search(
 
 
 def active_sources() -> list[str]:
-    return ["ajes.com (Япония)", "ajes.com (Корея)", "ajes.com (Китай)"]
+    return ["ajes.com (Япония)"]
 
 
 def invalidate():

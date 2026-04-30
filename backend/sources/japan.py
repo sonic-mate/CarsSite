@@ -67,7 +67,8 @@ def _photo_url(images_raw: str) -> str | None:
 
 
 def _norm(i: dict) -> dict:
-    finish = int(i.get("FINISH") or i.get("START") or i.get("AVG_PRICE") or 0)
+    def _n(v): return int(v or 0) if str(v or "").isdigit() else 0
+    finish = _n(i.get("FINISH")) or _n(i.get("START")) or _n(i.get("AVG_PRICE"))
     price_rub = int(finish * tariff_cache.get().jpy_to_rub)
 
     photo = _photo_url(i.get("IMAGES", ""))
