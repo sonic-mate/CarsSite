@@ -244,6 +244,17 @@ def debug_bodies(db: Session = Depends(get_db)):
     return [{"body": r.body, "count": r.cnt} for r in rows]
 
 
+@app.get("/api/debug/unknown-bodies")
+def debug_unknown_bodies(db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    rows = (db.query(Car.brand, Car.model, func.count(Car.id).label("cnt"))
+            .filter(Car.body == "Другой")
+            .group_by(Car.brand, Car.model)
+            .order_by(func.count(Car.id).desc())
+            .all())
+    return [{"brand": r.brand, "model": r.model, "count": r.cnt} for r in rows]
+
+
 @app.get("/api/debug/ajes")
 async def debug_ajes():
     """Test ajes.com SQL API for all three tables."""
