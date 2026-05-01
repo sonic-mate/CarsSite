@@ -179,15 +179,10 @@ def list_cars(
 # ─── Car detail (live from ajes.com, fallback to DB) ──────────────────────────
 
 @app.get("/api/cars/{car_id}")
-async def get_car(car_id: str, db: Session = Depends(get_db)):
-    car = await aggregator.get_by_id(car_id)
-    if car:
-        print(f"[get_car] {car_id} → ajes: {car}")
-        return car
+def get_car(car_id: str, db: Session = Depends(get_db)):
     db_car = db.query(Car).filter(Car.id == car_id, Car.is_active == True).first()
     if not db_car:
         raise HTTPException(status_code=404, detail="Автомобиль не найден")
-    print(f"[get_car] {car_id} → DB fallback: {db_car.__dict__}")
     return db_car
 
 
@@ -275,7 +270,7 @@ async def debug_ajes():
                 try:
                     j = r.json()
                     if isinstance(j, list):
-                        results[label] = {"status": r.status_code, "returned": len(j), "first_keys": list(j[0].keys()) if j else [], "sample": {k: j[0].get(k) for k in ["MARKA_NAME","MODEL_NAME","YEAR","FINISH","IMAGES","TIME"]} if j else {}}
+                        results[label] = {"status": r.status_code, "returned": len(j), "first_keys": list(j[0].keys()) if j else [], "sample": {k: j[0].get(k) for k in ["ID","LOT","STATUS","MARKA_NAME","MODEL_NAME","YEAR","START","FINISH","AVG_PRICE","IMAGES","TIME","RATE","COLOR","PRIV","EQUIP"]} if j else {}}
                     else:
                         results[label] = {"status": r.status_code, "raw": str(j)[:300]}
                 except Exception:

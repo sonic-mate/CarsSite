@@ -44,12 +44,9 @@ async def fetch_one(lot_id: str) -> list[dict]:
     val = lot_id if lot_id.isdigit() else f"'{lot_id}'"
     sql = f"SELECT * FROM main WHERE ID={val} LIMIT 1"
     data = await _call(sql)
-    print(f"[ajes raw] lot={lot_id}: {data}")
     if not data:
         return []
-    result = [_norm(i) for i in data if i]
-    print(f"[ajes norm] lot={lot_id}: {result}")
-    return result
+    return [_norm(i) for i in data if i]
 
 
 async def _call(sql: str) -> list | None:
