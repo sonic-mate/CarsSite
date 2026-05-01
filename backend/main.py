@@ -96,7 +96,7 @@ async def live_cars(
     price_max: Optional[int] = None,
     year_min: Optional[int] = None,
     page: int = 1,
-    limit: int = 20,
+    limit: int = 100,
 ):
     """
     Live car listings aggregated from:

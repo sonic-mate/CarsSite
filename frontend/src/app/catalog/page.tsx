@@ -18,19 +18,17 @@ export default function CatalogPage() {
 
   useEffect(() => {
     setLoading(true);
-    const params: Record<string, string> = {};
-    if (country !== "all") params.country = country;
-    getLiveCars(params)
+    getLiveCars({ limit: "100" })
       .then(({ cars }) => {
         if (cars.length > 0) {
           setAllCars(cars as Car[]);
         } else {
-          return getCars(params).then(setAllCars);
+          return getCars().then(setAllCars);
         }
       })
-      .catch(() => getCars(params).then(setAllCars))
+      .catch(() => getCars().then(setAllCars))
       .finally(() => setLoading(false));
-  }, [country]);
+  }, []);
 
   let cars = [...allCars];
   if (country !== "all") cars = cars.filter(c => c.country === country);

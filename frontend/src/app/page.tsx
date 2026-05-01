@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getCars } from "@/lib/api";
+import { getCars, getLiveCars } from "@/lib/api";
 import { PLACEHOLDER_CARS } from "@/lib/placeholders";
 import CarCard from "@/components/CarCard";
 import CarSilhouette from "@/components/CarSilhouette";
@@ -51,8 +51,11 @@ const PROCESS_STEPS = [
 ];
 
 export default async function HomePage() {
-  const cars = await getCars().catch(() => PLACEHOLDER_CARS);
-  const featured = cars.slice(0, 6);
+  const { cars: liveCars } = await getLiveCars({ limit: "50" }).catch(() => ({ cars: [] }));
+  const allCars = liveCars.length > 0 ? liveCars : await getCars().catch(() => PLACEHOLDER_CARS);
+  const featured = [...allCars]
+    .sort((a, b) => parseFloat((b as any).badge || "0") - parseFloat((a as any).badge || "0"))
+    .slice(0, 6);
 
   return (
     <main>

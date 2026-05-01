@@ -26,6 +26,12 @@ export async function getCar(id: string): Promise<Car> {
   try {
     return await apiFetch<Car>(`/api/cars/${id}`);
   } catch {
+    // live car — search in cached live results
+    try {
+      const { cars } = await apiFetch<{ cars: Car[] }>(`/api/live/cars?limit=100`);
+      const found = cars.find((c: any) => c.id === id);
+      if (found) return found;
+    } catch {}
     const car = PLACEHOLDER_CARS.find(c => c.id === id);
     if (!car) throw new Error("Car not found");
     return car;

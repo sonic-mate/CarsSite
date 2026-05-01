@@ -52,9 +52,14 @@ export default async function CarDetailPage({ params }: { params: { id: string }
               <div className="gallery-main">
                 <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}>
                   <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 90%, rgba(255,255,255,0.04) 0%, transparent 50%)" }}/>
-                  <div style={{ position: "absolute", left: "50%", bottom: "18%", transform: "translateX(-50%)", width: "82%" }}>
-                    <CarSilhouette kind={car.silhouette} w={480}/>
-                  </div>
+                  {(car as any).photo_url ? (
+                    <img src={(car as any).photo_url} alt={`${car.brand} ${car.model}`}
+                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", padding: "16px" }}/>
+                  ) : (
+                    <div style={{ position: "absolute", left: "50%", bottom: "18%", transform: "translateX(-50%)", width: "82%" }}>
+                      <CarSilhouette kind={car.silhouette} w={480}/>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="gallery-thumbs">
