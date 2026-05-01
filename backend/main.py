@@ -338,6 +338,26 @@ async def debug_sources():
     }
 
 
+# ─── Admin auth dependency ────────────────────────────────────────────────────
+
+from pydantic import BaseModel as _BaseModel
+
+class _LoginIn(_BaseModel):
+    username: str
+    password: str
+
+class _UserIn(_BaseModel):
+    username: str
+    password: str
+
+def _require_admin(authorization: Optional[str] = Header(default=None)) -> str:
+    token = (authorization or "").removeprefix("Bearer ").strip()
+    username = auth.check_session(token)
+    if not username:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return username
+
+
 # ─── Tariffs ─────────────────────────────────────────────────────────────────
 
 @app.get("/api/tariffs", response_model=TariffsSchema)
@@ -457,7 +477,6 @@ def calculate(data: CalculatorIn, db: Session = Depends(get_db)):
 
 # ─── Callback requests ────────────────────────────────────────────────────────
 
-from pydantic import BaseModel as _BaseModel
 class CallbackIn(_BaseModel):
     name: str
     phone: str
@@ -482,21 +501,6 @@ def stats(db: Session = Depends(get_db)):
 
 
 # ─── Admin Auth ───────────────────────────────────────────────────────────────
-
-class _LoginIn(_BaseModel):
-    username: str
-    password: str
-
-class _UserIn(_BaseModel):
-    username: str
-    password: str
-
-def _require_admin(authorization: Optional[str] = Header(default=None)) -> str:
-    token = (authorization or "").removeprefix("Bearer ").strip()
-    username = auth.check_session(token)
-    if not username:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return username
 
 @app.post("/api/admin/login")
 def admin_login(data: _LoginIn, db: Session = Depends(get_db)):
