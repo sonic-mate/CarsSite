@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import CarCard from "@/components/CarCard";
 import { Car, COUNTRY_LABEL } from "@/lib/types";
-import { getCars } from "@/lib/api";
+import { getCars, getLiveCars } from "@/lib/api";
 
 const COUNTRIES = ["all", "japan", "china", "korea"] as const;
 const BODIES = ["Седан", "Кроссовер", "Внедорожник", "Лифтбек"];
@@ -11,11 +11,26 @@ const FUELS = ["Бензин", "Гибрид", "Электро", "Дизель"]
 
 export default function CatalogPage() {
   const [allCars, setAllCars] = useState<Car[]>([]);
+  const [loading, setLoading] = useState(true);
   const [country, setCountry] = useState<string>("all");
   const [bodies, setBodies] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState("popular");
 
-  useEffect(() => { getCars().then(setAllCars); }, []);
+  useEffect(() => {
+    setLoading(true);
+    const params: Record<string, string> = {};
+    if (country !== "all") params.country = country;
+    getLiveCars(params)
+      .then(({ cars }) => {
+        if (cars.length > 0) {
+          setAllCars(cars as Car[]);
+        } else {
+          return getCars(params).then(setAllCars);
+        }
+      })
+      .catch(() => getCars(params).then(setAllCars))
+      .finally(() => setLoading(false));
+  }, [country]);
 
   let cars = [...allCars];
   if (country !== "all") cars = cars.filter(c => c.country === country);
@@ -96,8 +111,9 @@ export default function CatalogPage() {
                   Найдено: <strong style={{ color: "var(--ink-10)" }}>{cars.length}</strong>
                 </span>
               </div>
+              {loading && <p style={{ color: "var(--fg-muted)", padding: "32px 0" }}>Загрузка...</p>}
               <div className="car-grid">
-                {cars.map(c => <CarCard key={c.id} car={c}/>)}
+                {!loading && cars.map(c => <CarCard key={c.id} car={c}/>)}
               </div>
             </div>
           </div>
