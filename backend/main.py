@@ -9,11 +9,12 @@ import datetime
 from contextlib import asynccontextmanager
 
 from database import engine, get_db, Base, SessionLocal
-from models import Car, Tariffs
+from models import Car, Tariffs, AdminUser
 from schemas import CarOut, CalculatorIn, CalculatorOut, TariffsSchema
 import aggregator
 import tariff_cache
 import calc as _calc
+import auth
 
 
 def _migrate():
@@ -36,6 +37,20 @@ def _migrate():
                 conn.commit()
         except Exception:
             pass
+
+
+def _init_admin():
+    """Seed default admin user from env if no users exist."""
+    db = SessionLocal()
+    try:
+        if db.query(AdminUser).count() == 0:
+            username = os.getenv("ADMIN_USER", "admin")
+            password = os.getenv("ADMIN_PASS", "admin123")
+            db.add(AdminUser(username=username, password_hash=auth.hash_password(password)))
+            db.commit()
+            print(f"[admin] Created default user: {username}")
+    finally:
+        db.close()
 
 
 def _init_tariffs():
@@ -139,6 +154,7 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _migrate()
     _init_tariffs()
+    _init_admin()
     asyncio.create_task(_rates_loop())
     asyncio.create_task(_sync_loop())
     yield
@@ -335,13 +351,9 @@ def get_tariffs(db: Session = Depends(get_db)):
 @app.put("/api/tariffs", response_model=TariffsSchema)
 def update_tariffs(
     data: TariffsSchema,
-    authorization: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
+    _: str = Depends(_require_admin),
 ):
-    token = os.getenv("ADMIN_TOKEN", "")
-    expected = f"Bearer {token}"
-    if not token or authorization != expected:
-        raise HTTPException(status_code=401, detail="Unauthorized")
 
     t = db.query(Tariffs).filter(Tariffs.id == 1).first()
     if not t:
@@ -467,6 +479,63 @@ def stats(db: Session = Depends(get_db)):
         "countries": 3,
         "avg_days": 30,
     }
+
+
+# ─── Admin Auth ───────────────────────────────────────────────────────────────
+
+class _LoginIn(_BaseModel):
+    username: str
+    password: str
+
+class _UserIn(_BaseModel):
+    username: str
+    password: str
+
+def _require_admin(authorization: Optional[str] = Header(default=None)) -> str:
+    token = (authorization or "").removeprefix("Bearer ").strip()
+    username = auth.check_session(token)
+    if not username:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return username
+
+@app.post("/api/admin/login")
+def admin_login(data: _LoginIn, db: Session = Depends(get_db)):
+    user = db.query(AdminUser).filter(AdminUser.username == data.username).first()
+    if not user or not auth.verify(data.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+    token = auth.create_session(user.username)
+    return {"token": token, "username": user.username}
+
+@app.post("/api/admin/logout")
+def admin_logout(authorization: Optional[str] = Header(default=None)):
+    token = (authorization or "").removeprefix("Bearer ").strip()
+    auth.revoke_session(token)
+    return {"ok": True}
+
+@app.get("/api/admin/users")
+def list_users(db: Session = Depends(get_db), _: str = Depends(_require_admin)):
+    users = db.query(AdminUser).order_by(AdminUser.created_at).all()
+    return [{"id": u.id, "username": u.username, "created_at": u.created_at} for u in users]
+
+@app.post("/api/admin/users", status_code=201)
+def create_user(data: _UserIn, db: Session = Depends(get_db), _: str = Depends(_require_admin)):
+    if db.query(AdminUser).filter(AdminUser.username == data.username).first():
+        raise HTTPException(status_code=409, detail="Пользователь уже существует")
+    if len(data.password) < 6:
+        raise HTTPException(status_code=422, detail="Пароль минимум 6 символов")
+    u = AdminUser(username=data.username, password_hash=auth.hash_password(data.password))
+    db.add(u); db.commit(); db.refresh(u)
+    return {"id": u.id, "username": u.username}
+
+@app.delete("/api/admin/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db), me: str = Depends(_require_admin)):
+    user = db.query(AdminUser).filter(AdminUser.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Не найден")
+    if user.username == me:
+        raise HTTPException(status_code=400, detail="Нельзя удалить себя")
+    db.delete(user); db.commit()
+    return {"ok": True}
 
 
 @app.get("/health")

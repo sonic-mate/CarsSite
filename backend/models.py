@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, Enum
+from sqlalchemy import Column, Integer, String, Float, Boolean, Enum, DateTime
 from database import Base
 import enum
+import datetime
 
 
 class Tariffs(Base):
@@ -23,6 +24,15 @@ class Tariffs(Base):
     delivery_china = Column(Integer, default=200_000)
     # Services
     services = Column(Integer, default=80_000)
+
+
+class AdminUser(Base):
+    __tablename__ = "admin_users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, unique=True, nullable=False, index=True)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
 class Country(str, enum.Enum):

@@ -105,7 +105,7 @@ export default async function HomePage() {
       {/* FEATURED */}
       <section className="section">
         <div className="container">
-          <div className="section-head" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+          <div className="section-head section-head-flex">
             <div>
               <span className="eyebrow" style={{ color: "var(--accent)", marginBottom: 12 }}>Витрина</span>
               <h2>Актуальные предложения</h2>
@@ -123,7 +123,7 @@ export default async function HomePage() {
       {/* ABOUT */}
       <section className="section" style={{ background: "var(--ink-95)" }}>
         <div className="container">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+          <div className="about-grid">
             <div>
               <span className="eyebrow" style={{ color: "var(--accent)", marginBottom: 12 }}>О компании</span>
               <h2 style={{ marginBottom: 24 }}>Восток Авто Импорт</h2>
@@ -200,7 +200,7 @@ export default async function HomePage() {
             <span className="eyebrow-gold" style={{ marginBottom: 12 }}>6 шагов · 30 дней</span>
             <h2>Как мы работаем</h2>
           </div>
-          <div className="steps" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+          <div className="steps steps-home">
             {PROCESS_STEPS.map((s, i) => (
               <div className="step" key={i}>
                 <h4>{s.t}</h4>
@@ -304,7 +304,7 @@ export default async function HomePage() {
         <div className="container cta-bar">
           <div>
             <span className="eyebrow-gold" style={{ marginBottom: 8 }}>Звонок бесплатный · ежедневно</span>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 56, letterSpacing: "0.02em", marginTop: 8, color: "#fff" }}>{PHONE}</div>
+            <div className="cta-phone">{PHONE}</div>
             <div style={{ marginTop: 8, fontSize: 14, color: "rgba(245,243,238,0.6)" }}>{EMAIL} · {ADDRESS}</div>
           </div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

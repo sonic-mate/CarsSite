@@ -445,15 +445,66 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-
 
   /* Mode tabs */
   .mode-tabs { flex-direction: column; gap: 8px; }
+
+  /* Buttons */
+  .btn-lg { padding: 14px 22px; }
+
+  /* Section head row with flex */
+  .section-head-flex { flex-direction: column; align-items: flex-start; gap: 16px; }
 }
 
 @media (max-width: 480px) {
   :root {
-    --fs-display-l: 30px;
-    --fs-display-m: 24px;
+    --fs-display-l: 28px;
+    --fs-display-m: 22px;
+    --fs-h3: 20px;
+    --fs-h4: 17px;
   }
+
+  .container { padding-left: 16px; padding-right: 16px; }
+  .section { padding: 40px 0; }
+  .section-tight { padding: 28px 0; }
+
+  /* Country tabs */
+  .country-tab { padding: 10px 10px; font-size: 11px; gap: 4px; }
+  .country-tab img { display: none; }
+  .country-tab .tab-count { font-size: 10px; }
+
+  /* Car card */
+  .car-name { font-size: 13px; }
+  .car-meta { font-size: 11px; }
+  .car-price { font-size: 16px; }
+  .car-body { padding: 12px 14px; }
+
+  /* Gallery */
   .gallery-thumbs { grid-template-columns: repeat(3, 1fr); }
-  .country-tab { padding: 10px 12px; }
+
+  /* Spec table */
   .spec-row { flex-direction: column; gap: 2px; padding: 10px 0; }
+  .spec-row .k { font-size: 11px; }
   .spec-row .v { font-size: 13px; }
+
+  /* Detail CTA */
+  .detail-cta { padding: 18px; }
+  .detail-cta .price { font-size: 28px; }
+
+  /* Steps */
+  .step { padding: 14px; }
+  .step::before { font-size: 20px; top: 12px; right: 12px; }
+  .step h4 { font-size: 15px; margin-bottom: 6px; }
+  .step p { font-size: 12px; }
+
+  /* Calculator */
+  .calc-card { padding: 16px; }
+  .calc-result { padding: 16px; }
+  .calc-result .total { font-size: 28px; }
+
+  /* Filter */
+  .filter-panel { padding: 16px; }
+
+  /* Buttons */
+  .btn-lg { padding: 14px 20px; font-size: 15px; }
+
+  /* Footer */
+  .footer-grid { grid-template-columns: 1fr; gap: 24px; }
 }
