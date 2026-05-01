@@ -403,6 +403,19 @@ def calculate(data: CalculatorIn, db: Session = Depends(get_db)):
     )
 
 
+# ─── Callback requests ────────────────────────────────────────────────────────
+
+from pydantic import BaseModel as _BaseModel
+class CallbackIn(_BaseModel):
+    name: str
+    phone: str
+
+@app.post("/api/callback", status_code=201)
+def create_callback(data: CallbackIn):
+    print(f"CALLBACK REQUEST: {data.name} | {data.phone}")
+    return {"ok": True}
+
+
 # ─── Stats ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/stats")

@@ -3,6 +3,7 @@ import { getCar } from "@/lib/api";
 import { COUNTRY_LABEL, PHONE, formatPrice, formatKm } from "@/lib/types";
 import CarSilhouette from "@/components/CarSilhouette";
 import Icon from "@/components/Icon";
+import CallbackModal from "@/components/CallbackModal";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -12,11 +13,12 @@ const BADGE_CLASS: Record<string, string> = {
   "Premium": "badge-prem",
 };
 
-const TINTS = ["#1a1d24", "#0f1218", "#15181f", "#171a22", "#13161d"];
-
 export default async function CarDetailPage({ params }: { params: { id: string } }) {
   const car = await getCar(params.id).catch(() => null);
   if (!car) notFound();
+
+  const photoUrls: string[] = (car as any).photo_urls ?? ((car as any).photo_url ? [(car as any).photo_url] : []);
+  const hasPhotos = photoUrls.length > 0;
 
   return (
     <main>
@@ -49,8 +51,8 @@ export default async function CarDetailPage({ params }: { params: { id: string }
               <div className="gallery-main">
                 <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}>
                   <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 90%, rgba(255,255,255,0.04) 0%, transparent 50%)" }}/>
-                  {(car as any).photo_url ? (
-                    <img src={(car as any).photo_url} alt={`${car.brand} ${car.model}`}
+                  {hasPhotos ? (
+                    <img src={photoUrls[0]} alt={`${car.brand} ${car.model}`}
                       style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", padding: "16px" }}/>
                   ) : (
                     <div style={{ position: "absolute", left: "50%", bottom: "18%", transform: "translateX(-50%)", width: "82%" }}>
@@ -59,17 +61,16 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                   )}
                 </div>
               </div>
-              <div className="gallery-thumbs">
-                {TINTS.map((t, i) => (
-                  <div key={i} className={`gallery-thumb${i === 0 ? " active" : ""}`}>
-                    <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% 70%, ${t} 0%, #08090C 100%)` }}>
-                      <div style={{ position: "absolute", left: "50%", bottom: "10%", transform: "translateX(-50%)", width: "80%" }}>
-                        <CarSilhouette kind={car.silhouette} w={120}/>
-                      </div>
+              {photoUrls.length > 1 && (
+                <div className="gallery-thumbs">
+                  {photoUrls.map((url, i) => (
+                    <div key={i} className={`gallery-thumb${i === 0 ? " active" : ""}`}>
+                      <img src={url} alt={`фото ${i + 1}`}
+                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}/>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
               <h3 style={{ marginTop: 48, marginBottom: 24 }}>Характеристики</h3>
               <div className="spec-table">
@@ -109,9 +110,7 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                     <Icon name="phone" size={18}/>
                     Позвонить: {PHONE}
                   </a>
-                  <button className="btn btn-lg btn-block" style={{ borderColor: "rgba(245,243,238,0.3)", color: "#fff", background: "transparent", border: "1px solid rgba(245,243,238,0.3)" }}>
-                    Заказать звонок
-                  </button>
+                  <CallbackModal />
                 </div>
                 <div style={{ marginTop: 24, paddingTop: 24, borderTop: "1px solid rgba(245,243,238,0.1)", display: "flex", flexDirection: "column", gap: 12 }}>
                   {[

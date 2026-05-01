@@ -82,57 +82,74 @@ def _photo_url(images_raw: str, size: str = "&w=320") -> str | None:
     return f"https://7.ajes.com/img/{img}{size}"
 
 
-def _body_type(model: str) -> str:
+def _body_type(model: str, brand: str = "") -> str:
     m = (model or "").upper()
-
-    _chk = lambda keys: any(k in m for k in keys)
+    b = (brand or "").upper()
+    full = f"{b} {m}".strip()
+    _chk = lambda keys: any(k in full for k in keys)
 
     if _chk(["ALPHARD", "VELLFIRE", "VOXY", "NOAH", "SERENA", "ELGRAND",
               "STEPWGN", "STEP WGN", "ODYSSEY", "SIENTA", "FREED", "WISH",
               "ESTIMA", "PREVIA", "DELICA", "CARNIVAL", "STARIA",
-              "GRANDVIA", "REGIUS", "TOWNACE WAGON", "LITEACE WAGON"]):
+              "GRANDVIA", "REGIUS", "ROOMY", "TANK", "ISIS",
+              "DAYZ ROOX", "TOWNACE WAGON", "LITEACE WAGON"]):
         return "Минивэн"
 
     if _chk(["HIACE", "TOWN ACE VAN", "LITE ACE VAN", "TOWNACE VAN",
               "LITEACE VAN", "CARAVAN", "NV200", "NV350", "BONGO",
-              "ATLAS", "PROBOX", "SUCCEED", "SAMBAR"]):
+              "ATLAS", "PROBOX", "SUCCEED", "SAMBAR", "CANTER",
+              "HIJET TRUCK", "CARRY TRUCK", "DYNA", "ELF",
+              "TITAN TRUCK", "CONDOR"]):
         return "Фургон"
 
     if _chk(["LAND CRUISER", "LC300", "LC 300", "PRADO", "PATROL",
               "PAJERO", "FORTUNER", "HILUX SURF", "4RUNNER", "SEQUOIA",
-              "LEXUS LX", "LEXUS GX", "FJ CRUISER", "LANDCRUISER"]):
+              "FJ CRUISER", "LANDCRUISER", "JIMNY", "BEGO"]):
         return "Внедорожник"
+
+    # Lexus crossovers: brand=LEXUS model=RX/NX/UX/LX/GX
+    if b == "LEXUS" and any(k in m for k in ["RX", "NX", "UX", "LX", "GX"]):
+        return "Кроссовер"
 
     if _chk(["RAV4", "CR-V", "CRV", "HARRIER", "VEZEL", "HR-V", "HRV",
               "CH-R", "C-HR", "OUTLANDER", "CX-3", "CX-5", "CX-8", "CX-30",
               "FORESTER", "OUTBACK", "SUBARU XV", "X-TRAIL", "XTRAIL",
               "QASHQAI", "JUKE", "MURANO", "KICKS", "ECLIPSE CROSS",
-              "ASX", "TUCSON", "SPORTAGE", "SORENTO", "RUSH",
-              "TERIOS", "LEXUS RX", "LEXUS NX", "LEXUS UX",
-              "MAZDA CX", "TIGUAN", "WINGROAD"]):
+              "ASX", "TUCSON", "SPORTAGE", "SORENTO", "RUSH", "RAIZE",
+              "TERIOS", "MAZDA CX", "TIGUAN", "COROLLA CROSS",
+              "KIX", "CROSSROAD"]):
         return "Кроссовер"
 
-    if _chk(["PRIUS", "LEXUS CT", "CT200H", "INSIGHT", "MAZDA6",
-              "ATENZA", "LEVORG"]):
+    # Lexus liftbacks: CT, IS
+    if b == "LEXUS" and any(k in m for k in ["CT", "IS"]):
+        return "Лифтбек"
+
+    if _chk(["PRIUS", "CT200H", "INSIGHT", "MAZDA6", "ATENZA",
+              "LEVORG", "IMPREZA", "LAFESTA", "SAI"]):
         return "Лифтбек"
 
     if _chk(["FIELDER", "CALDINA", "SHUTTLE", "JADE", "AVANCIER",
-              "LEVORG", "SUBARU OUTBACK", "LEGACY TOURING"]):
+              "LEGACY TOURING", "MAZDA3 WAGON"]):
         return "Универсал"
 
     if _chk(["AQUA", "VITZ", "YARIS", "FIT", "SWIFT", "NOTE", "MARCH",
-              "DEMIO", "MAZDA2", "MOVE", "TANTO", "WAGON R", "SPADE",
-              "PORTE", "PASSO", "BOON", "ALTO", "HUSTLER", "MIRAGE",
-              "LEAF", "MIRA", "N-BOX", "N BOX", "SPACIA", "TAFT",
-              "ROCKY", "AXELA", "MAZDA3 HATCH", "COROLLA SPORT"]):
+              "DEMIO", "MAZDA2", "MAZDA3", "MOVE", "TANTO", "WAGON R",
+              "SPADE", "PORTE", "PASSO", "BOON", "ALTO", "HUSTLER",
+              "MIRAGE", "LEAF", "MIRA", "N-BOX", "N BOX", "N WGN",
+              "SPACIA", "TAFT", "AXELA", "COROLLA SPORT", "GOLF",
+              "EK WAGON", "EK CUSTOM", "IQ", "BB",
+              "DAYZ", "CIVIC"]):
         return "Хэтчбэк"
+
+    # Lexus sedans: GS, LS, ES, HS
+    if b == "LEXUS" and any(k in m for k in ["GS", "LS", "ES", "HS"]):
+        return "Седан"
 
     if _chk(["CAMRY", "CROWN", "MARK X", "CELSIOR", "ACCORD",
               "SKYLINE", "FUGA", "CIMA", "GLORIA", "LEGACY B4",
-              "LEXUS IS", "LEXUS GS", "LEXUS LS", "LEXUS ES",
               "TEANA", "MAXIMA", "BLUEBIRD", "LAUREL", "CEDRIC",
               "PREMIO", "ALLION", "COROLLA AXIO", "MARK II",
-              "CHASER", "CRESTA", "AVALON", "CIVIC SEDAN", "GRACE"]):
+              "CHASER", "CRESTA", "AVALON", "GRACE"]):
         return "Седан"
 
     return "Другой"
@@ -176,7 +193,7 @@ def _norm(i: dict) -> dict:
         "model": model,
         "year": year,
         "country": "japan",
-        "body": _body_type(model),
+        "body": _body_type(model, brand),
         "mileage": mileage,
         "engine": engine or "—",
         "price": price_rub,
