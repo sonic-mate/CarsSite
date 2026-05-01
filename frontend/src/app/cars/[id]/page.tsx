@@ -48,18 +48,15 @@ export default async function CarDetailPage({ params }: { params: { id: string }
 
           <div className="detail-grid">
             <div>
-              <div className="gallery-main">
-                <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}>
-                  <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 90%, rgba(255,255,255,0.04) 0%, transparent 50%)" }}/>
-                  {hasPhotos ? (
-                    <img src={photoUrls[0]} alt={`${car.brand} ${car.model}`}
-                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", padding: "16px" }}/>
-                  ) : (
-                    <div style={{ position: "absolute", left: "50%", bottom: "18%", transform: "translateX(-50%)", width: "82%" }}>
-                      <CarSilhouette kind={car.silhouette} w={480}/>
-                    </div>
-                  )}
-                </div>
+              <div className="gallery-main" style={{ background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}>
+                {hasPhotos ? (
+                  <img src={photoUrls[0]} alt={`${car.brand} ${car.model}`}
+                    style={{ display: "block", width: "100%", height: "auto" }}/>
+                ) : (
+                  <div style={{ aspectRatio: "16/10", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 10% 8%" }}>
+                    <CarSilhouette kind={car.silhouette} w={480}/>
+                  </div>
+                )}
               </div>
               {photoUrls.length > 1 && (
                 <div className="gallery-thumbs">
@@ -78,25 +75,19 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                 <div className="spec-row"><span className="k">Пробег</span><span className="v">{formatKm(car.mileage)}</span></div>
                 <div className="spec-row"><span className="k">Двигатель</span><span className="v">{car.engine}</span></div>
                 <div className="spec-row"><span className="k">Кузов</span><span className="v">{car.body}</span></div>
-                <div className="spec-row"><span className="k">Привод</span><span className="v">Полный</span></div>
-                <div className="spec-row"><span className="k">КПП</span><span className="v">Автомат</span></div>
-                <div className="spec-row"><span className="k">Цвет</span><span className="v">Чёрный металлик</span></div>
-                <div className="spec-row"><span className="k">Состояние</span><span className="v">Отличное · R 4.5</span></div>
-                <div className="spec-row"><span className="k">Аукцион</span><span className="v">USS Tokyo</span></div>
-                <div className="spec-row" style={{ borderBottom: 0 }}>
-                  <span className="k">VIN</span>
-                  <span className="v" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>JTHBK1GG7E2125391</span>
-                </div>
-              </div>
-
-              <h3 style={{ marginTop: 48, marginBottom: 16 }}>Комплектация</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 24px" }}>
-                {["Кожаный салон", "Подогрев сидений", "Климат-контроль 3 зоны", "Камеры 360°", "Адаптивный круиз", "Электропривод сидений", "Premium audio", "Панорамная крыша"].map(f => (
-                  <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
-                    <Icon name="check" size={16} style={{ color: "var(--gold)" }}/>
-                    {f}
+                {(car as any).badge && (
+                  <div className="spec-row"><span className="k">Оценка аукциона</span><span className="v">★ {(car as any).badge}</span></div>
+                )}
+                {(car as any).source_url && (
+                  <div className="spec-row" style={{ borderBottom: 0 }}>
+                    <span className="k">Лот на аукционе</span>
+                    <span className="v">
+                      <a href={(car as any).source_url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)" }}>
+                        Открыть →
+                      </a>
+                    </span>
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
