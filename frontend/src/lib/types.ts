@@ -18,6 +18,7 @@ export interface CalculatorResult {
   auction_price: number;
   delivery: number;
   customs: number;
+  customs_fee: number;
   services: number;
   total: number;
   eur_rate?: number;

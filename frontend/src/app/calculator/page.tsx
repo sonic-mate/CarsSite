@@ -17,12 +17,13 @@ export default function CalculatorPage() {
   const [fuel, setFuel] = useState("Бензин");
   const [result, setResult] = useState<{
     auction_price: number; delivery: number; customs: number;
-    services: number; total: number;
+    customs_fee: number; services: number; total: number;
     eur_rate?: number; price_eur?: number; customs_method?: string;
   }>({
     auction_price: 1850000,
     delivery: 180000,
     customs: 369000,
+    customs_fee: 8530,
     services: 80000,
     total: 2479000,
   });
@@ -127,8 +128,12 @@ export default function CalculatorPage() {
                 <span className="v">{formatPrice(result.delivery)}</span>
               </div>
               <div className="calc-line">
-                <span className="k">Растаможка и сборы</span>
+                <span className="k">Таможенная пошлина</span>
                 <span className="v">{formatPrice(result.customs)}</span>
+              </div>
+              <div className="calc-line">
+                <span className="k">Таможенный сбор</span>
+                <span className="v">{formatPrice(result.customs_fee)}</span>
               </div>
               <div className="calc-line" style={{ borderBottom: 0 }}>
                 <span className="k">Услуги «Восток»</span>

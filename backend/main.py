@@ -465,12 +465,14 @@ def calculate(data: CalculatorIn, db: Session = Depends(get_db)):
 
     detail = _calc.calc_customs_detail(data.auction_price, data.engine_cc, data.year, data.fuel_type, t)
     customs = detail["customs"]
+    fee = detail["fee"]
     delivery = {"japan": t.delivery_japan, "korea": t.delivery_korea, "china": t.delivery_china}.get(data.country, t.delivery_japan)
-    total = data.auction_price + customs + delivery + t.services
+    total = data.auction_price + customs + fee + delivery + t.services
     return CalculatorOut(
         auction_price=data.auction_price,
         delivery=delivery,
         customs=customs,
+        customs_fee=fee,
         services=t.services,
         total=total,
         eur_rate=detail["eur_rate"],

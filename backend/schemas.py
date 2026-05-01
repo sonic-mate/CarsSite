@@ -42,6 +42,7 @@ class CalculatorOut(BaseModel):
     auction_price: int
     delivery: int
     customs: int
+    customs_fee: int = 0
     services: int
     total: int
     eur_rate: float = 95.0
