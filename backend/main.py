@@ -259,10 +259,10 @@ def debug_unknown_bodies(db: Session = Depends(get_db)):
 async def debug_ajes():
     """Test ajes.com SQL API for all three tables."""
     import httpx, os
-    key = os.getenv("AJES_API_KEY", "DvemR43s")
+    key = os.getenv("AJES_API_KEY", "VAInBvFrU76d")
     host = os.getenv("AJES_HOST", "78.46.90.228")
     results = {}
-    for table, label in [("main", "japan"), ("korea", "korea"), ("china", "china")]:
+    for table, label in [("main", "japan"), ("kr", "korea"), ("che", "china")]:
         sql = f"SELECT * FROM {table} LIMIT 3"
         url = f"http://{host}/api/?json&code={key}&sql={sql}"
         try:
@@ -272,7 +272,7 @@ async def debug_ajes():
                 try:
                     j = r.json()
                     if isinstance(j, list):
-                        results[label] = {"status": r.status_code, "returned": len(j), "first_keys": list(j[0].keys()) if j else [], "sample": {k: j[0].get(k) for k in ["MARKA_NAME","MODEL_NAME","YEAR","FINISH","IMAGES"]} if j else {}}
+                        results[label] = {"status": r.status_code, "returned": len(j), "first_keys": list(j[0].keys()) if j else [], "sample": {k: j[0].get(k) for k in ["MARKA_NAME","MODEL_NAME","YEAR","FINISH","IMAGES","TIME"]} if j else {}}
                     else:
                         results[label] = {"status": r.status_code, "raw": str(j)[:300]}
                 except Exception:
@@ -280,6 +280,24 @@ async def debug_ajes():
         except Exception as e:
             results[label] = {"error": str(e)[:150]}
     return results
+
+
+@app.get("/api/debug/sources")
+async def debug_sources():
+    """Test actual fetch from each source module."""
+    from sources import korea, china
+    try:
+        kr_cars = await korea.fetch(limit=3)
+    except Exception as e:
+        kr_cars = f"ERROR: {e}"
+    try:
+        cn_cars = await china.fetch(limit=3)
+    except Exception as e:
+        cn_cars = f"ERROR: {e}"
+    return {
+        "korea": kr_cars if isinstance(kr_cars, str) else {"count": len(kr_cars), "sample": kr_cars[:1]},
+        "china": cn_cars if isinstance(cn_cars, str) else {"count": len(cn_cars), "sample": cn_cars[:1]},
+    }
 
 
 # ─── Tariffs ─────────────────────────────────────────────────────────────────
