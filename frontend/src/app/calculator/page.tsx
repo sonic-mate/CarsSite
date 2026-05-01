@@ -160,7 +160,7 @@ export default function CalculatorPage() {
                 </div>
               )}
 
-              <
+              <a
                 href={`tel:${PHONE.replace(/\s/g, "")}`}
                 className="btn btn-primary btn-lg btn-block"
                 style={{ marginTop: 20, display: "flex", gap: 8, alignItems: "center", justifyContent: "center" }}
