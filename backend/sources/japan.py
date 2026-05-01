@@ -65,14 +65,21 @@ async def _call(sql: str) -> list | None:
         return None
 
 
-def _photo_url(images_raw: str) -> str | None:
+def _photo_url(images_raw: str, size: str = "&w=320") -> str | None:
     photos = [p.strip() for p in (images_raw or "").split("#") if p.strip()]
     if not photos:
         return None
     img = photos[0]
+    # Strip any existing size suffix before appending
+    for suffix in ("&w=320", "&h=50", "&w=640", "&w=800"):
+        if img.endswith(suffix):
+            img = img[: -len(suffix)]
     if img.startswith("http"):
-        return f"{img}&w=320"
-    return f"https://7.ajes.com/imgs/{img}&w=320"
+        return f"{img}{size}"
+    if "ajes.com/" in img:
+        return f"https://{img}{size}"
+    # Bare token
+    return f"https://7.ajes.com/img/{img}{size}"
 
 
 def _norm(i: dict) -> dict:
@@ -80,7 +87,12 @@ def _norm(i: dict) -> dict:
     finish = _n(i.get("FINISH")) or _n(i.get("START")) or _n(i.get("AVG_PRICE"))
     price_rub = int(finish * tariff_cache.get().jpy_to_rub)
 
-    photo = _photo_url(i.get("IMAGES", ""))
+    raw_images = i.get("IMAGES", "")
+    photo = _photo_url(raw_images)
+    photo_urls = [
+        url for p in (raw_images or "").split("#")
+        if p.strip() and (url := _photo_url(p.strip()))
+    ]
     brand = (i.get("MARKA_NAME") or "").strip()
     model = (i.get("MODEL_NAME") or "").strip()
     year = int(i.get("YEAR", 0) or 0)
@@ -117,7 +129,7 @@ def _norm(i: dict) -> dict:
         "silhouette": "suv" if suv else "sedan",
         "is_active": True,
         "photo_url": photo,
+        "photo_urls": photo_urls,
         "source": "ajes",
         "source_url": f"https://ajes.com/?lot={lot_id}",
-        "_raw_images": i.get("IMAGES", ""),
     }

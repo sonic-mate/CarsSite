@@ -2,13 +2,14 @@ from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from typing import Optional
+from typing import Optional, List
 import os
+import asyncio
 from contextlib import asynccontextmanager
 
 from database import engine, get_db, Base, SessionLocal
 from models import Car, Tariffs
-from schemas import CalculatorIn, CalculatorOut, TariffsSchema
+from schemas import CarOut, CalculatorIn, CalculatorOut, TariffsSchema
 import aggregator
 import tariff_cache
 
@@ -37,11 +38,46 @@ def _init_tariffs():
         db.close()
 
 
+async def _sync_live_cars():
+    try:
+        cars = await aggregator.search(limit=500)
+        if not cars:
+            return
+        db = SessionLocal()
+        try:
+            db.query(Car).filter(Car.source == "live").delete()
+            for d in cars:
+                db.add(Car(
+                    id=d["id"], brand=d["brand"], model=d["model"],
+                    year=d["year"], country=d["country"], body=d["body"],
+                    mileage=d["mileage"], engine=d["engine"], price=d["price"],
+                    badge=str(d["badge"]) if d.get("badge") else None,
+                    photo_tint=d.get("photo_tint", "#1a1d24"),
+                    silhouette=d.get("silhouette", "sedan"),
+                    photo_url=d.get("photo_url"),
+                    source="live", is_active=True,
+                ))
+            db.commit()
+            print(f"Synced {len(cars)} live cars.")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"Sync error: {e}")
+
+
+async def _sync_loop():
+    await asyncio.sleep(5)
+    while True:
+        await _sync_live_cars()
+        await asyncio.sleep(3600)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _migrate()
     _init_tariffs()
+    asyncio.create_task(_sync_loop())
     yield
 
 
@@ -55,36 +91,45 @@ app.add_middleware(
 )
 
 
-# ─── Cars (on-demand from ajes.com) ───────────────────────────────────────────
+# ─── Catalog (from DB, synced hourly) ─────────────────────────────────────────
 
-@app.get("/api/cars")
-async def list_cars(
+@app.get("/api/cars", response_model=List[CarOut])
+def list_cars(
     country: Optional[str] = None,
-    brand: Optional[str] = None,
     body: Optional[str] = None,
+    price_min: Optional[int] = None,
     price_max: Optional[int] = None,
     year_min: Optional[int] = None,
+    year_max: Optional[int] = None,
+    fuel: Optional[str] = None,
     sort: str = "popular",
-    page: int = 1,
-    limit: int = 20,
+    db: Session = Depends(get_db),
 ):
-    cars = await aggregator.search(
-        country=country,
-        brand=brand,
-        body=body,
-        price_max=price_max,
-        year_min=year_min,
-        page=page,
-        limit=limit,
-    )
+    q = db.query(Car).filter(Car.is_active == True)
+    if country:
+        q = q.filter(Car.country == country)
+    if body:
+        q = q.filter(Car.body == body)
+    if price_min:
+        q = q.filter(Car.price >= price_min)
+    if price_max:
+        q = q.filter(Car.price <= price_max)
+    if year_min:
+        q = q.filter(Car.year >= year_min)
+    if year_max:
+        q = q.filter(Car.year <= year_max)
+    if fuel:
+        q = q.filter(Car.engine.ilike(f"%{fuel}%"))
     if sort == "price-asc":
-        cars = sorted(cars, key=lambda c: c["price"])
+        q = q.order_by(Car.price.asc())
     elif sort == "price-desc":
-        cars = sorted(cars, key=lambda c: c["price"], reverse=True)
+        q = q.order_by(Car.price.desc())
     elif sort == "year":
-        cars = sorted(cars, key=lambda c: c.get("year", 0), reverse=True)
-    return cars
+        q = q.order_by(Car.year.desc())
+    return q.all()
 
+
+# ─── Car detail (live from ajes.com) ──────────────────────────────────────────
 
 @app.get("/api/cars/{car_id}")
 async def get_car(car_id: str):
@@ -106,13 +151,6 @@ async def live_cars(
     page: int = 1,
     limit: int = 100,
 ):
-    """
-    Live car listings aggregated from:
-      - Japan: ajes.com (requires AJES_API_KEY)
-      - Korea: encar.com (no key)
-      - China: dongchedi.com / che168.com (no key)
-    Results cached 5 min per query.
-    """
     cars = await aggregator.search(
         country=country,
         brand=brand,
@@ -131,6 +169,24 @@ async def live_cars(
 
 
 # ─── Debug ────────────────────────────────────────────────────────────────────
+
+@app.get("/api/debug/images")
+async def debug_images():
+    """Check raw IMAGES field from ajes.com and resolved URLs."""
+    from sources.japan import _call, _photo_url
+    data = await _call("SELECT ID, MARKA_NAME, MODEL_NAME, IMAGES FROM main WHERE IMAGES IS NOT NULL AND IMAGES != '' ORDER BY ID DESC LIMIT 5")
+    if not data:
+        return {"error": "no data"}
+    return [
+        {
+            "id": r.get("ID"),
+            "car": f"{r.get('MARKA_NAME')} {r.get('MODEL_NAME')}",
+            "raw_images": r.get("IMAGES", "")[:200],
+            "resolved_url": _photo_url(r.get("IMAGES", "")),
+        }
+        for r in data
+    ]
+
 
 @app.get("/api/debug/ajes")
 async def debug_ajes():
@@ -156,68 +212,6 @@ async def debug_ajes():
                     results[label] = {"status": r.status_code, "raw": raw_text}
         except Exception as e:
             results[label] = {"error": str(e)[:150]}
-    return results
-
-
-@app.get("/api/debug/sources")
-async def debug_sources():
-    """Raw diagnostic — tries multiple endpoint variants per source."""
-    import httpx
-
-    UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    results = {}
-
-    async def probe(url, params=None, headers=None, label=None):
-        h = {"User-Agent": UA, "Accept": "application/json, */*", **(headers or {})}
-        try:
-            async with httpx.AsyncClient(timeout=12, headers=h, follow_redirects=True) as c:
-                r = await c.get(url, params=params)
-                text = r.text[:400]
-                try:
-                    j = r.json()
-                    return {"status": r.status_code, "keys": list(j.keys()) if isinstance(j, dict) else f"list[{len(j)}]", "preview": str(j)[:300]}
-                except Exception:
-                    return {"status": r.status_code, "raw": text}
-        except Exception as e:
-            return {"error": str(e)[:200]}
-
-    # ── encar: raw URL (no param encoding) ──────────────────────────────────
-    encar_h = {
-        "User-Agent": UA,
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "ko-KR,ko;q=0.9",
-        "Referer": "https://www.encar.com/",
-        "Origin": "https://www.encar.com",
-    }
-    encar_variants = [
-        "https://api.encar.com/search/car/list/general?count=true&q=(And.Hidden.N._.(C.CarType.Y._.).)&sr=|ModifiedDate|0|5",
-        "https://api.encar.com/search/car/list/general?count=true&q=(And.Hidden.N._.(C.CarType.Y._.))",
-        "https://api.encar.com/search/car/list/general?count=true&q=(C.CarType.Y._.)&sr=|ModifiedDate|0|5",
-        "https://api.encar.com/search/car/list/general?count=true&q=Hidden.N&sr=|ModifiedDate|0|5",
-    ]
-    for i, url in enumerate(encar_variants):
-        try:
-            async with httpx.AsyncClient(timeout=12, follow_redirects=True, headers=encar_h) as c:
-                r = await c.get(url)
-                try:
-                    j = r.json()
-                    items = j.get("SearchResults", [])
-                    results[f"encar_raw_{i}"] = {"status": r.status_code, "count": j.get("Count"), "returned": len(items), "keys": list(j.keys())}
-                except Exception:
-                    results[f"encar_raw_{i}"] = {"status": r.status_code, "raw": r.text[:200]}
-        except Exception as e:
-            results[f"encar_raw_{i}"] = {"error": str(e)[:150]}
-
-    # ── dongchedi: more paths + motor subdomain ──────────────────────────────
-    dc_h = {"User-Agent": UA, "Referer": "https://www.dongchedi.com/", "Accept-Language": "zh-CN,zh;q=0.9", "Accept": "application/json, */*"}
-    for url, label in [
-        ("https://www.dongchedi.com/motor/pc/usedcar/search_list", "dc_search_list"),
-        ("https://motor.dongchedi.com/api/pc/usedcar/list",        "dc_motor_sub"),
-        ("https://www.dongchedi.com/api/usedcar/list",             "dc_api_list"),
-        ("https://www.dongchedi.com/motor/usedcar/search",         "dc_motor_used"),
-    ]:
-        results[label] = await probe(url, params={"city_id": "0", "page": 1, "limit": 5}, headers=dc_h)
-
     return results
 
 
