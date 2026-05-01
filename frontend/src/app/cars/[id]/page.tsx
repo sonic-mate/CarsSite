@@ -40,7 +40,7 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                 {COUNTRY_LABEL[car.country]}
               </span>
             </div>
-            <h1 style={{ fontSize: 72, lineHeight: 0.95, marginBottom: 8 }}>{car.brand} {car.model}</h1>
+            <h1 style={{ lineHeight: 0.95, marginBottom: 8 }}>{car.brand} {car.model}</h1>
             <p style={{ fontSize: 16, color: "var(--fg-muted)", fontFeatureSettings: "'tnum' 1" }}>
               {car.year} · {formatKm(car.mileage)} · {car.engine} · {car.body}
             </p>

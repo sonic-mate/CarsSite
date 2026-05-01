@@ -4,6 +4,7 @@ import "./layout.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import MobileCta from "@/components/MobileCta";
+import CookieBanner from "@/components/CookieBanner";
 
 export const metadata: Metadata = {
   title: "Восток Авто Импорт — Авто из Японии, Китая, Кореи",
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <Footer/>
         <MobileCta/>
+        <CookieBanner/>
       </body>
     </html>
   );

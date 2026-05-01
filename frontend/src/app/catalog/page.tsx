@@ -34,6 +34,7 @@ export default function CatalogPage() {
   const [bodies, setBodies] = useState<Set<string>>(new Set());
   const [fuels, setFuels] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState("popular");
+  const [filterOpen, setFilterOpen] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -86,8 +87,16 @@ export default function CatalogPage() {
             ))}
           </div>
 
+          <button
+            onClick={() => setFilterOpen(o => !o)}
+            className="filter-toggle"
+          >
+            <span>Фильтры{(bodies.size + fuels.size) > 0 ? ` · ${bodies.size + fuels.size}` : ""}</span>
+            <span>{filterOpen ? "↑" : "↓"}</span>
+          </button>
+
           <div className="catalog-layout">
-            <aside className="filter-panel">
+            <aside className={`filter-panel${filterOpen ? " filter-panel-open" : ""}`}>
               <div className="filter-section">
                 <h5>Тип кузова</h5>
                 {BODIES.map(b => (
