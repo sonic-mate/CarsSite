@@ -82,29 +82,60 @@ def _photo_url(images_raw: str, size: str = "&w=320") -> str | None:
     return f"https://7.ajes.com/img/{img}{size}"
 
 
-def _body_ru(kuzov: str) -> str:
-    k = (kuzov or "").lower()
-    if any(x in k for x in ["suv", "4wd", "внедор", "offroad", "off road"]):
-        return "Внедорожник"
-    if any(x in k for x in ["crossover", "кросс", "x-over"]):
-        return "Кроссовер"
-    if any(x in k for x in ["minivan", "mini van", "минив", "mpv"]):
+def _body_type(model: str) -> str:
+    m = (model or "").upper()
+
+    _chk = lambda keys: any(k in m for k in keys)
+
+    if _chk(["ALPHARD", "VELLFIRE", "VOXY", "NOAH", "SERENA", "ELGRAND",
+              "STEPWGN", "STEP WGN", "ODYSSEY", "SIENTA", "FREED", "WISH",
+              "ESTIMA", "PREVIA", "DELICA", "CARNIVAL", "STARIA",
+              "GRANDVIA", "REGIUS", "TOWNACE WAGON", "LITEACE WAGON"]):
         return "Минивэн"
-    if any(x in k for x in ["van", "фургон", "bus", "микроавт"]):
+
+    if _chk(["HIACE", "TOWN ACE VAN", "LITE ACE VAN", "TOWNACE VAN",
+              "LITEACE VAN", "CARAVAN", "NV200", "NV350", "BONGO",
+              "ATLAS", "PROBOX", "SUCCEED", "SAMBAR"]):
         return "Фургон"
-    if any(x in k for x in ["wagon", "wgn", "универс", "estate", "touring"]):
-        return "Универсал"
-    if any(x in k for x in ["liftback", "lift back", "лифтбек"]):
+
+    if _chk(["LAND CRUISER", "LC300", "LC 300", "PRADO", "PATROL",
+              "PAJERO", "FORTUNER", "HILUX SURF", "4RUNNER", "SEQUOIA",
+              "LEXUS LX", "LEXUS GX", "FJ CRUISER", "LANDCRUISER"]):
+        return "Внедорожник"
+
+    if _chk(["RAV4", "CR-V", "CRV", "HARRIER", "VEZEL", "HR-V", "HRV",
+              "CH-R", "C-HR", "OUTLANDER", "CX-3", "CX-5", "CX-8", "CX-30",
+              "FORESTER", "OUTBACK", "SUBARU XV", "X-TRAIL", "XTRAIL",
+              "QASHQAI", "JUKE", "MURANO", "KICKS", "ECLIPSE CROSS",
+              "ASX", "TUCSON", "SPORTAGE", "SORENTO", "RUSH",
+              "TERIOS", "LEXUS RX", "LEXUS NX", "LEXUS UX",
+              "MAZDA CX", "TIGUAN", "WINGROAD"]):
+        return "Кроссовер"
+
+    if _chk(["PRIUS", "LEXUS CT", "CT200H", "INSIGHT", "MAZDA6",
+              "ATENZA", "LEVORG"]):
         return "Лифтбек"
-    if any(x in k for x in ["hatchback", "hatch", " hb", "хэтчб"]):
+
+    if _chk(["FIELDER", "CALDINA", "SHUTTLE", "JADE", "AVANCIER",
+              "LEVORG", "SUBARU OUTBACK", "LEGACY TOURING"]):
+        return "Универсал"
+
+    if _chk(["AQUA", "VITZ", "YARIS", "FIT", "SWIFT", "NOTE", "MARCH",
+              "DEMIO", "MAZDA2", "MOVE", "TANTO", "WAGON R", "SPADE",
+              "PORTE", "PASSO", "BOON", "ALTO", "HUSTLER", "MIRAGE",
+              "LEAF", "MIRA", "N-BOX", "N BOX", "SPACIA", "TAFT",
+              "ROCKY", "AXELA", "MAZDA3 HATCH", "COROLLA SPORT"]):
         return "Хэтчбэк"
-    if any(x in k for x in ["coupe", "купе", "2door"]):
-        return "Купе"
-    if any(x in k for x in ["convertible", "cabrio", "кабрио", "родстер"]):
-        return "Кабриолет"
-    if any(x in k for x in ["sedan", "седан", "3box"]):
+
+    if _chk(["CAMRY", "CROWN", "MARK X", "CELSIOR", "ACCORD",
+              "SKYLINE", "FUGA", "CIMA", "GLORIA", "LEGACY B4",
+              "LEXUS IS", "LEXUS GS", "LEXUS LS", "LEXUS ES",
+              "TEANA", "MAXIMA", "BLUEBIRD", "LAUREL", "CEDRIC",
+              "PREMIO", "ALLION", "COROLLA AXIO", "MARK II",
+              "CHASER", "CRESTA", "AVALON", "CIVIC SEDAN", "GRACE"]):
         return "Седан"
-    return kuzov or "Другой"
+
+    return "Другой"
 
 
 def _norm(i: dict) -> dict:
@@ -145,7 +176,7 @@ def _norm(i: dict) -> dict:
         "model": model,
         "year": year,
         "country": "japan",
-        "body": _body_ru(i.get("KUZOV", "")),
+        "body": _body_type(model),
         "mileage": mileage,
         "engine": engine or "—",
         "price": price_rub,

@@ -6,17 +6,18 @@ import { Car, COUNTRY_LABEL } from "@/lib/types";
 import { getCars } from "@/lib/api";
 
 const COUNTRIES = ["all", "japan", "china", "korea"] as const;
-const BODIES = ["Седан", "Кроссовер", "Внедорожник", "Лифтбек", "Минивэн", "Универсал", "Хэтчбэк"];
+const BODIES = ["Седан", "Кроссовер", "Внедорожник", "Минивэн", "Хэтчбэк", "Лифтбек", "Универсал", "Фургон"];
 const FUELS = ["Бензин", "Гибрид", "Электро", "Дизель"];
 
 const BODY_KEYWORDS: Record<string, string[]> = {
-  "Седан":       ["седан", "sedan", "3box"],
-  "Кроссовер":   ["кроссов", "crossover", "x-over"],
-  "Внедорожник": ["внедор", "suv", "4wd", "offroad"],
-  "Лифтбек":     ["лифтбек", "liftback", "lift back"],
-  "Минивэн":     ["минив", "minivan", "mini van", "mpv", "van"],
-  "Универсал":   ["универс", "wagon", "wgn", "estate", "touring"],
-  "Хэтчбэк":    ["хэтчб", "hatchback", "hatch", " hb"],
+  "Седан":       ["седан", "sedan"],
+  "Кроссовер":   ["кроссов", "crossover"],
+  "Внедорожник": ["внедор", "suv", "4wd"],
+  "Лифтбек":     ["лифтбек", "liftback"],
+  "Минивэн":     ["минивэн", "minivan"],
+  "Универсал":   ["универсал", "wagon"],
+  "Хэтчбэк":    ["хэтчбэк", "hatchback"],
+  "Фургон":      ["фургон", "van", "hiace", "caravan"],
 };
 
 function matchBody(carBody: string, filter: string): boolean {
