@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = "";
 
 interface Tariffs {
   jpy_to_rub: number; krw_to_rub: number; cny_to_rub: number; eur_to_rub: number;
