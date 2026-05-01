@@ -15,6 +15,8 @@ class CarBase(BaseModel):
     badge: Optional[str] = None
     photo_tint: str = "#1a1d24"
     silhouette: str = "sedan"
+    photo_url: Optional[str] = None
+    source: str = "manual"
 
 
 class CarCreate(CarBase):

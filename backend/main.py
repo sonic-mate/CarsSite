@@ -1,20 +1,29 @@
 from fastapi import FastAPI, Depends, HTTPException, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import Optional, List
 import os
+import asyncio
+from contextlib import asynccontextmanager
 
 from database import engine, get_db, Base, SessionLocal
 from models import Car, Tariffs
 from schemas import CarOut, CalculatorIn, CalculatorOut, TariffsSchema
-from seed import seed
 import aggregator
 import tariff_cache
 
-Base.metadata.create_all(bind=engine)
-seed()
 
-# ── Seed default tariffs if missing, then load into cache ────────────────────
+def _migrate():
+    with engine.connect() as conn:
+        for col, definition in [("photo_url", "VARCHAR"), ("source", "VARCHAR DEFAULT 'manual'")]:
+            try:
+                conn.execute(text(f"ALTER TABLE cars ADD COLUMN {col} {definition}"))
+                conn.commit()
+            except Exception:
+                pass
+
+
 def _init_tariffs():
     db = SessionLocal()
     try:
@@ -28,9 +37,51 @@ def _init_tariffs():
     finally:
         db.close()
 
-_init_tariffs()
 
-app = FastAPI(title="Восток Авто Импорт API", version="1.0.0")
+async def _sync_live_cars():
+    try:
+        cars = await aggregator.search(limit=200)
+        if not cars:
+            return
+        db = SessionLocal()
+        try:
+            db.query(Car).filter(Car.source == "live").delete()
+            for d in cars:
+                db.add(Car(
+                    id=d["id"], brand=d["brand"], model=d["model"],
+                    year=d["year"], country=d["country"], body=d["body"],
+                    mileage=d["mileage"], engine=d["engine"], price=d["price"],
+                    badge=str(d["badge"]) if d.get("badge") else None,
+                    photo_tint=d.get("photo_tint", "#1a1d24"),
+                    silhouette=d.get("silhouette", "sedan"),
+                    photo_url=d.get("photo_url"),
+                    source="live", is_active=True,
+                ))
+            db.commit()
+            print(f"Synced {len(cars)} live cars.")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"Sync error: {e}")
+
+
+async def _sync_loop():
+    await asyncio.sleep(5)
+    while True:
+        await _sync_live_cars()
+        await asyncio.sleep(300)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    _migrate()
+    _init_tariffs()
+    asyncio.create_task(_sync_loop())
+    yield
+
+
+app = FastAPI(title="Восток Авто Импорт API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

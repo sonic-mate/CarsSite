@@ -57,3 +57,5 @@ class Car(Base):
     photo_tint = Column(String, default="#1a1d24")
     silhouette = Column(String, default="sedan")
     is_active = Column(Boolean, default=True)
+    photo_url = Column(String, nullable=True)
+    source = Column(String, default="manual")

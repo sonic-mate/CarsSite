@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
 import { getCar } from "@/lib/api";
 import { COUNTRY_LABEL, PHONE, formatPrice, formatKm } from "@/lib/types";
-import { PLACEHOLDER_CARS } from "@/lib/placeholders";
 import CarSilhouette from "@/components/CarSilhouette";
 import Icon from "@/components/Icon";
 import Link from "next/link";
@@ -16,9 +15,7 @@ const BADGE_CLASS: Record<string, string> = {
 const TINTS = ["#1a1d24", "#0f1218", "#15181f", "#171a22", "#13161d"];
 
 export default async function CarDetailPage({ params }: { params: { id: string } }) {
-  const car = await getCar(params.id).catch(
-    () => PLACEHOLDER_CARS.find(c => c.id === params.id) ?? null
-  );
+  const car = await getCar(params.id).catch(() => null);
   if (!car) notFound();
 
   return (

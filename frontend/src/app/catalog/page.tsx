@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import CarCard from "@/components/CarCard";
 import { Car, COUNTRY_LABEL } from "@/lib/types";
-import { getCars, getLiveCars } from "@/lib/api";
+import { getCars } from "@/lib/api";
 
 const COUNTRIES = ["all", "japan", "china", "korea"] as const;
 const BODIES = ["Седан", "Кроссовер", "Внедорожник", "Лифтбек"];
@@ -18,15 +18,8 @@ export default function CatalogPage() {
 
   useEffect(() => {
     setLoading(true);
-    getLiveCars({ limit: "100" })
-      .then(({ cars }) => {
-        if (cars.length > 0) {
-          setAllCars(cars as Car[]);
-        } else {
-          return getCars().then(setAllCars);
-        }
-      })
-      .catch(() => getCars().then(setAllCars))
+    getCars()
+      .then(setAllCars)
       .finally(() => setLoading(false));
   }, []);
 
