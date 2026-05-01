@@ -195,7 +195,6 @@ def _norm(i: dict) -> dict:
     price = calc.turnkey_price(auction_price_rub, engine_cc, year, fuel, "japan", t) if auction_price_rub > 0 else 0
 
     lot_id = str(i.get("ID", i.get("LOT", "")))
-    lot_number = str(i.get("LOT", ""))
 
     priv = str(i.get("PRIV", "")).upper()
     drive_map = {"FF": "Передний", "FR": "Задний", "4WD": "Полный", "AWD": "Полный", "MR": "Задний", "RR": "Задний"}
@@ -218,12 +217,12 @@ def _norm(i: dict) -> dict:
         "photo_url": photo,
         "photo_urls": photo_urls,
         "source": "ajes",
-        "source_url": f"https://ajes.com/?lot={lot_id}",
         "color": (i.get("COLOR") or "").strip() or None,
         "drive": drive,
-        "auction": (i.get("AUCTION") or "").strip() or None,
-        "auction_date": (i.get("AUCTION_DATE") or "").strip() or None,
-        "lot_number": lot_number or None,
+        "grade": (i.get("GRADE") or "").strip() or None,
+        "power": (str(i.get("PW", "")).strip() + " л.с.") if i.get("PW") else None,
+        "steering": "Левый" if str(i.get("LHDRIVE", "")).strip() == "1" else ("Правый" if i.get("LHDRIVE") is not None else None),
+        "town": (i.get("TOWN") or "").strip() or None,
         "equip": (i.get("EQUIP") or "").strip() or None,
-        "status": (i.get("STATUS") or "").strip() or None,
+        "kuzov": (i.get("KUZOV") or "").strip() or None,
     }

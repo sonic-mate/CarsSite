@@ -81,22 +81,25 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                 {(car as any).color && (
                   <div className="spec-row"><span className="k">Цвет</span><span className="v">{(car as any).color}</span></div>
                 )}
-                {(car as any).auction && (
-                  <div className="spec-row"><span className="k">Аукцион</span><span className="v">{(car as any).auction}{(car as any).auction_date ? ` · ${(car as any).auction_date}` : ""}</span></div>
+                {(car as any).grade && (
+                  <div className="spec-row"><span className="k">Комплектация</span><span className="v">{(car as any).grade}</span></div>
                 )}
-                {(car as any).lot_number && (
-                  <div className="spec-row"><span className="k">Лот №</span><span className="v">{(car as any).lot_number}</span></div>
+                {(car as any).power && (
+                  <div className="spec-row"><span className="k">Мощность</span><span className="v">{(car as any).power}</span></div>
+                )}
+                {(car as any).steering && (
+                  <div className="spec-row"><span className="k">Руль</span><span className="v">{(car as any).steering}</span></div>
+                )}
+                {(car as any).town && (
+                  <div className="spec-row"><span className="k">Город</span><span className="v">{(car as any).town}</span></div>
                 )}
                 {(car as any).badge && (
-                  <div className="spec-row"><span className="k">Оценка</span><span className="v">★ {(car as any).badge}</span></div>
-                )}
-                {(car as any).status && (
-                  <div className="spec-row" style={{ borderBottom: 0 }}><span className="k">Статус</span><span className="v">{(car as any).status}</span></div>
+                  <div className="spec-row" style={{ borderBottom: (car as any).equip ? undefined : 0 }}><span className="k">Оценка аукциона</span><span className="v">★ {(car as any).badge}</span></div>
                 )}
               </div>
               {(car as any).equip && (
                 <>
-                  <h3 style={{ marginTop: 48, marginBottom: 16 }}>Комплектация</h3>
+                  <h3 style={{ marginTop: 48, marginBottom: 16 }}>Дополнительное оборудование</h3>
                   <p style={{ fontSize: 14, color: "var(--fg-muted)", lineHeight: 1.8 }}>{(car as any).equip}</p>
                 </>
               )}

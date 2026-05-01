@@ -21,13 +21,14 @@ def _migrate():
         ("cars",    "photo_url",    "VARCHAR"),
         ("cars",    "source",       "VARCHAR DEFAULT 'manual'"),
         ("tariffs", "eur_to_rub",   "FLOAT DEFAULT 95.0"),
-        ("cars",    "color",        "VARCHAR"),
-        ("cars",    "drive",        "VARCHAR"),
-        ("cars",    "auction",      "VARCHAR"),
-        ("cars",    "auction_date", "VARCHAR"),
-        ("cars",    "lot_number",   "VARCHAR"),
-        ("cars",    "equip",        "VARCHAR"),
-        ("cars",    "status",       "VARCHAR"),
+        ("cars",    "color",    "VARCHAR"),
+        ("cars",    "drive",    "VARCHAR"),
+        ("cars",    "grade",    "VARCHAR"),
+        ("cars",    "power",    "VARCHAR"),
+        ("cars",    "steering", "VARCHAR"),
+        ("cars",    "town",     "VARCHAR"),
+        ("cars",    "equip",    "VARCHAR"),
+        ("cars",    "kuzov",    "VARCHAR"),
     ]:
         try:
             with engine.connect() as conn:
@@ -111,11 +112,12 @@ async def _sync_live_cars():
                     source="live", is_active=True,
                     color=d.get("color"),
                     drive=d.get("drive"),
-                    auction=d.get("auction"),
-                    auction_date=d.get("auction_date"),
-                    lot_number=d.get("lot_number"),
+                    grade=d.get("grade"),
+                    power=d.get("power"),
+                    steering=d.get("steering"),
+                    town=d.get("town"),
                     equip=d.get("equip"),
-                    status=d.get("status"),
+                    kuzov=d.get("kuzov"),
                 ))
             db.commit()
             print(f"Synced {len(cars)} live cars.")
