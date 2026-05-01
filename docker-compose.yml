@@ -24,7 +24,9 @@ services:
     environment:
       DATABASE_URL: postgresql://carssite:carssite@db:5432/carssite
       AJES_API_KEY: "VAInBvFrU76d"
-      ADMIN_TOKEN: "change-me-before-deploy"
+      ADMIN_USER: "admin"
+      ADMIN_PASS: "admin123"
+      SECRET_KEY: "vostok-secret-2025"
     depends_on:
       db:
         condition: service_healthy

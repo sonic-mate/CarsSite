@@ -92,7 +92,7 @@
   .burger { display: flex; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
   .footer-legal { flex-direction: column; gap: 8px; }
-  .site-footer { padding: 48px 0 24px; }
+  .site-footer { padding: 48px 0 100px; }
 }
 
 @media (max-width: 480px) {
