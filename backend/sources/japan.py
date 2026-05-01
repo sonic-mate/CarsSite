@@ -7,6 +7,7 @@ import os
 import httpx
 from typing import Optional
 import tariff_cache
+import calc
 
 API_KEY  = os.getenv("AJES_API_KEY", "VAInBvFrU76d")
 API_HOST = os.getenv("AJES_HOST", "78.46.90.228")
@@ -158,7 +159,8 @@ def _body_type(model: str, brand: str = "") -> str:
 def _norm(i: dict) -> dict:
     def _n(v): return int(v or 0) if str(v or "").isdigit() else 0
     finish = _n(i.get("FINISH")) or _n(i.get("START")) or _n(i.get("AVG_PRICE"))
-    price_rub = int(finish * tariff_cache.get().jpy_to_rub)
+    t = tariff_cache.get()
+    auction_price_rub = int(finish * t.jpy_to_rub)
 
     raw_images = i.get("IMAGES", "")
     photo = _photo_url(raw_images)
@@ -188,6 +190,8 @@ def _norm(i: dict) -> dict:
     else:
         fuel = "Бензин"
     engine = " · ".join(p for p in [f"{eng}cc" if eng else "", kpp, fuel] if p)
+    engine_cc = _n(eng)
+    price = calc.turnkey_price(auction_price_rub, engine_cc, year, fuel, "japan", t) if auction_price_rub > 0 else 0
 
     lot_id = str(i.get("ID", i.get("LOT", "")))
 
@@ -200,7 +204,7 @@ def _norm(i: dict) -> dict:
         "body": _body_type(model, brand),
         "mileage": mileage,
         "engine": engine or "—",
-        "price": price_rub,
+        "price": price,
         "badge": i.get("RATE"),
         "photo_tint": "#1a1d24",
         "silhouette": "suv" if suv else "sedan",

@@ -13,6 +13,7 @@ from models import Car, Tariffs
 from schemas import CarOut, CalculatorIn, CalculatorOut, TariffsSchema
 import aggregator
 import tariff_cache
+import calc as _calc
 
 
 def _migrate():
@@ -282,6 +283,14 @@ async def debug_ajes():
     return results
 
 
+@app.get("/api/debug/lot/{lot_id}")
+async def debug_lot(lot_id: str):
+    """Return raw ajes.com data for a specific lot ID."""
+    from sources.japan import _call
+    data = await _call(f"SELECT * FROM main WHERE ID={lot_id} LIMIT 1")
+    return {"raw": data}
+
+
 @app.get("/api/debug/sources")
 async def debug_sources():
     """Test actual fetch from each source module."""
@@ -409,7 +418,7 @@ def calculate(data: CalculatorIn, db: Session = Depends(get_db)):
     if not t:
         t = Tariffs()
 
-    customs = _calc_customs(data.auction_price, data.engine_cc, data.year, data.fuel_type, t)
+    customs = _calc.calc_customs(data.auction_price, data.engine_cc, data.year, data.fuel_type, t)
     delivery = {"japan": t.delivery_japan, "korea": t.delivery_korea, "china": t.delivery_china}.get(data.country, t.delivery_japan)
     total = data.auction_price + customs + delivery + t.services
     return CalculatorOut(
