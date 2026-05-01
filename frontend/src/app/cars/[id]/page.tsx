@@ -75,20 +75,31 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                 <div className="spec-row"><span className="k">Пробег</span><span className="v">{formatKm(car.mileage)}</span></div>
                 <div className="spec-row"><span className="k">Двигатель</span><span className="v">{car.engine}</span></div>
                 <div className="spec-row"><span className="k">Кузов</span><span className="v">{car.body}</span></div>
-                {(car as any).badge && (
-                  <div className="spec-row"><span className="k">Оценка аукциона</span><span className="v">★ {(car as any).badge}</span></div>
+                {(car as any).drive && (
+                  <div className="spec-row"><span className="k">Привод</span><span className="v">{(car as any).drive}</span></div>
                 )}
-                {(car as any).source_url && (
-                  <div className="spec-row" style={{ borderBottom: 0 }}>
-                    <span className="k">Лот на аукционе</span>
-                    <span className="v">
-                      <a href={(car as any).source_url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)" }}>
-                        Открыть →
-                      </a>
-                    </span>
-                  </div>
+                {(car as any).color && (
+                  <div className="spec-row"><span className="k">Цвет</span><span className="v">{(car as any).color}</span></div>
+                )}
+                {(car as any).auction && (
+                  <div className="spec-row"><span className="k">Аукцион</span><span className="v">{(car as any).auction}{(car as any).auction_date ? ` · ${(car as any).auction_date}` : ""}</span></div>
+                )}
+                {(car as any).lot_number && (
+                  <div className="spec-row"><span className="k">Лот №</span><span className="v">{(car as any).lot_number}</span></div>
+                )}
+                {(car as any).badge && (
+                  <div className="spec-row"><span className="k">Оценка</span><span className="v">★ {(car as any).badge}</span></div>
+                )}
+                {(car as any).status && (
+                  <div className="spec-row" style={{ borderBottom: 0 }}><span className="k">Статус</span><span className="v">{(car as any).status}</span></div>
                 )}
               </div>
+              {(car as any).equip && (
+                <>
+                  <h3 style={{ marginTop: 48, marginBottom: 16 }}>Комплектация</h3>
+                  <p style={{ fontSize: 14, color: "var(--fg-muted)", lineHeight: 1.8 }}>{(car as any).equip}</p>
+                </>
+              )}
             </div>
 
             <div>

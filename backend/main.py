@@ -18,9 +18,16 @@ import calc as _calc
 
 def _migrate():
     for table, col, definition in [
-        ("cars",    "photo_url",  "VARCHAR"),
-        ("cars",    "source",     "VARCHAR DEFAULT 'manual'"),
-        ("tariffs", "eur_to_rub", "FLOAT DEFAULT 95.0"),
+        ("cars",    "photo_url",    "VARCHAR"),
+        ("cars",    "source",       "VARCHAR DEFAULT 'manual'"),
+        ("tariffs", "eur_to_rub",   "FLOAT DEFAULT 95.0"),
+        ("cars",    "color",        "VARCHAR"),
+        ("cars",    "drive",        "VARCHAR"),
+        ("cars",    "auction",      "VARCHAR"),
+        ("cars",    "auction_date", "VARCHAR"),
+        ("cars",    "lot_number",   "VARCHAR"),
+        ("cars",    "equip",        "VARCHAR"),
+        ("cars",    "status",       "VARCHAR"),
     ]:
         try:
             with engine.connect() as conn:
@@ -102,6 +109,13 @@ async def _sync_live_cars():
                     silhouette=d.get("silhouette", "sedan"),
                     photo_url=d.get("photo_url"),
                     source="live", is_active=True,
+                    color=d.get("color"),
+                    drive=d.get("drive"),
+                    auction=d.get("auction"),
+                    auction_date=d.get("auction_date"),
+                    lot_number=d.get("lot_number"),
+                    equip=d.get("equip"),
+                    status=d.get("status"),
                 ))
             db.commit()
             print(f"Synced {len(cars)} live cars.")
