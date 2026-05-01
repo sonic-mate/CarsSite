@@ -117,7 +117,7 @@ export default function CalculatorPage() {
               <span className="eyebrow-gold">Итого под ключ</span>
               <div className="total">{formatPrice(result.total)}</div>
               <div style={{ fontSize: 12, color: "rgba(245,243,238,0.6)", marginBottom: 24 }}>
-                ~ {Math.round(result.total / 1000)} тыс ₽ · срок 35–55 дней
+                срок доставки 35–55 дней
               </div>
               <div className="calc-line">
                 <span className="k">Аукционная цена</span>
@@ -155,11 +155,6 @@ export default function CalculatorPage() {
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "5px 0", borderBottom: "1px solid rgba(245,243,238,0.08)" }}>
                       <span style={{ color: "rgba(245,243,238,0.55)" }}>Цена в EUR</span>
                       <span style={{ fontFamily: "var(--font-mono)", color: "rgba(245,243,238,0.85)" }}>≈ {result.price_eur?.toLocaleString("ru-RU")} €</span>
-                    </div>
-                  )}
-                  {result.customs_method && (
-                    <div style={{ fontSize: 11, color: "rgba(245,243,238,0.5)", marginTop: 8, lineHeight: 1.5 }}>
-                      Формула: {result.customs_method}
                     </div>
                   )}
                 </div>
