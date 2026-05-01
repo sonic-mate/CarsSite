@@ -37,7 +37,7 @@ export default function CallbackModal() {
       <button
         onClick={() => setOpen(true)}
         className="btn btn-lg btn-block"
-        style={{ borderColor: "rgba(245,243,238,0.3)", color: "#fff", background: "transparent", border: "1px solid rgba(245,243,238,0.3)" }}
+        style={{ borderColor: "rgba(245,243,238,0.3)", color: "#fff", background: "transparent", border: "1px solid rgba(245,243,238,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}
       >
         Заказать звонок
       </button>
@@ -53,9 +53,9 @@ export default function CallbackModal() {
           }}
         >
           <div style={{
-            background: "var(--surface)", borderRadius: "var(--r-lg)",
+            background: "#13151c", borderRadius: "var(--r-lg)",
             padding: 36, width: "100%", maxWidth: 420,
-            border: "1px solid rgba(245,243,238,0.1)",
+            border: "1px solid rgba(245,243,238,0.15)",
             position: "relative",
           }}>
             <button
