@@ -14,6 +14,7 @@ export default function CatalogPage() {
   const [loading, setLoading] = useState(true);
   const [country, setCountry] = useState<string>("all");
   const [bodies, setBodies] = useState<Set<string>>(new Set());
+  const [fuels, setFuels] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState("popular");
 
   useEffect(() => {
@@ -26,6 +27,7 @@ export default function CatalogPage() {
   let cars = [...allCars];
   if (country !== "all") cars = cars.filter(c => c.country === country);
   if (bodies.size) cars = cars.filter(c => bodies.has(c.body));
+  if (fuels.size) cars = cars.filter(c => [...fuels].some(f => c.engine.includes(f)));
   if (sort === "price-asc") cars.sort((a, b) => a.price - b.price);
   if (sort === "price-desc") cars.sort((a, b) => b.price - a.price);
   if (sort === "year") cars.sort((a, b) => b.year - a.year);
@@ -34,6 +36,12 @@ export default function CatalogPage() {
     const next = new Set(bodies);
     next.has(b) ? next.delete(b) : next.add(b);
     setBodies(next);
+  };
+
+  const toggleFuel = (f: string) => {
+    const next = new Set(fuels);
+    next.has(f) ? next.delete(f) : next.add(f);
+    setFuels(next);
   };
 
   return (
@@ -76,11 +84,12 @@ export default function CatalogPage() {
               </div>
               <div className="filter-section">
                 <h5>Тип двигателя</h5>
-                {FUELS.map(t => (
-                  <label key={t} className="filter-check">
+                {FUELS.map(f => (
+                  <label key={f} className="filter-check">
                     <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <input type="checkbox"/>{t}
+                      <input type="checkbox" checked={fuels.has(f)} onChange={() => toggleFuel(f)}/>{f}
                     </span>
+                    <span className="filter-count">{allCars.filter(c => c.engine.includes(f)).length}</span>
                   </label>
                 ))}
               </div>
@@ -93,7 +102,6 @@ export default function CatalogPage() {
                   <option value="year">Сначала новее</option>
                 </select>
               </div>
-              <button className="btn btn-dark btn-block" style={{ marginTop: 8 }}>Применить</button>
             </aside>
 
             <div>

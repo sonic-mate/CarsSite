@@ -82,6 +82,31 @@ def _photo_url(images_raw: str, size: str = "&w=320") -> str | None:
     return f"https://7.ajes.com/img/{img}{size}"
 
 
+def _body_ru(kuzov: str) -> str:
+    k = (kuzov or "").lower()
+    if any(x in k for x in ["suv", "4wd", "внедор", "offroad", "off road"]):
+        return "Внедорожник"
+    if any(x in k for x in ["crossover", "кросс", "x-over"]):
+        return "Кроссовер"
+    if any(x in k for x in ["minivan", "mini van", "минив", "mpv"]):
+        return "Минивэн"
+    if any(x in k for x in ["van", "фургон", "bus", "микроавт"]):
+        return "Фургон"
+    if any(x in k for x in ["wagon", "wgn", "универс", "estate", "touring"]):
+        return "Универсал"
+    if any(x in k for x in ["liftback", "lift back", "лифтбек"]):
+        return "Лифтбек"
+    if any(x in k for x in ["hatchback", "hatch", " hb", "хэтчб"]):
+        return "Хэтчбэк"
+    if any(x in k for x in ["coupe", "купе", "2door"]):
+        return "Купе"
+    if any(x in k for x in ["convertible", "cabrio", "кабрио", "родстер"]):
+        return "Кабриолет"
+    if any(x in k for x in ["sedan", "седан", "3box"]):
+        return "Седан"
+    return kuzov or "Другой"
+
+
 def _norm(i: dict) -> dict:
     def _n(v): return int(v or 0) if str(v or "").isdigit() else 0
     finish = _n(i.get("FINISH")) or _n(i.get("START")) or _n(i.get("AVG_PRICE"))
@@ -120,7 +145,7 @@ def _norm(i: dict) -> dict:
         "model": model,
         "year": year,
         "country": "japan",
-        "body": i.get("KUZOV") or "Седан",
+        "body": _body_ru(i.get("KUZOV", "")),
         "mileage": mileage,
         "engine": engine or "—",
         "price": price_rub,

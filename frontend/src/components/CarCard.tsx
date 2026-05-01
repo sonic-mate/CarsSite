@@ -59,7 +59,7 @@ export default function CarCard({ car }: CarCardProps) {
         </div>
         <div className="car-bottom">
           <span className="car-price">{formatPrice(car.price)}</span>
-          <span className="car-cta">Подробнее →</span>
+          <span className="car-cta">→</span>
         </div>
       </div>
     </Link>
