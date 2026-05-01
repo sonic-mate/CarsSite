@@ -308,7 +308,7 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-
   font-family: var(--font-display); font-size: 32px; color: var(--gold);
   opacity: 0.6; letter-spacing: 0.02em;
 }
-.step h4 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+.step h4 { font-size: 18px; font-weight: 700; margin-bottom: 10px; padding-right: 52px; }
 .step p { font-size: 13px; line-height: 1.55; opacity: 0.75; }
 
 /* Mode tabs */
@@ -429,7 +429,8 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-
   /* Steps */
   .steps { grid-template-columns: 1fr; gap: 12px; }
   .step { padding: 18px; }
-  .step::before { font-size: 24px; }
+  .step::before { font-size: 24px; top: 14px; right: 14px; }
+  .step h4 { padding-right: 44px; }
 
   /* Car detail */
   .detail-grid { grid-template-columns: 1fr; gap: 24px; }
@@ -491,8 +492,8 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-
 
   /* Steps */
   .step { padding: 14px; }
-  .step::before { font-size: 20px; top: 12px; right: 12px; }
-  .step h4 { font-size: 15px; margin-bottom: 6px; }
+  .step::before { font-size: 20px; top: 10px; right: 10px; }
+  .step h4 { font-size: 15px; margin-bottom: 6px; padding-right: 36px; }
   .step p { font-size: 12px; }
 
   /* Calculator */
