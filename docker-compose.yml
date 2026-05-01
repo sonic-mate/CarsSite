@@ -44,7 +44,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000   # browser → host-mapped port
+      NEXT_PUBLIC_API_URL: https://vostokavtoimport.ru
       INTERNAL_API_URL: http://backend:8000        # SSR → Docker network
     depends_on:
       backend:
