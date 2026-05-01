@@ -8,6 +8,7 @@ interface Tariffs {
   jpy_to_rub: number;
   krw_to_rub: number;
   cny_to_rub: number;
+  eur_to_rub: number;
   customs_rate: number;
   customs_coef_new: number;
   customs_coef_mid: number;
@@ -19,17 +20,18 @@ interface Tariffs {
 }
 
 const FIELDS: { key: keyof Tariffs; label: string; step: number; note?: string }[] = [
-  { key: "jpy_to_rub",       label: "Курс JPY → ₽",                step: 0.001, note: "1 японская иена в рублях" },
+  { key: "jpy_to_rub",       label: "Курс JPY → ₽",                step: 0.001,  note: "1 японская иена в рублях" },
   { key: "krw_to_rub",       label: "Курс KRW → ₽",                step: 0.0001, note: "1 корейская вона в рублях" },
-  { key: "cny_to_rub",       label: "Курс CNY → ₽",                step: 0.01, note: "1 китайский юань в рублях" },
-  { key: "customs_rate",     label: "Ставка таможни (доля)",        step: 0.001, note: "Например: 0.18 = 18%" },
-  { key: "customs_coef_new", label: "Коэф. таможни: новые (≥2024)", step: 0.01 },
-  { key: "customs_coef_mid", label: "Коэф. таможни: 2021–2023",    step: 0.01 },
-  { key: "customs_coef_old", label: "Коэф. таможни: до 2021",      step: 0.01 },
-  { key: "delivery_japan",   label: "Доставка из Японии, ₽",       step: 1000 },
-  { key: "delivery_korea",   label: "Доставка из Кореи, ₽",        step: 1000 },
-  { key: "delivery_china",   label: "Доставка из Китая, ₽",        step: 1000 },
-  { key: "services",         label: "Услуги брокера, ₽",           step: 1000 },
+  { key: "cny_to_rub",       label: "Курс CNY → ₽",                step: 0.01,   note: "1 китайский юань в рублях" },
+  { key: "eur_to_rub",       label: "Курс EUR → ₽",                step: 0.1,    note: "Используется для расчёта таможни по ФТС" },
+  { key: "customs_rate",     label: "Ставка таможни — запасная (доля)", step: 0.001, note: "Используется если объём двигателя не указан" },
+  { key: "customs_coef_new", label: "Коэф. запасной таможни: новые",step: 0.01 },
+  { key: "customs_coef_mid", label: "Коэф. запасной таможни: 3–5 лет", step: 0.01 },
+  { key: "customs_coef_old", label: "Коэф. запасной таможни: 5+ лет",  step: 0.01 },
+  { key: "delivery_japan",   label: "Доставка из Японии, ₽",        step: 1000 },
+  { key: "delivery_korea",   label: "Доставка из Кореи, ₽",         step: 1000 },
+  { key: "delivery_china",   label: "Доставка из Китая, ₽",         step: 1000 },
+  { key: "services",         label: "Услуги брокера, ₽",            step: 1000 },
 ];
 
 export default function AdminPage() {

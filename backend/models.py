@@ -11,11 +11,12 @@ class Tariffs(Base):
     jpy_to_rub = Column(Float, default=0.60)
     krw_to_rub = Column(Float, default=0.065)
     cny_to_rub = Column(Float, default=12.5)
-    # Customs
+    eur_to_rub = Column(Float, default=95.0)
+    # Customs (fallback when engine_cc unknown)
     customs_rate = Column(Float, default=0.18)
-    customs_coef_new = Column(Float, default=1.0)   # year >= 2024
-    customs_coef_mid = Column(Float, default=1.1)   # year >= 2021
-    customs_coef_old = Column(Float, default=1.25)  # older
+    customs_coef_new = Column(Float, default=1.0)
+    customs_coef_mid = Column(Float, default=1.1)
+    customs_coef_old = Column(Float, default=1.25)
     # Logistics
     delivery_japan = Column(Integer, default=180_000)
     delivery_korea = Column(Integer, default=160_000)

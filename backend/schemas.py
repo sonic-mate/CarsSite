@@ -50,6 +50,7 @@ class TariffsSchema(BaseModel):
     jpy_to_rub: float
     krw_to_rub: float
     cny_to_rub: float
+    eur_to_rub: float = 95.0
     customs_rate: float
     customs_coef_new: float
     customs_coef_mid: float

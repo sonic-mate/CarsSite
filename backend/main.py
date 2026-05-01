@@ -5,6 +5,7 @@ from sqlalchemy import text
 from typing import Optional, List
 import os
 import asyncio
+import datetime
 from contextlib import asynccontextmanager
 
 from database import engine, get_db, Base, SessionLocal
@@ -16,9 +17,13 @@ import tariff_cache
 
 def _migrate():
     with engine.connect() as conn:
-        for col, definition in [("photo_url", "VARCHAR"), ("source", "VARCHAR DEFAULT 'manual'")]:
+        for table, col, definition in [
+            ("cars",    "photo_url",  "VARCHAR"),
+            ("cars",    "source",     "VARCHAR DEFAULT 'manual'"),
+            ("tariffs", "eur_to_rub", "FLOAT DEFAULT 95.0"),
+        ]:
             try:
-                conn.execute(text(f"ALTER TABLE cars ADD COLUMN {col} {definition}"))
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {definition}"))
                 conn.commit()
             except Exception:
                 pass
@@ -36,6 +41,46 @@ def _init_tariffs():
         tariff_cache.update(t)
     finally:
         db.close()
+
+
+CBR_URL = "https://www.cbr-xml-daily.ru/daily_json.js"
+
+
+async def _fetch_rates() -> dict | None:
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(CBR_URL)
+            v = r.json()["Valute"]
+            return {
+                "eur_to_rub": round(v["EUR"]["Value"] / v["EUR"]["Nominal"], 4),
+                "jpy_to_rub": round(v["JPY"]["Value"] / v["JPY"]["Nominal"], 4),
+                "cny_to_rub": round(v["CNY"]["Value"] / v["CNY"]["Nominal"], 4),
+                "krw_to_rub": round(v["KRW"]["Value"] / v["KRW"]["Nominal"], 6),
+            }
+    except Exception as e:
+        print(f"Rate fetch error: {e}")
+        return None
+
+
+async def _rates_loop():
+    await asyncio.sleep(10)
+    while True:
+        rates = await _fetch_rates()
+        if rates:
+            db = SessionLocal()
+            try:
+                t = db.query(Tariffs).filter(Tariffs.id == 1).first()
+                if t:
+                    for k, v in rates.items():
+                        setattr(t, k, v)
+                    db.commit()
+                    db.refresh(t)
+                    tariff_cache.update(t)
+                    print(f"Rates: EUR={rates['eur_to_rub']} JPY={rates['jpy_to_rub']} CNY={rates['cny_to_rub']} KRW={rates['krw_to_rub']}")
+            finally:
+                db.close()
+        await asyncio.sleep(60)
 
 
 async def _sync_live_cars():
@@ -77,6 +122,7 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _migrate()
     _init_tariffs()
+    asyncio.create_task(_rates_loop())
     asyncio.create_task(_sync_loop())
     yield
 
@@ -129,14 +175,17 @@ def list_cars(
     return q.all()
 
 
-# ─── Car detail (live from ajes.com) ──────────────────────────────────────────
+# ─── Car detail (live from ajes.com, fallback to DB) ──────────────────────────
 
 @app.get("/api/cars/{car_id}")
-async def get_car(car_id: str):
+async def get_car(car_id: str, db: Session = Depends(get_db)):
     car = await aggregator.get_by_id(car_id)
-    if not car:
+    if car:
+        return car
+    db_car = db.query(Car).filter(Car.id == car_id, Car.is_active == True).first()
+    if not db_car:
         raise HTTPException(status_code=404, detail="Автомобиль не найден")
-    return car
+    return db_car
 
 
 # ─── Live cars from external APIs ────────────────────────────────────────────
@@ -252,26 +301,80 @@ def update_tariffs(
 
 # ─── Calculator ───────────────────────────────────────────────────────────────
 
+# ФТС ставки для физлиц (единая таможенная территория ЕАЭС)
+# (cc_from, cc_to, eur_per_cc)
+_RATES_NEW = [  # < 3 лет: max(48% от цены, €/cc)
+    (0,    1000,  2.5),
+    (1000, 1500,  3.5),
+    (1500, 1800,  5.0),
+    (1800, 2300,  7.5),
+    (2300, 3000,  7.5),
+    (3000, 99999, 15.0),
+]
+_RATES_MID = [  # 3–5 лет: €/cc
+    (0,    1000,  1.5),
+    (1000, 1500,  1.7),
+    (1500, 1800,  2.5),
+    (1800, 2300,  2.7),
+    (2300, 3000,  3.0),
+    (3000, 99999, 3.6),
+]
+_RATES_OLD = [  # > 5 лет: €/cc
+    (0,    1000,  3.0),
+    (1000, 1500,  3.2),
+    (1500, 1800,  3.5),
+    (1800, 2300,  4.8),
+    (2300, 3000,  5.0),
+    (3000, 99999, 5.7),
+]
+
+
+def _eur_per_cc(cc: int, rates: list) -> float:
+    for lo, hi, rate in rates:
+        if lo < cc <= hi or (lo == 0 and cc <= hi):
+            return rate
+    return rates[-1][2]
+
+
+def _calc_customs(auction_price: int, engine_cc: int, year: int, fuel_type: str, t) -> int:
+    if fuel_type == "Электро":
+        return round(auction_price * 0.15)
+
+    age = datetime.date.today().year - year
+
+    if engine_cc <= 0:
+        # Нет данных об объёме — простая формула
+        if age < 3:
+            coef = t.customs_coef_new
+        elif age < 5:
+            coef = t.customs_coef_mid
+        else:
+            coef = t.customs_coef_old
+        return round(auction_price * t.customs_rate * coef)
+
+    eur = t.eur_to_rub
+
+    if age < 3:
+        eur_cc = _eur_per_cc(engine_cc, _RATES_NEW)
+        by_percent = round(auction_price * 0.48)
+        by_cc = round(engine_cc * eur_cc * eur)
+        return max(by_percent, by_cc)
+    elif age < 5:
+        eur_cc = _eur_per_cc(engine_cc, _RATES_MID)
+        return round(engine_cc * eur_cc * eur)
+    else:
+        eur_cc = _eur_per_cc(engine_cc, _RATES_OLD)
+        return round(engine_cc * eur_cc * eur)
+
+
 @app.post("/api/calculator", response_model=CalculatorOut)
 def calculate(data: CalculatorIn, db: Session = Depends(get_db)):
     t = db.query(Tariffs).filter(Tariffs.id == 1).first()
     if not t:
         t = Tariffs()
 
-    if data.year >= 2024:
-        age_k = t.customs_coef_new
-    elif data.year >= 2021:
-        age_k = t.customs_coef_mid
-    else:
-        age_k = t.customs_coef_old
-
-    customs = round(data.auction_price * t.customs_rate * age_k)
-    delivery_map = {
-        "japan": t.delivery_japan,
-        "korea": t.delivery_korea,
-        "china": t.delivery_china,
-    }
-    delivery = delivery_map.get(data.country, t.delivery_japan)
+    customs = _calc_customs(data.auction_price, data.engine_cc, data.year, data.fuel_type, t)
+    delivery = {"japan": t.delivery_japan, "korea": t.delivery_korea, "china": t.delivery_china}.get(data.country, t.delivery_japan)
     total = data.auction_price + customs + delivery + t.services
     return CalculatorOut(
         auction_price=data.auction_price,
