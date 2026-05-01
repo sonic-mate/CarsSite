@@ -237,6 +237,13 @@ async def debug_images():
     ]
 
 
+@app.get("/api/debug/bodies")
+def debug_bodies(db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    rows = db.query(Car.body, func.count(Car.id).label("cnt")).group_by(Car.body).order_by(func.count(Car.id).desc()).all()
+    return [{"body": r.body, "count": r.cnt} for r in rows]
+
+
 @app.get("/api/debug/ajes")
 async def debug_ajes():
     """Test ajes.com SQL API for all three tables."""
