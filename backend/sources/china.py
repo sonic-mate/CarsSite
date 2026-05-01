@@ -27,7 +27,7 @@ async def fetch(
     if year_min:
         where.append(f"YEAR>={year_min}")
 
-    sql = f"SELECT * FROM china WHERE {' AND '.join(where)} ORDER BY ID DESC LIMIT {limit} OFFSET {offset}"
+    sql = f"SELECT * FROM china WHERE {' AND '.join(where)} ORDER BY ID DESC LIMIT {offset},{limit}"
     data = await _call(sql)
     if not data:
         return []
