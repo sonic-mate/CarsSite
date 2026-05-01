@@ -6,8 +6,25 @@ import { Car, COUNTRY_LABEL } from "@/lib/types";
 import { getCars } from "@/lib/api";
 
 const COUNTRIES = ["all", "japan", "china", "korea"] as const;
-const BODIES = ["Седан", "Кроссовер", "Внедорожник", "Лифтбек"];
+const BODIES = ["Седан", "Кроссовер", "Внедорожник", "Лифтбек", "Минивэн", "Универсал", "Хэтчбэк"];
 const FUELS = ["Бензин", "Гибрид", "Электро", "Дизель"];
+
+const BODY_KEYWORDS: Record<string, string[]> = {
+  "Седан":       ["седан", "sedan", "3box"],
+  "Кроссовер":   ["кроссов", "crossover", "x-over"],
+  "Внедорожник": ["внедор", "suv", "4wd", "offroad"],
+  "Лифтбек":     ["лифтбек", "liftback", "lift back"],
+  "Минивэн":     ["минив", "minivan", "mini van", "mpv", "van"],
+  "Универсал":   ["универс", "wagon", "wgn", "estate", "touring"],
+  "Хэтчбэк":    ["хэтчб", "hatchback", "hatch", " hb"],
+};
+
+function matchBody(carBody: string, filter: string): boolean {
+  if (carBody === filter) return true;
+  const b = carBody.toLowerCase();
+  const keywords = BODY_KEYWORDS[filter] ?? [];
+  return keywords.some(k => b.includes(k));
+}
 
 export default function CatalogPage() {
   const [allCars, setAllCars] = useState<Car[]>([]);
@@ -26,7 +43,7 @@ export default function CatalogPage() {
 
   let cars = [...allCars];
   if (country !== "all") cars = cars.filter(c => c.country === country);
-  if (bodies.size) cars = cars.filter(c => bodies.has(c.body));
+  if (bodies.size) cars = cars.filter(c => [...bodies].some(b => matchBody(c.body, b)));
   if (fuels.size) cars = cars.filter(c => [...fuels].some(f => c.engine.includes(f)));
   if (sort === "price-asc") cars.sort((a, b) => a.price - b.price);
   if (sort === "price-desc") cars.sort((a, b) => b.price - a.price);
@@ -78,7 +95,7 @@ export default function CatalogPage() {
                       <input type="checkbox" checked={bodies.has(b)} onChange={() => toggleBody(b)}/>
                       {b}
                     </span>
-                    <span className="filter-count">{allCars.filter(c => c.body === b).length}</span>
+                    <span className="filter-count">{allCars.filter(c => matchBody(c.body, b)).length}</span>
                   </label>
                 ))}
               </div>
