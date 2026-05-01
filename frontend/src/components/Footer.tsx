@@ -58,7 +58,7 @@ export default function Footer() {
           <span>© 2026 Восток Авто Импорт. Все права защищены.</span>
           <span>{ADDRESS}</span>
         </div>
-        <div style={{ textAlign: "center", paddingBottom: 20, fontSize: 11, color: "rgba(245,243,238,0.2)", letterSpacing: "0.04em" }}>
+        <div style={{ textAlign: "center", paddingBottom: 20, fontSize: 11, color: "rgba(200,164,92,0.5)", letterSpacing: "0.04em" }}>
           Website created by Oridium digital
         </div>
       </div>
