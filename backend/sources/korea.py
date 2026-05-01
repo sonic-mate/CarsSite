@@ -1,6 +1,6 @@
 """
 Korean auction cars — ajes.com SQL API
-Table: korea
+Table: kr
 """
 import os
 import httpx
@@ -27,7 +27,7 @@ async def fetch(
     if year_min:
         where.append(f"YEAR>={year_min}")
 
-    sql = f"SELECT * FROM korea WHERE {' AND '.join(where)} ORDER BY ID DESC LIMIT {offset},{limit}"
+    sql = f"SELECT * FROM kr WHERE {' AND '.join(where)} ORDER BY ID DESC LIMIT {offset},{limit}"
     data = await _call(sql)
     if not data:
         return []
@@ -36,6 +36,14 @@ async def fetch(
     if price_max:
         cars = [c for c in cars if c["price"] <= price_max]
     return cars
+
+
+async def fetch_one(lot_id: str) -> list[dict]:
+    sql = f"SELECT * FROM kr WHERE ID={lot_id} LIMIT 1"
+    data = await _call(sql)
+    if not data:
+        return []
+    return [_norm(i) for i in data if i]
 
 
 async def _call(sql: str) -> list | None:
@@ -56,36 +64,74 @@ async def _call(sql: str) -> list | None:
         return None
 
 
-def _photo_url(images_raw: str) -> str | None:
+def _photo_url(images_raw: str, size: str = "&w=320") -> str | None:
     photos = [p.strip() for p in (images_raw or "").split("#") if p.strip()]
     if not photos:
         return None
     img = photos[0]
+    for suffix in ("&w=320", "&h=50", "&w=640", "&w=800"):
+        if img.endswith(suffix):
+            img = img[: -len(suffix)]
     if img.startswith("http"):
-        return f"{img}&w=320"
-    return f"https://7.ajes.com/imgs/{img}&w=320"
+        return f"{img}{size}"
+    if "ajes.com/" in img:
+        return f"https://{img}{size}"
+    return f"https://7.ajes.com/img/{img}{size}"
+
+
+def _body_type(model: str, brand: str = "") -> str:
+    m = (model or "").upper()
+    b = (brand or "").upper()
+    full = f"{b} {m}".strip()
+    _chk = lambda keys: any(k in full for k in keys)
+
+    if _chk(["CARNIVAL", "STARIA", "STAREX", "GRAND STAREX", "SEDONA"]):
+        return "Минивэн"
+    if _chk(["PALISADE", "SANTA FE", "TERRACAN", "MOHAVE", "GV80", "EX90"]):
+        return "Внедорожник"
+    if _chk(["TUCSON", "SPORTAGE", "SORENTO", "STONIC", "KONA", "TRAILSTER",
+              "IONIQ 5", "EV6", "EV9", "NEXO", "NIRO", "SELTOS", "VENUE"]):
+        return "Кроссовер"
+    if _chk(["I30", "I20", "I10", "ACCENT", "VERNA", "SOLARIS", "AVANTE",
+              "ELANTRA", "K3", "RIO", "PRIDE", "SOUL", "RAY"]):
+        return "Хэтчбэк"
+    if _chk(["SONATA", "K5", "K8", "GRANDEUR", "AZERA", "GENESIS", "G80",
+              "G70", "G90", "K9", "CADENZA", "OPTIMA", "STINGER"]):
+        return "Седан"
+    if _chk(["BONGO", "PORTER"]):
+        return "Фургон"
+    return "Другой"
 
 
 def _norm(i: dict) -> dict:
     finish = int(i.get("FINISH") or i.get("START") or i.get("AVG_PRICE") or 0)
     price_rub = int(finish * tariff_cache.get().krw_to_rub)
 
-    photo = _photo_url(i.get("IMAGES", ""))
+    raw_images = i.get("IMAGES", "")
+    photo = _photo_url(raw_images)
+    photo_urls = [
+        url for p in (raw_images or "").split("#")
+        if p.strip() and (url := _photo_url(p.strip()))
+    ]
     brand = (i.get("MARKA_NAME") or "").strip()
     model = (i.get("MODEL_NAME") or "").strip()
     year = int(i.get("YEAR", 0) or 0)
     mileage = int(str(i.get("MILEAGE", "0")).replace(",", "").replace(" ", "") or 0)
 
-    kuzov = str(i.get("KUZOV", "")).lower()
-    suv = any(k in kuzov for k in ["suv", "кросс", "внедор", "van"])
+    body = _body_type(model, brand)
+    suv = body in ("Внедорожник", "Кроссовер")
 
     eng = i.get("ENG_V", "")
     kpp = i.get("KPP", "")
     time_flag = str(i.get("TIME", "")).upper()
     if time_flag == "E":
         fuel = "Электро"
-    elif time_flag == "H":
+    elif time_flag in ("H", "HE"):
         fuel = "Гибрид"
+    elif time_flag == "D":
+        fuel = "Дизель"
+    elif time_flag in ("L", "C"):
+        fuel = "Газ"
     else:
         fuel = "Бензин"
     engine = " · ".join(p for p in [f"{eng}cc" if eng else "", kpp, fuel] if p)
@@ -98,7 +144,7 @@ def _norm(i: dict) -> dict:
         "model": model,
         "year": year,
         "country": "korea",
-        "body": i.get("KUZOV") or "Седан",
+        "body": body,
         "mileage": mileage,
         "engine": engine or "—",
         "price": price_rub,
@@ -107,6 +153,7 @@ def _norm(i: dict) -> dict:
         "silhouette": "suv" if suv else "sedan",
         "is_active": True,
         "photo_url": photo,
+        "photo_urls": photo_urls,
         "source": "ajes",
         "source_url": f"https://ajes.com/?lot={lot_id}",
     }

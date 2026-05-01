@@ -5,7 +5,7 @@ Cache: 5 min per unique query combination.
 import asyncio
 import time
 from typing import Optional
-from sources import japan
+from sources import japan, korea, china
 
 CACHE_TTL = 300
 _cache: dict[str, tuple[float, list]] = {}
@@ -42,10 +42,14 @@ async def search(
     kw = dict(brand=brand, body=body, price_max=price_max,
               year_min=year_min, page=page, limit=limit)
 
-    if country in ("korea", "china"):
-        tasks = []
-    else:
+    if country == "japan":
         tasks = [japan.fetch(**kw)]
+    elif country == "korea":
+        tasks = [korea.fetch(**kw)]
+    elif country == "china":
+        tasks = [china.fetch(**kw)]
+    else:
+        tasks = [japan.fetch(**kw), korea.fetch(**kw), china.fetch(**kw)]
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
     cars: list[dict] = []
@@ -66,8 +70,11 @@ async def get_by_id(car_id: str) -> dict | None:
         return cached[0] if cached else None
 
     if car_id.startswith("jp-"):
-        lot_id = car_id[3:]
-        cars = await japan.fetch_one(lot_id)
+        cars = await japan.fetch_one(car_id[3:])
+    elif car_id.startswith("kr-"):
+        cars = await korea.fetch_one(car_id[3:])
+    elif car_id.startswith("cn-"):
+        cars = await china.fetch_one(car_id[3:])
     else:
         return None
 
@@ -76,7 +83,7 @@ async def get_by_id(car_id: str) -> dict | None:
 
 
 def active_sources() -> list[str]:
-    return ["ajes.com (Япония)"]
+    return ["ajes.com (Япония)", "ajes.com (Корея)", "ajes.com (Китай)"]
 
 
 def invalidate():

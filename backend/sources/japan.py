@@ -179,8 +179,12 @@ def _norm(i: dict) -> dict:
     time_flag = str(i.get("TIME", "")).upper()
     if time_flag == "E":
         fuel = "Электро"
-    elif time_flag == "H":
+    elif time_flag in ("H", "HE"):
         fuel = "Гибрид"
+    elif time_flag == "D":
+        fuel = "Дизель"
+    elif time_flag in ("L", "C"):
+        fuel = "Газ"
     else:
         fuel = "Бензин"
     engine = " · ".join(p for p in [f"{eng}cc" if eng else "", kpp, fuel] if p)
