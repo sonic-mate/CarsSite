@@ -20,6 +20,9 @@ export interface CalculatorResult {
   customs: number;
   services: number;
   total: number;
+  eur_rate?: number;
+  price_eur?: number;
+  customs_method?: string;
 }
 
 export const COUNTRY_LABEL: Record<string, string> = {

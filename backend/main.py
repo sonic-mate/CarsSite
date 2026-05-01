@@ -463,7 +463,8 @@ def calculate(data: CalculatorIn, db: Session = Depends(get_db)):
     if not t:
         t = Tariffs()
 
-    customs = _calc.calc_customs(data.auction_price, data.engine_cc, data.year, data.fuel_type, t)
+    detail = _calc.calc_customs_detail(data.auction_price, data.engine_cc, data.year, data.fuel_type, t)
+    customs = detail["customs"]
     delivery = {"japan": t.delivery_japan, "korea": t.delivery_korea, "china": t.delivery_china}.get(data.country, t.delivery_japan)
     total = data.auction_price + customs + delivery + t.services
     return CalculatorOut(
@@ -472,6 +473,9 @@ def calculate(data: CalculatorIn, db: Session = Depends(get_db)):
         customs=customs,
         services=t.services,
         total=total,
+        eur_rate=detail["eur_rate"],
+        price_eur=detail["price_eur"],
+        customs_method=detail["method"],
     )
 
 

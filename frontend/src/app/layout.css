@@ -39,6 +39,9 @@
   color: rgba(245, 243, 238, 0.5);
 }
 
+/* Footer legal links */
+.footer-links { display: flex; gap: 16px; flex-wrap: wrap; }
+
 /* Social buttons in footer */
 .social-btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -91,7 +94,8 @@
   .site-phone { display: none; }
   .burger { display: flex; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
-  .footer-legal { flex-direction: column; gap: 8px; }
+  .footer-legal { flex-direction: column; gap: 14px; margin-top: 36px; padding-top: 20px; }
+  .footer-links { flex-direction: column; gap: 10px; }
   .site-footer { padding: 48px 0 100px; }
 }
 

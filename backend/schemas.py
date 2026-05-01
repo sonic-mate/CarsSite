@@ -44,6 +44,9 @@ class CalculatorOut(BaseModel):
     customs: int
     services: int
     total: int
+    eur_rate: float = 95.0
+    price_eur: int = 0
+    customs_method: str = ""
 
 
 class TariffsSchema(BaseModel):

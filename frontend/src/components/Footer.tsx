@@ -56,7 +56,7 @@ export default function Footer() {
         </div>
         <div className="footer-legal">
           <span>© 2026 Восток Авто Импорт. Все права защищены.</span>
-          <span style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          <span className="footer-links">
             <Link href="/privacy" style={{ color: "rgba(245,243,238,0.5)" }}>Политика конфиденциальности</Link>
             <Link href="/terms" style={{ color: "rgba(245,243,238,0.5)" }}>Пользовательское соглашение</Link>
           </span>
