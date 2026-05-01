@@ -72,8 +72,8 @@ export default function CallbackModal() {
               </div>
             ) : (
               <>
-                <h3 style={{ marginBottom: 6 }}>Заказать звонок</h3>
-                <p style={{ color: "var(--fg-muted)", fontSize: 13, marginBottom: 24 }}>
+                <h3 style={{ marginBottom: 6, color: "#f5f3ee" }}>Заказать звонок</h3>
+                <p style={{ color: "rgba(245,243,238,0.6)", fontSize: 13, marginBottom: 24 }}>
                   Оставьте номер — перезвоним в течение 15 минут
                 </p>
                 <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -88,7 +88,7 @@ export default function CallbackModal() {
                   {status === "error" && (
                     <p style={{ color: "#ff6b6b", fontSize: 13, margin: 0 }}>Ошибка отправки. Позвоните напрямую: {PHONE}</p>
                   )}
-                  <button className="btn btn-primary btn-lg" type="submit" disabled={status === "loading"} style={{ marginTop: 4 }}>
+                  <button className="btn btn-primary btn-lg" type="submit" disabled={status === "loading"} style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
                     {status === "loading" ? "Отправка…" : "Перезвоните мне"}
                   </button>
                 </form>

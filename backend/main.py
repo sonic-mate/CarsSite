@@ -182,10 +182,12 @@ def list_cars(
 async def get_car(car_id: str, db: Session = Depends(get_db)):
     car = await aggregator.get_by_id(car_id)
     if car:
+        print(f"[get_car] {car_id} → ajes: {car}")
         return car
     db_car = db.query(Car).filter(Car.id == car_id, Car.is_active == True).first()
     if not db_car:
         raise HTTPException(status_code=404, detail="Автомобиль не найден")
+    print(f"[get_car] {car_id} → DB fallback: {db_car.__dict__}")
     return db_car
 
 
