@@ -60,11 +60,6 @@ async def search(
 
 
 async def get_by_id(car_id: str) -> dict | None:
-    ck = f"id={car_id}"
-    cached = _get(ck)
-    if cached is not None:
-        return cached[0] if cached else None
-
     if car_id.startswith("jp-"):
         cars = await japan.fetch_one(car_id[3:])
     elif car_id.startswith("kr-"):
@@ -73,8 +68,6 @@ async def get_by_id(car_id: str) -> dict | None:
         cars = await china.fetch_one(car_id[3:])
     else:
         return None
-
-    _set(ck, cars)
     return cars[0] if cars else None
 
 
