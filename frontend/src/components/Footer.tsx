@@ -61,7 +61,7 @@ export default function Footer() {
             <Link href="/terms" style={{ color: "rgba(245,243,238,0.5)" }}>Пользовательское соглашение</Link>
           </span>
         </div>
-        <div style={{ textAlign: "center", paddingBottom: 20, fontSize: 11, color: "rgba(200,164,92,0.5)", letterSpacing: "0.04em" }}>
+        <div style={{ textAlign: "center", paddingTop: 20, paddingBottom: 20, fontSize: 11, color: "rgba(200,164,92,0.5)", letterSpacing: "0.04em" }}>
           Website created by Oridium digital
         </div>
       </div>
