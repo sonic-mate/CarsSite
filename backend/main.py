@@ -16,17 +16,17 @@ import tariff_cache
 
 
 def _migrate():
-    with engine.connect() as conn:
-        for table, col, definition in [
-            ("cars",    "photo_url",  "VARCHAR"),
-            ("cars",    "source",     "VARCHAR DEFAULT 'manual'"),
-            ("tariffs", "eur_to_rub", "FLOAT DEFAULT 95.0"),
-        ]:
-            try:
+    for table, col, definition in [
+        ("cars",    "photo_url",  "VARCHAR"),
+        ("cars",    "source",     "VARCHAR DEFAULT 'manual'"),
+        ("tariffs", "eur_to_rub", "FLOAT DEFAULT 95.0"),
+    ]:
+        try:
+            with engine.connect() as conn:
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {definition}"))
                 conn.commit()
-            except Exception:
-                pass
+        except Exception:
+            pass
 
 
 def _init_tariffs():
