@@ -42,12 +42,12 @@ export default function ProcessPage() {
         <div className="container">
           <div style={{ textAlign: "center", maxWidth: 720, margin: "0 auto 64px" }}>
             <span className="eyebrow-gold" style={{ marginBottom: 16 }}>6 шагов · 30 дней в среднем</span>
-            <h1 style={{ fontSize: 80, lineHeight: 0.95 }}>КАК МЫ РАБОТАЕМ</h1>
+            <h1 style={{ lineHeight: 0.95 }}>КАК МЫ РАБОТАЕМ</h1>
             <p style={{ marginTop: 24, fontSize: 18, color: "rgba(245,243,238,0.75)" }}>
               Прозрачный процесс от&nbsp;первого звонка до&nbsp;ключей в&nbsp;руке. Без скрытых платежей и&nbsp;неприятных сюрпризов.
             </p>
           </div>
-          <div className="steps" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+          <div className="steps steps-home">
             {STEPS.map((s, i) => (
               <div className="step" key={i}>
                 <h4>{s.t}</h4>
@@ -62,7 +62,7 @@ export default function ProcessPage() {
       <section className="section">
         <div className="container" style={{ maxWidth: 860, margin: "0 auto" }}>
           <h2 style={{ textAlign: "center", marginBottom: 48 }}>Почему выбирают нас</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
+          <div className="about-grid" style={{ gap: 32 }}>
             {[
               { icon: "shield" as const, t: "Гарантия на документы", d: "Все документы оформляются в полном соответствии с законодательством РФ. Мы несём ответственность за каждую сделку." },
               { icon: "clock" as const, t: "Фиксированные сроки", d: "Средний срок «под ключ» — 30 дней. Вы видите отчёты с каждого этапа в реальном времени." },
