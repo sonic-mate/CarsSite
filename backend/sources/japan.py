@@ -41,9 +41,8 @@ async def fetch(
 
 
 async def fetch_one(lot_id: str) -> list[dict]:
-    if not lot_id.isdigit():
-        return []
-    sql = f"SELECT * FROM main WHERE ID={lot_id} LIMIT 1"
+    val = lot_id if lot_id.isdigit() else f"'{lot_id}'"
+    sql = f"SELECT * FROM main WHERE ID={val} LIMIT 1"
     data = await _call(sql)
     print(f"[ajes raw] lot={lot_id}: {data}")
     if not data:
