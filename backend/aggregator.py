@@ -1,13 +1,11 @@
 """
-Aggregates live cars from ajes.com SQL API (Japan, Korea, China).
-All sources require AJES_API_KEY. Demo key DvemR43s used if not set.
-Cache: 5 min per query.
+On-demand aggregator — queries ajes.com per user request.
+Cache: 5 min per unique query combination.
 """
 import asyncio
-import os
 import time
 from typing import Optional
-from sources import japan, korea, china
+from sources import japan
 
 CACHE_TTL = 300
 _cache: dict[str, tuple[float, list]] = {}
@@ -36,7 +34,7 @@ async def search(
     limit: int = 20,
 ) -> list[dict]:
     ck = _key(country=country, brand=brand, body=body,
-               price_max=price_max, year_min=year_min, page=page)
+               price_max=price_max, year_min=year_min, page=page, limit=limit)
     cached = _get(ck)
     if cached is not None:
         return cached
@@ -46,8 +44,6 @@ async def search(
 
     if country in ("korea", "china"):
         tasks = []
-    elif country == "japan":
-        tasks = [japan.fetch(**kw)]
     else:
         tasks = [japan.fetch(**kw)]
 
@@ -61,6 +57,22 @@ async def search(
 
     _set(ck, cars)
     return cars
+
+
+async def get_by_id(car_id: str) -> dict | None:
+    ck = f"id={car_id}"
+    cached = _get(ck)
+    if cached is not None:
+        return cached[0] if cached else None
+
+    if car_id.startswith("jp-"):
+        lot_id = car_id[3:]
+        cars = await japan.fetch_one(lot_id)
+    else:
+        return None
+
+    _set(ck, cars)
+    return cars[0] if cars else None
 
 
 def active_sources() -> list[str]:

@@ -1,15 +1,14 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, Header
+from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from typing import Optional, List
+from typing import Optional
 import os
-import asyncio
 from contextlib import asynccontextmanager
 
 from database import engine, get_db, Base, SessionLocal
 from models import Car, Tariffs
-from schemas import CarOut, CalculatorIn, CalculatorOut, TariffsSchema
+from schemas import CalculatorIn, CalculatorOut, TariffsSchema
 import aggregator
 import tariff_cache
 
@@ -38,46 +37,11 @@ def _init_tariffs():
         db.close()
 
 
-async def _sync_live_cars():
-    try:
-        cars = await aggregator.search(limit=200)
-        if not cars:
-            return
-        db = SessionLocal()
-        try:
-            db.query(Car).filter(Car.source == "live").delete()
-            for d in cars:
-                db.add(Car(
-                    id=d["id"], brand=d["brand"], model=d["model"],
-                    year=d["year"], country=d["country"], body=d["body"],
-                    mileage=d["mileage"], engine=d["engine"], price=d["price"],
-                    badge=str(d["badge"]) if d.get("badge") else None,
-                    photo_tint=d.get("photo_tint", "#1a1d24"),
-                    silhouette=d.get("silhouette", "sedan"),
-                    photo_url=d.get("photo_url"),
-                    source="live", is_active=True,
-                ))
-            db.commit()
-            print(f"Synced {len(cars)} live cars.")
-        finally:
-            db.close()
-    except Exception as e:
-        print(f"Sync error: {e}")
-
-
-async def _sync_loop():
-    await asyncio.sleep(5)
-    while True:
-        await _sync_live_cars()
-        await asyncio.sleep(300)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _migrate()
     _init_tariffs()
-    asyncio.create_task(_sync_loop())
     yield
 
 
@@ -91,47 +55,40 @@ app.add_middleware(
 )
 
 
-# ─── DB cars (curated catalog) ────────────────────────────────────────────────
+# ─── Cars (on-demand from ajes.com) ───────────────────────────────────────────
 
-@app.get("/api/cars", response_model=List[CarOut])
-def list_cars(
+@app.get("/api/cars")
+async def list_cars(
     country: Optional[str] = None,
+    brand: Optional[str] = None,
     body: Optional[str] = None,
-    price_min: Optional[int] = None,
     price_max: Optional[int] = None,
     year_min: Optional[int] = None,
-    year_max: Optional[int] = None,
-    fuel: Optional[str] = None,
     sort: str = "popular",
-    db: Session = Depends(get_db),
+    page: int = 1,
+    limit: int = 20,
 ):
-    q = db.query(Car).filter(Car.is_active == True)
-    if country:
-        q = q.filter(Car.country == country)
-    if body:
-        q = q.filter(Car.body == body)
-    if price_min:
-        q = q.filter(Car.price >= price_min)
-    if price_max:
-        q = q.filter(Car.price <= price_max)
-    if year_min:
-        q = q.filter(Car.year >= year_min)
-    if year_max:
-        q = q.filter(Car.year <= year_max)
-    if fuel:
-        q = q.filter(Car.engine.ilike(f"%{fuel}%"))
+    cars = await aggregator.search(
+        country=country,
+        brand=brand,
+        body=body,
+        price_max=price_max,
+        year_min=year_min,
+        page=page,
+        limit=limit,
+    )
     if sort == "price-asc":
-        q = q.order_by(Car.price.asc())
+        cars = sorted(cars, key=lambda c: c["price"])
     elif sort == "price-desc":
-        q = q.order_by(Car.price.desc())
+        cars = sorted(cars, key=lambda c: c["price"], reverse=True)
     elif sort == "year":
-        q = q.order_by(Car.year.desc())
-    return q.all()
+        cars = sorted(cars, key=lambda c: c.get("year", 0), reverse=True)
+    return cars
 
 
-@app.get("/api/cars/{car_id}", response_model=CarOut)
-def get_car(car_id: str, db: Session = Depends(get_db)):
-    car = db.query(Car).filter(Car.id == car_id, Car.is_active == True).first()
+@app.get("/api/cars/{car_id}")
+async def get_car(car_id: str):
+    car = await aggregator.get_by_id(car_id)
     if not car:
         raise HTTPException(status_code=404, detail="Автомобиль не найден")
     return car

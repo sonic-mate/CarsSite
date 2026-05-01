@@ -39,6 +39,14 @@ async def fetch(
     return cars
 
 
+async def fetch_one(lot_id: str) -> list[dict]:
+    sql = f"SELECT * FROM main WHERE ID={lot_id} LIMIT 1"
+    data = await _call(sql)
+    if not data:
+        return []
+    return [_norm(i) for i in data if i]
+
+
 async def _call(sql: str) -> list | None:
     from urllib.parse import quote
     url = f"http://{API_HOST}/api/?json&code={API_KEY}&sql={quote(sql)}"
