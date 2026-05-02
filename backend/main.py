@@ -117,7 +117,7 @@ async def _rates_loop():
 
 async def _sync_live_cars():
     try:
-        cars = await aggregator.search(limit=500)
+        cars = await aggregator.search(limit=2000)
         if not cars:
             return
         db = SessionLocal()
@@ -151,7 +151,6 @@ async def _sync_live_cars():
 
 
 async def _sync_loop():
-    await asyncio.sleep(5)
     while True:
         await _sync_live_cars()
         await asyncio.sleep(3600)
