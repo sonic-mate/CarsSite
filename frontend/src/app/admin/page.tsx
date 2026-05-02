@@ -45,7 +45,6 @@ type Tab = "overview" | "calculator" | "users";
 export default function AdminPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [token, setToken]       = useState("");
   const [me, setMe]             = useState("");
   const [authed, setAuthed]     = useState(false);
   const [tab, setTab]           = useState<Tab>("overview");
@@ -63,18 +62,16 @@ export default function AdminPage() {
   const [userOk, setUserOk]     = useState("");
 
   useEffect(() => {
-    const t = sessionStorage.getItem("admin_token");
     const u = sessionStorage.getItem("admin_me");
-    if (t && u) { setToken(t); setMe(u); setAuthed(true); }
+    if (u) { setMe(u); setAuthed(true); }
   }, []);
 
   useEffect(() => {
     if (!authed) return;
-    const h = { Authorization: `Bearer ${token}` };
     fetch(`${API}/api/tariffs`).then(r => r.json()).then(setTariffs).catch(() => {});
     fetch(`${API}/api/stats`).then(r => r.json()).then(setStats).catch(() => {});
-    fetch(`${API}/api/admin/users`, { headers: h }).then(r => r.json()).then(setUsers).catch(() => {});
-  }, [authed, token]);
+    fetch(`${API}/api/admin/users`, { credentials: "include" }).then(r => r.json()).then(setUsers).catch(() => {});
+  }, [authed]);
 
   async function login(e: React.FormEvent) {
     e.preventDefault();
@@ -83,21 +80,20 @@ export default function AdminPage() {
       const r = await fetch(`${API}/api/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ username, password }),
       });
       if (!r.ok) { const j = await r.json(); setLoginErr(j.detail || "Ошибка"); return; }
-      const { token: t, username: u } = await r.json();
-      sessionStorage.setItem("admin_token", t);
+      const { username: u } = await r.json();
       sessionStorage.setItem("admin_me", u);
-      setToken(t); setMe(u); setAuthed(true);
+      setMe(u); setAuthed(true);
     } catch { setLoginErr("Сервер недоступен"); }
   }
 
   async function logout() {
-    await fetch(`${API}/api/admin/logout`, { method: "POST", headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
-    sessionStorage.removeItem("admin_token");
+    await fetch(`${API}/api/admin/logout`, { method: "POST", credentials: "include" }).catch(() => {});
     sessionStorage.removeItem("admin_me");
-    setAuthed(false); setToken(""); setMe(""); setTariffs(null); setStats(null); setUsers([]);
+    setAuthed(false); setMe(""); setTariffs(null); setStats(null); setUsers([]);
   }
 
   function change(key: keyof Tariffs, val: string) {
@@ -112,7 +108,8 @@ export default function AdminPage() {
     try {
       const r = await fetch(`${API}/api/tariffs`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(tariffs),
       });
       if (!r.ok) throw new Error((await r.json()).detail);
@@ -127,7 +124,8 @@ export default function AdminPage() {
     try {
       const r = await fetch(`${API}/api/admin/users`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(newUser),
       });
       const j = await r.json();
@@ -140,7 +138,7 @@ export default function AdminPage() {
 
   async function deleteUser(id: number) {
     if (!confirm("Удалить пользователя?")) return;
-    const r = await fetch(`${API}/api/admin/users/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    const r = await fetch(`${API}/api/admin/users/${id}`, { method: "DELETE", credentials: "include" });
     if (r.ok) setUsers(u => u.filter(x => x.id !== id));
     else { const j = await r.json(); alert(j.detail); }
   }
@@ -322,8 +320,8 @@ export default function AdminPage() {
                 <input value={newUser.username} onChange={e => setNewUser(n => ({ ...n, username: e.target.value }))} style={s.input} required autoComplete="off"/>
               </div>
               <div style={{ flex: 1 }}>
-                <label style={s.label}>Пароль (мин. 6 символов)</label>
-                <input type="password" value={newUser.password} onChange={e => setNewUser(n => ({ ...n, password: e.target.value }))} style={s.input} required minLength={6} autoComplete="new-password"/>
+                <label style={s.label}>Пароль (мин. 8 символов)</label>
+                <input type="password" value={newUser.password} onChange={e => setNewUser(n => ({ ...n, password: e.target.value }))} style={s.input} required minLength={8} autoComplete="new-password"/>
               </div>
               <button type="submit" className="btn btn-primary" style={{ flexShrink: 0 }}>Создать</button>
             </form>

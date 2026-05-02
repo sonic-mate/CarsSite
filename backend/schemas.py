@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
@@ -31,11 +31,11 @@ class CarOut(CarBase):
 
 
 class CalculatorIn(BaseModel):
-    country: str
-    auction_price: int
-    engine_cc: int
-    year: int
-    fuel_type: str = "Бензин"
+    country: str = Field(..., pattern="^(japan|korea|china)$")
+    auction_price: int = Field(..., gt=0, lt=100_000_000)
+    engine_cc: int = Field(..., ge=0, le=12000)
+    year: int = Field(..., ge=1900, le=2030)
+    fuel_type: str = Field("Бензин")
 
 
 class CalculatorOut(BaseModel):

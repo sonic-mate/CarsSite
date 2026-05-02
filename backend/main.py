@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi import FastAPI, Depends, HTTPException, Header, Request, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import Optional, List
@@ -7,6 +8,10 @@ import os
 import asyncio
 import datetime
 from contextlib import asynccontextmanager
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from database import engine, get_db, Base, SessionLocal
 from models import Car, Tariffs, AdminUser
@@ -41,11 +46,14 @@ def _migrate():
 
 def _init_admin():
     """Seed default admin user from env if no users exist."""
+    username = os.getenv("ADMIN_USER")
+    password = os.getenv("ADMIN_PASS")
+    if not username or not password:
+        print("[admin] WARNING: ADMIN_USER and ADMIN_PASS env vars not set — skipping admin seed")
+        return
     db = SessionLocal()
     try:
         if db.query(AdminUser).count() == 0:
-            username = os.getenv("ADMIN_USER", "admin")
-            password = os.getenv("ADMIN_PASS", "admin123")
             db.add(AdminUser(username=username, password_hash=auth.hash_password(password)))
             db.commit()
             print(f"[admin] Created default user: {username}")
@@ -155,25 +163,64 @@ async def lifespan(app: FastAPI):
     _migrate()
     _init_tariffs()
     _init_admin()
-    asyncio.create_task(_rates_loop())
-    asyncio.create_task(_sync_loop())
+    tasks = [
+        asyncio.create_task(_rates_loop()),
+        asyncio.create_task(_sync_loop()),
+    ]
     yield
+    for t in tasks:
+        t.cancel()
+        try:
+            await t
+        except asyncio.CancelledError:
+            pass
 
+
+# ─── Rate limiter ─────────────────────────────────────────────────────────────
+
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(title="Восток Авто Импорт API", version="1.0.0", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# ─── Security headers ─────────────────────────────────────────────────────────
+
+class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+app.add_middleware(_SecurityHeadersMiddleware)
+
+
+# ─── CORS ─────────────────────────────────────────────────────────────────────
+
+_ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv("CORS_ORIGINS", "https://vostokavtoimport.ru,http://localhost:3000").split(",")
+    if o.strip()
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
 # ─── Catalog (from DB, synced hourly) ─────────────────────────────────────────
 
 @app.get("/api/cars", response_model=List[CarOut])
-def list_cars(
+@limiter.limit("60/minute")
+def list_cars(request: Request,
     country: Optional[str] = None,
     body: Optional[str] = None,
     price_min: Optional[int] = None,
@@ -208,7 +255,7 @@ def list_cars(
     return q.all()
 
 
-# ─── Car detail (live from ajes.com, fallback to DB) ──────────────────────────
+# ─── Car detail ───────────────────────────────────────────────────────────────
 
 @app.get("/api/cars/{car_id}")
 def get_car(car_id: str, db: Session = Depends(get_db)):
@@ -221,7 +268,8 @@ def get_car(car_id: str, db: Session = Depends(get_db)):
 # ─── Live cars from external APIs ────────────────────────────────────────────
 
 @app.get("/api/live/cars")
-async def live_cars(
+@limiter.limit("30/minute")
+async def live_cars(request: Request,
     country: Optional[str] = None,
     brand: Optional[str] = None,
     body: Optional[str] = None,
@@ -247,11 +295,15 @@ async def live_cars(
     }
 
 
-# ─── Debug ────────────────────────────────────────────────────────────────────
+# ─── Debug (gated behind DEBUG_ENDPOINTS env var) ────────────────────────────
+
+def _require_debug():
+    if not os.getenv("DEBUG_ENDPOINTS"):
+        raise HTTPException(status_code=404, detail="Not found")
+
 
 @app.get("/api/debug/images")
-async def debug_images():
-    """Check raw IMAGES field from ajes.com and resolved URLs."""
+async def debug_images(_: None = Depends(_require_debug)):
     from sources.japan import _call, _photo_url
     data = await _call("SELECT ID, MARKA_NAME, MODEL_NAME, IMAGES FROM main WHERE IMAGES IS NOT NULL AND IMAGES != '' ORDER BY ID DESC LIMIT 5")
     if not data:
@@ -268,14 +320,14 @@ async def debug_images():
 
 
 @app.get("/api/debug/bodies")
-def debug_bodies(db: Session = Depends(get_db)):
+def debug_bodies(db: Session = Depends(get_db), _: None = Depends(_require_debug)):
     from sqlalchemy import func
     rows = db.query(Car.body, func.count(Car.id).label("cnt")).group_by(Car.body).order_by(func.count(Car.id).desc()).all()
     return [{"body": r.body, "count": r.cnt} for r in rows]
 
 
 @app.get("/api/debug/unknown-bodies")
-def debug_unknown_bodies(db: Session = Depends(get_db)):
+def debug_unknown_bodies(db: Session = Depends(get_db), _: None = Depends(_require_debug)):
     from sqlalchemy import func
     rows = (db.query(Car.brand, Car.model, func.count(Car.id).label("cnt"))
             .filter(Car.body == "Другой")
@@ -286,10 +338,9 @@ def debug_unknown_bodies(db: Session = Depends(get_db)):
 
 
 @app.get("/api/debug/ajes")
-async def debug_ajes():
-    """Test ajes.com SQL API for all three tables."""
-    import httpx, os
-    key = os.getenv("AJES_API_KEY", "VAInBvFrU76d")
+async def debug_ajes(_: None = Depends(_require_debug)):
+    import httpx
+    key = os.getenv("AJES_API_KEY", "")
     host = os.getenv("AJES_HOST", "78.46.90.228")
     results = {}
     for table, label in [("main", "japan"), ("kr", "korea"), ("che", "china")]:
@@ -313,16 +364,16 @@ async def debug_ajes():
 
 
 @app.get("/api/debug/lot/{lot_id}")
-async def debug_lot(lot_id: str):
-    """Return raw ajes.com data for a specific lot ID."""
+async def debug_lot(lot_id: str, _: None = Depends(_require_debug)):
+    if not lot_id.isdigit():
+        raise HTTPException(status_code=400, detail="Invalid lot ID")
     from sources.japan import _call
     data = await _call(f"SELECT * FROM main WHERE ID={lot_id} LIMIT 1")
     return {"raw": data}
 
 
 @app.get("/api/debug/sources")
-async def debug_sources():
-    """Test actual fetch from each source module."""
+async def debug_sources(_: None = Depends(_require_debug)):
     from sources import korea, china
     try:
         kr_cars = await korea.fetch(limit=3)
@@ -350,8 +401,12 @@ class _UserIn(_BaseModel):
     username: str
     password: str
 
-def _require_admin(authorization: Optional[str] = Header(default=None)) -> str:
-    token = (authorization or "").removeprefix("Bearer ").strip()
+def _require_admin(
+    authorization: Optional[str] = Header(default=None),
+    admin_token: Optional[str] = Cookie(default=None),
+) -> str:
+    # Accept token from httpOnly cookie (preferred) or Authorization header (fallback)
+    token = admin_token or (authorization or "").removeprefix("Bearer ").strip()
     username = auth.check_session(token)
     if not username:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -374,7 +429,6 @@ def update_tariffs(
     db: Session = Depends(get_db),
     _: str = Depends(_require_admin),
 ):
-
     t = db.query(Tariffs).filter(Tariffs.id == 1).first()
     if not t:
         t = Tariffs(id=1)
@@ -391,74 +445,9 @@ def update_tariffs(
 
 # ─── Calculator ───────────────────────────────────────────────────────────────
 
-# ФТС ставки для физлиц (единая таможенная территория ЕАЭС)
-# (cc_from, cc_to, eur_per_cc)
-_RATES_NEW = [  # < 3 лет: max(48% от цены, €/cc)
-    (0,    1000,  2.5),
-    (1000, 1500,  3.5),
-    (1500, 1800,  5.0),
-    (1800, 2300,  7.5),
-    (2300, 3000,  7.5),
-    (3000, 99999, 15.0),
-]
-_RATES_MID = [  # 3–5 лет: €/cc
-    (0,    1000,  1.5),
-    (1000, 1500,  1.7),
-    (1500, 1800,  2.5),
-    (1800, 2300,  2.7),
-    (2300, 3000,  3.0),
-    (3000, 99999, 3.6),
-]
-_RATES_OLD = [  # > 5 лет: €/cc
-    (0,    1000,  3.0),
-    (1000, 1500,  3.2),
-    (1500, 1800,  3.5),
-    (1800, 2300,  4.8),
-    (2300, 3000,  5.0),
-    (3000, 99999, 5.7),
-]
-
-
-def _eur_per_cc(cc: int, rates: list) -> float:
-    for lo, hi, rate in rates:
-        if lo < cc <= hi or (lo == 0 and cc <= hi):
-            return rate
-    return rates[-1][2]
-
-
-def _calc_customs(auction_price: int, engine_cc: int, year: int, fuel_type: str, t) -> int:
-    if fuel_type == "Электро":
-        return round(auction_price * 0.15)
-
-    age = datetime.date.today().year - year
-
-    if engine_cc <= 0:
-        # Нет данных об объёме — простая формула
-        if age < 3:
-            coef = t.customs_coef_new
-        elif age < 5:
-            coef = t.customs_coef_mid
-        else:
-            coef = t.customs_coef_old
-        return round(auction_price * t.customs_rate * coef)
-
-    eur = t.eur_to_rub
-
-    if age < 3:
-        eur_cc = _eur_per_cc(engine_cc, _RATES_NEW)
-        by_percent = round(auction_price * 0.48)
-        by_cc = round(engine_cc * eur_cc * eur)
-        return max(by_percent, by_cc)
-    elif age < 5:
-        eur_cc = _eur_per_cc(engine_cc, _RATES_MID)
-        return round(engine_cc * eur_cc * eur)
-    else:
-        eur_cc = _eur_per_cc(engine_cc, _RATES_OLD)
-        return round(engine_cc * eur_cc * eur)
-
-
 @app.post("/api/calculator", response_model=CalculatorOut)
-def calculate(data: CalculatorIn, db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+def calculate(request: Request, data: CalculatorIn, db: Session = Depends(get_db)):
     t = db.query(Tariffs).filter(Tariffs.id == 1).first()
     if not t:
         t = Tariffs()
@@ -487,8 +476,27 @@ class CallbackIn(_BaseModel):
     name: str
     phone: str
 
+    from pydantic import field_validator
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v or len(v) > 100:
+            raise ValueError("name must be 1–100 chars")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        import re
+        v = v.strip()
+        if not re.match(r"^\+?[\d\s\-\(\)]{5,30}$", v):
+            raise ValueError("invalid phone")
+        return v
+
 @app.post("/api/callback", status_code=201)
-def create_callback(data: CallbackIn):
+@limiter.limit("5/minute")
+def create_callback(request: Request, data: CallbackIn):
     print(f"CALLBACK REQUEST: {data.name} | {data.phone}")
     return {"ok": True}
 
@@ -508,18 +516,36 @@ def stats(db: Session = Depends(get_db)):
 
 # ─── Admin Auth ───────────────────────────────────────────────────────────────
 
+_IS_PRODUCTION = os.getenv("NODE_ENV") == "production" or os.getenv("PRODUCTION") == "1"
+
+
 @app.post("/api/admin/login")
-def admin_login(data: _LoginIn, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def admin_login(request: Request, response: Response, data: _LoginIn, db: Session = Depends(get_db)):
     user = db.query(AdminUser).filter(AdminUser.username == data.username).first()
     if not user or not auth.verify(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
     token = auth.create_session(user.username)
-    return {"token": token, "username": user.username}
+    response.set_cookie(
+        key="admin_token",
+        value=token,
+        httponly=True,
+        secure=_IS_PRODUCTION,
+        samesite="lax",
+        max_age=60 * 60 * 8,
+        path="/",
+    )
+    return {"username": user.username}
 
 @app.post("/api/admin/logout")
-def admin_logout(authorization: Optional[str] = Header(default=None)):
-    token = (authorization or "").removeprefix("Bearer ").strip()
+def admin_logout(
+    response: Response,
+    authorization: Optional[str] = Header(default=None),
+    admin_token: Optional[str] = Cookie(default=None),
+):
+    token = admin_token or (authorization or "").removeprefix("Bearer ").strip()
     auth.revoke_session(token)
+    response.delete_cookie(key="admin_token", path="/")
     return {"ok": True}
 
 @app.get("/api/admin/users")
@@ -531,8 +557,8 @@ def list_users(db: Session = Depends(get_db), _: str = Depends(_require_admin)):
 def create_user(data: _UserIn, db: Session = Depends(get_db), _: str = Depends(_require_admin)):
     if db.query(AdminUser).filter(AdminUser.username == data.username).first():
         raise HTTPException(status_code=409, detail="Пользователь уже существует")
-    if len(data.password) < 6:
-        raise HTTPException(status_code=422, detail="Пароль минимум 6 символов")
+    if len(data.password) < 8:
+        raise HTTPException(status_code=422, detail="Пароль минимум 8 символов")
     u = AdminUser(username=data.username, password_hash=auth.hash_password(data.password))
     db.add(u); db.commit(); db.refresh(u)
     return {"id": u.id, "username": u.username}
@@ -549,5 +575,10 @@ def delete_user(user_id: int, db: Session = Depends(get_db), me: str = Depends(_
 
 
 @app.get("/health")
-def health():
-    return {"status": "ok"}
+def health(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        auth._redis().ping()
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=str(e))

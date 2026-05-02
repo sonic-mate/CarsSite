@@ -1,12 +1,18 @@
 version: "3.9"
 
 services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: carssite
       POSTGRES_USER: carssite
-      POSTGRES_PASSWORD: carssite
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -21,14 +27,18 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://carssite:carssite@db:5432/carssite
-      AJES_API_KEY: "${AJES_API_KEY:-VAInBvFrU76d}"
-      ADMIN_USER: "${ADMIN_USER:-admin}"
-      ADMIN_PASS: "${ADMIN_PASS:-admin123}"
-      SECRET_KEY: "${SECRET_KEY:-vostok-secret-2025}"
+      DATABASE_URL: "postgresql://carssite:${DB_PASSWORD}@db:5432/carssite"
+      AJES_API_KEY: "${AJES_API_KEY}"
+      ADMIN_USER: "${ADMIN_USER}"
+      ADMIN_PASS: "${ADMIN_PASS}"
+      SECRET_KEY: "${SECRET_KEY}"
+      REDIS_URL: "redis://redis:6379/0"
+      PRODUCTION: "1"
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
       interval: 10s
@@ -54,3 +64,4 @@ services:
 
 volumes:
   pgdata:
+  redisdata:

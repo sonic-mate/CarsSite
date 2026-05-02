@@ -8,7 +8,7 @@ from typing import Optional
 import tariff_cache
 import calc
 
-API_KEY  = os.getenv("AJES_API_KEY", "VAInBvFrU76d")
+API_KEY  = os.getenv("AJES_API_KEY", "")
 API_HOST = os.getenv("AJES_HOST", "78.46.90.228")
 
 
@@ -24,7 +24,8 @@ async def fetch(
     offset = (page - 1) * limit
     where = ["1=1"]
     if brand:
-        where.append(f"MARKA_NAME LIKE '%{brand}%'")
+        brand_safe = brand.replace("\\", "\\\\").replace("'", "''").replace("%", "\\%").replace("_", "\\_")
+        where.append(f"MARKA_NAME LIKE '%{brand_safe}%'")
     if year_min:
         where.append(f"YEAR>={year_min}")
 
