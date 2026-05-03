@@ -1,16 +1,6 @@
 import Link from "next/link";
 import { PHONE, EMAIL, ADDRESS, SOCIALS } from "@/lib/types";
 
-const NAV = [
-  { href: "/catalog?country=japan", label: "Авто из Японии" },
-  { href: "/catalog?country=korea", label: "Авто из Кореи" },
-  { href: "/catalog?country=china", label: "Авто из Китая" },
-  { href: "/catalog", label: "Все автомобили" },
-  { href: "/calculator", label: "Калькулятор" },
-  { href: "/process", label: "Как мы работаем" },
-  { href: "/#reviews", label: "Отзывы" },
-];
-
 export default function Footer() {
   return (
     <footer className="site-footer">
@@ -43,13 +33,6 @@ export default function Footer() {
             <Link href="/#callback" className="btn btn-primary btn-sm">Оставить заявку</Link>
           </div>
         </div>
-
-        {/* Nav row */}
-        <nav className="footer-nav">
-          {NAV.map(({ href, label }) => (
-            <Link key={href} href={href} className="footer-nav-link">{label}</Link>
-          ))}
-        </nav>
 
         {/* Legal */}
         <div className="footer-legal">
