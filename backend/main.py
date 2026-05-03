@@ -262,6 +262,7 @@ def list_cars(request: Request,
     year_min: Optional[int] = None,
     year_max: Optional[int] = None,
     fuel: Optional[str] = None,
+    brand: Optional[str] = None,
     sort: str = "popular",
     limit: int = 60,
     offset: int = 0,
@@ -282,6 +283,8 @@ def list_cars(request: Request,
         q = q.filter(Car.year <= year_max)
     if fuel:
         q = q.filter(Car.engine.ilike(f"%{fuel}%"))
+    if brand:
+        q = q.filter(Car.brand.ilike(f"%{brand}%"))
     if sort == "price-asc":
         q = q.order_by(Car.price.asc())
     elif sort == "price-desc":
@@ -291,12 +294,24 @@ def list_cars(request: Request,
     return q.offset(offset).limit(min(limit, 200)).all()
 
 
+@app.get("/api/cars-brands")
+@limiter.limit("30/minute")
+def cars_brands(request: Request, country: Optional[str] = None, db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    q = db.query(Car.brand, func.count(Car.id).label("cnt")).filter(Car.is_active == True)
+    if country:
+        q = q.filter(Car.country == country)
+    rows = q.group_by(Car.brand).order_by(func.count(Car.id).desc()).all()
+    return [{"brand": r.brand, "count": r.cnt} for r in rows]
+
+
 @app.get("/api/cars-count")
 @limiter.limit("60/minute")
 def count_cars(request: Request,
     country: Optional[str] = None,
     body: Optional[str] = None,
     fuel: Optional[str] = None,
+    brand: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     q = db.query(Car).filter(Car.is_active == True)
@@ -306,6 +321,8 @@ def count_cars(request: Request,
         q = q.filter(Car.body == body)
     if fuel:
         q = q.filter(Car.engine.ilike(f"%{fuel}%"))
+    if brand:
+        q = q.filter(Car.brand.ilike(f"%{brand}%"))
     total = q.count()
     by_country = {}
     for c in ["japan", "korea", "china"]:
