@@ -294,7 +294,6 @@ def list_cars(request: Request,
     return q.offset(offset).limit(min(limit, 200)).all()
 
 
-<<<<<<< HEAD
 @app.get("/api/cars-brands")
 @limiter.limit("30/minute")
 def cars_brands(request: Request, country: Optional[str] = None, db: Session = Depends(get_db)):
@@ -306,18 +305,13 @@ def cars_brands(request: Request, country: Optional[str] = None, db: Session = D
     return [{"brand": r.brand, "count": r.cnt} for r in rows]
 
 
-=======
->>>>>>> 206c911cb2bcc755a625d147a51d4947d71964c6
 @app.get("/api/cars-count")
 @limiter.limit("60/minute")
 def count_cars(request: Request,
     country: Optional[str] = None,
     body: Optional[str] = None,
     fuel: Optional[str] = None,
-<<<<<<< HEAD
     brand: Optional[str] = None,
-=======
->>>>>>> 206c911cb2bcc755a625d147a51d4947d71964c6
     db: Session = Depends(get_db),
 ):
     q = db.query(Car).filter(Car.is_active == True)
@@ -327,11 +321,8 @@ def count_cars(request: Request,
         q = q.filter(Car.body == body)
     if fuel:
         q = q.filter(Car.engine.ilike(f"%{fuel}%"))
-<<<<<<< HEAD
     if brand:
         q = q.filter(Car.brand.ilike(f"%{brand}%"))
-=======
->>>>>>> 206c911cb2bcc755a625d147a51d4947d71964c6
     total = q.count()
     by_country = {}
     for c in ["japan", "korea", "china"]:
