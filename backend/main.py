@@ -33,8 +33,10 @@ def _migrate():
         ("cars",    "power",    "VARCHAR"),
         ("cars",    "steering", "VARCHAR"),
         ("cars",    "town",     "VARCHAR"),
-        ("cars",    "equip",    "VARCHAR"),
-        ("cars",    "kuzov",    "VARCHAR"),
+        ("cars",    "equip",       "VARCHAR"),
+        ("cars",    "kuzov",       "VARCHAR"),
+        ("cars",    "auction_price", "INTEGER DEFAULT 0"),
+        ("cars",    "engine_cc",    "INTEGER DEFAULT 0"),
     ]:
         try:
             with engine.connect() as conn:
@@ -368,6 +370,52 @@ def get_car(car_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Автомобиль не найден")
     return db_car
 
+
+@app.get("/api/cars/{car_id}/breakdown")
+def get_car_breakdown(car_id: str, db: Session = Depends(get_db)):
+    db_car = db.query(Car).filter(Car.id == car_id, Car.is_active == True).first()
+    if not db_car:
+        raise HTTPException(status_code=404, detail="Автомобиль не найден")
+    t = tariff_cache.get()
+    ap = getattr(db_car, "auction_price", 0) or 0
+    cc = getattr(db_car, "engine_cc", 0) or 0
+    if ap <= 0:
+        return None
+    detail = _calc.calc_customs_detail(ap, cc, db_car.year, db_car.engine or "Бензин", t)
+    delivery = {"japan": t.delivery_japan, "korea": t.delivery_korea, "china": t.delivery_china}.get(db_car.country, t.delivery_japan)
+    return {
+        "auction_price": ap,
+        "customs": detail["customs"],
+        "customs_fee": detail["fee"],
+        "delivery": delivery,
+        "services": t.services,
+        "total": db_car.price,
+    }
+
+
+
+@app.get("/api/cars/{car_id}/similar", response_model=List[CarOut])
+def get_similar_cars(car_id: str, db: Session = Depends(get_db)):
+    db_car = db.query(Car).filter(Car.id == car_id, Car.is_active == True).first()
+    if not db_car:
+        raise HTTPException(status_code=404, detail="Автомобиль не найден")
+
+    base = db.query(Car).filter(Car.is_active == True, Car.id != car_id)
+
+    # same brand + country first
+    by_brand = base.filter(Car.brand == db_car.brand, Car.country == db_car.country).limit(6).all()
+    if len(by_brand) >= 6:
+        return by_brand
+
+    seen = {c.id for c in by_brand}
+    # fill with same body + country
+    by_body = base.filter(
+        Car.body == db_car.body,
+        Car.country == db_car.country,
+        ~Car.id.in_(seen),
+    ).limit(6 - len(by_brand)).all()
+
+    return by_brand + by_body
 
 
 # ─── Debug (gated behind DEBUG_ENDPOINTS env var) ────────────────────────────

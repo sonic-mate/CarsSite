@@ -1,9 +1,19 @@
 export const dynamic = "force-dynamic";
 import { getCar } from "@/lib/api";
 import { COUNTRY_LABEL, PHONE, formatPrice, formatKm } from "@/lib/types";
+
+interface PriceBreakdown {
+  auction_price: number;
+  customs: number;
+  customs_fee: number;
+  delivery: number;
+  services: number;
+  total: number;
+}
 import CarSilhouette from "@/components/CarSilhouette";
 import Icon from "@/components/Icon";
 import CallbackModal from "@/components/CallbackModal";
+import CarCard from "@/components/CarCard";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -16,6 +26,18 @@ const BADGE_CLASS: Record<string, string> = {
 export default async function CarDetailPage({ params }: { params: { id: string } }) {
   const car = await getCar(params.id).catch(() => null);
   if (!car) notFound();
+
+  const apiBase = process.env.INTERNAL_API_URL || "http://localhost:8000";
+
+  const breakdown: PriceBreakdown | null = await fetch(
+    `${apiBase}/api/cars/${params.id}/breakdown`,
+    { cache: "no-store" }
+  ).then(r => r.ok ? r.json() : null).catch(() => null);
+
+  const similar: any[] = await fetch(
+    `${apiBase}/api/cars/${params.id}/similar`,
+    { cache: "no-store" }
+  ).then(r => r.ok ? r.json() : []).catch(() => []);
 
   const photoUrls: string[] = (car as any).photo_urls ?? ((car as any).photo_url ? [(car as any).photo_url] : []);
   const hasPhotos = photoUrls.length > 0;
@@ -93,23 +115,44 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                 {(car as any).town && (
                   <div className="spec-row"><span className="k">Город</span><span className="v">{(car as any).town}</span></div>
                 )}
+                {(car as any).equip && (
+                  <div className="spec-row"><span className="k">Доп. оборудование</span><span className="v" style={{ textAlign: "right", maxWidth: "60%" }}>{(car as any).equip}</span></div>
+                )}
                 {(car as any).badge && (
-                  <div className="spec-row" style={{ borderBottom: (car as any).equip ? undefined : 0 }}><span className="k">Оценка аукциона</span><span className="v">★ {(car as any).badge}</span></div>
+                  <div className="spec-row" style={{ borderBottom: 0 }}><span className="k">Оценка аукциона</span><span className="v">★ {(car as any).badge}</span></div>
                 )}
               </div>
-              {(car as any).equip && (
-                <>
-                  <h3 style={{ marginTop: 48, marginBottom: 16 }}>Дополнительное оборудование</h3>
-                  <p style={{ fontSize: 14, color: "var(--fg-muted)", lineHeight: 1.8 }}>{(car as any).equip}</p>
-                </>
-              )}
             </div>
 
             <div>
               <div className="detail-cta" style={{ position: "sticky", top: 96 }}>
                 <span className="eyebrow-gold">Цена под ключ</span>
+                {breakdown && (
+                  <div className="price-breakdown">
+                    <div className="price-breakdown-row">
+                      <span>Цена аукциона</span>
+                      <span>{formatPrice(breakdown.auction_price)}</span>
+                    </div>
+                    <div className="price-breakdown-row">
+                      <span>Таможенная пошлина</span>
+                      <span>{formatPrice(breakdown.customs)}</span>
+                    </div>
+                    <div className="price-breakdown-row">
+                      <span>Таможенный сбор</span>
+                      <span>{formatPrice(breakdown.customs_fee)}</span>
+                    </div>
+                    <div className="price-breakdown-row">
+                      <span>Доставка</span>
+                      <span>{formatPrice(breakdown.delivery)}</span>
+                    </div>
+                    <div className="price-breakdown-row">
+                      <span>Услуги компании</span>
+                      <span>{formatPrice(breakdown.services)}</span>
+                    </div>
+                  </div>
+                )}
                 <div className="price">{formatPrice(car.price)}</div>
-                <div className="price-note">Включая доставку, растаможку и&nbsp;услуги</div>
+                <div className="price-note">Итого под ключ в г. Омск</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 24 }}>
                   <a href={`tel:${PHONE.replace(/\s/g, "")}`} className="btn btn-primary btn-lg btn-block" style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center" }}>
                     <Icon name="phone" size={18}/>
@@ -134,6 +177,17 @@ export default async function CarDetailPage({ params }: { params: { id: string }
           </div>
         </div>
       </section>
+
+      {similar.length > 0 && (
+        <section style={{ paddingBottom: 64 }}>
+          <div className="container">
+            <h3 style={{ marginBottom: 24 }}>Похожие автомобили</h3>
+            <div className="similar-strip">
+              {similar.map((c: any) => <CarCard key={c.id} car={c}/>)}
+            </div>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

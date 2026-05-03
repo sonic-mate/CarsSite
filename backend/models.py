@@ -70,6 +70,8 @@ class Car(Base):
     is_active = Column(Boolean, default=True, index=True)
     photo_url = Column(String, nullable=True)
     source = Column(String, default="manual", index=True)
+    auction_price = Column(Integer, default=0, nullable=True)
+    engine_cc = Column(Integer, default=0, nullable=True)
     color = Column(String, nullable=True)
     drive = Column(String, nullable=True)
     grade = Column(String, nullable=True)

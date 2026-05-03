@@ -219,6 +219,8 @@ def _norm(i: dict) -> dict:
         "photo_url": photo,
         "photo_urls": photo_urls,
         "source": "ajes",
+        "auction_price": auction_price_rub,
+        "engine_cc": engine_cc,
         "color": (i.get("COLOR") or "").strip() or None,
         "drive": drive,
         "grade": html.unescape((i.get("GRADE") or "").strip()) or None,

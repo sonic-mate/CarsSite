@@ -161,4 +161,6 @@ def _norm(i: dict) -> dict:
         "photo_urls": photo_urls,
         "source": "ajes",
         "source_url": f"https://ajes.com/?lot={lot_id}",
+        "auction_price": auction_price_rub,
+        "engine_cc": engine_cc,
     }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import CarListCard from "@/components/CarListCard";
+import CallbackModal from "@/components/CallbackModal";
 import { Car, COUNTRY_LABEL } from "@/lib/types";
 import { getCars } from "@/lib/api";
 
@@ -19,7 +20,6 @@ interface Counts { total: number; by_country: Record<string, number>; }
 
 function CatalogInner() {
   const searchParams = useSearchParams();
-  const initCountry = searchParams.get("country") ?? "all";
 
   const [cars, setCars]       = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +27,7 @@ function CatalogInner() {
   const [counts, setCounts]   = useState<Counts | null>(null);
   const [brands, setBrands]   = useState<BrandItem[]>([]);
 
-  const [country,    setCountry]    = useState<string>(initCountry);
+  const [country,    setCountry]    = useState<string>(searchParams.get("country") ?? "all");
   const [brand,      setBrand]      = useState<string>("");
   const [body,       setBody]       = useState<string>("");
   const [fuel,       setFuel]       = useState<string>("");
@@ -81,6 +81,11 @@ function CatalogInner() {
       setLoading(false);
     }
   }, [country, body, fuel, brand, yearMin, yearMax, priceMin, priceMax, mileageMax, sort]);
+
+  useEffect(() => {
+    const c = searchParams.get("country") ?? "all";
+    if (c !== country) setCountry(c);
+  }, [searchParams]);
 
   useEffect(() => { setPage(1); load(1); }, [country, body, fuel, brand, yearMin, yearMax, priceMin, priceMax, mileageMax, sort]);
   useEffect(() => { load(page); }, [page]);
@@ -266,6 +271,30 @@ function CatalogInner() {
           }
 
           {renderPagination()}
+
+          <div className="cta-banner">
+            <div className="cta-banner-inner">
+              <div className="cta-banner-content">
+                <h2>Не нашли нужный автомобиль?</h2>
+                <p>Подберём авто со всего рынка индивидуально под ваш запрос</p>
+                <CallbackModal triggerClassName="btn btn-primary btn-lg" triggerLabel="Оставить заявку"/>
+              </div>
+              <div className="cta-banner-img" style={{
+                background: "radial-gradient(ellipse at 60% 40%, rgba(138,43,43,0.2) 0%, #1a1e26 100%)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <svg width="220" height="110" viewBox="0 0 220 110" fill="none" opacity="0.4">
+                  <ellipse cx="110" cy="90" rx="95" ry="12" fill="rgba(200,164,92,0.3)"/>
+                  <rect x="30" y="55" width="160" height="38" rx="12" fill="#c8a45c" opacity="0.7"/>
+                  <rect x="55" y="30" width="110" height="35" rx="10" fill="#c8a45c" opacity="0.9"/>
+                  <rect x="18" y="70" width="22" height="22" rx="11" fill="#0d0f14" stroke="#c8a45c" strokeWidth="3"/>
+                  <rect x="180" y="70" width="22" height="22" rx="11" fill="#0d0f14" stroke="#c8a45c" strokeWidth="3"/>
+                  <rect x="60" y="35" width="40" height="25" rx="4" fill="rgba(100,140,200,0.5)"/>
+                  <rect x="120" y="35" width="40" height="25" rx="4" fill="rgba(100,140,200,0.5)"/>
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>
