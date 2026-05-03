@@ -17,6 +17,10 @@ export interface Car {
   drive?: string | null;
   power?: string | null;
   grade?: string | null;
+  steering?: string | null;
+  town?: string | null;
+  equip?: string | null;
+  kuzov?: string | null;
 }
 
 export interface CalculatorResult {

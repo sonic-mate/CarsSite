@@ -4,6 +4,7 @@ Endpoint: http://78.46.90.228/api/?json&code=KEY&sql=QUERY
 Table: main
 """
 import os
+import html
 import httpx
 from typing import Optional
 import tariff_cache
@@ -220,7 +221,7 @@ def _norm(i: dict) -> dict:
         "source": "ajes",
         "color": (i.get("COLOR") or "").strip() or None,
         "drive": drive,
-        "grade": (i.get("GRADE") or "").strip() or None,
+        "grade": html.unescape((i.get("GRADE") or "").strip()) or None,
         "power": (str(i.get("PW", "")).strip() + " л.с.") if i.get("PW") else None,
         "steering": "Левый" if str(i.get("LHDRIVE", "")).strip() == "1" else ("Правый" if i.get("LHDRIVE") is not None else None),
         "town": (i.get("TOWN") or "").strip() or None,

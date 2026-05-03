@@ -15,8 +15,8 @@ const NAV_LINKS = [
 ];
 
 const COMPANY_LINKS = [
-  { href: "/about", label: "О компании" },
-  { href: "/directions", label: "Направления" },
+  { href: "/#about", label: "О нас" },
+  { href: "/#directions", label: "Направления" },
   { href: "/process", label: "Как мы работаем" },
   { href: "/#reviews", label: "Отзывы" },
 ];

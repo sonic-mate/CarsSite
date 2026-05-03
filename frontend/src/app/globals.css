@@ -359,9 +359,9 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-
   line-height: 1.2; margin-bottom: 4px;
 }
 .car-list-sub { font-size: 13px; color: var(--fg-muted); margin-bottom: 12px; }
-.car-list-specs { display: flex; flex-wrap: wrap; gap: 6px 18px; }
-.car-list-spec { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--ink-30); }
-.car-list-spec svg { flex-shrink: 0; color: #999; }
+.car-list-specs { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+.car-list-spec { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--ink-30); }
+.car-list-spec svg { flex-shrink: 0; color: #888; width: 15px; height: 15px; }
 .car-list-spec-muted { color: #aaa; }
 .car-list-price {
   display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
@@ -445,9 +445,9 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-
 .gallery-thumb.active, .gallery-thumb:hover { opacity: 1; }
 .gallery-thumb.active { box-shadow: inset 0 0 0 2px var(--accent); }
 .spec-table { display: grid; grid-template-columns: 1fr 1fr; gap: 0 32px; }
-.spec-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border-soft); }
-.spec-row .k { font-size: 13px; color: var(--fg-muted); }
-.spec-row .v { font-size: 14px; font-weight: 600; color: var(--ink-10); font-feature-settings: 'tnum' 1; }
+.spec-row { display: flex; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid var(--border-soft); }
+.spec-row .k { font-size: 15px; color: var(--fg-muted); }
+.spec-row .v { font-size: 16px; font-weight: 600; color: var(--ink-10); font-feature-settings: 'tnum' 1; }
 .detail-cta { background: var(--ink-10); color: #fff; border-radius: var(--r-md); padding: 24px; }
 .detail-cta .price { font-family: var(--font-display); font-size: 44px; color: var(--gold); letter-spacing: 0.01em; line-height: 1; }
 .detail-cta .price-note { font-size: 12px; color: rgba(245,243,238,0.6); margin-top: 6px; }
@@ -575,8 +575,8 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-
 
   /* Spec table */
   .spec-row { flex-direction: column; gap: 2px; padding: 10px 0; }
-  .spec-row .k { font-size: 11px; }
-  .spec-row .v { font-size: 13px; }
+  .spec-row .k { font-size: 13px; }
+  .spec-row .v { font-size: 15px; }
 
   /* Detail CTA */
   .detail-cta { padding: 18px; }

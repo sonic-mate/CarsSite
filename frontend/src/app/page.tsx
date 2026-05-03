@@ -121,7 +121,7 @@ export default async function HomePage() {
       </section>
 
       {/* ABOUT */}
-      <section className="section" style={{ background: "var(--ink-95)" }}>
+      <section id="about" className="section" style={{ background: "var(--ink-95)" }}>
         <div className="container">
           <div className="about-grid">
             <div>
@@ -154,7 +154,7 @@ export default async function HomePage() {
       </section>
 
       {/* COUNTRIES */}
-      <section className="section">
+      <section id="directions" className="section">
         <div className="container">
           <div className="section-head" style={{ textAlign: "center" }}>
             <span className="eyebrow" style={{ color: "var(--accent)", marginBottom: 12 }}>Направления</span>

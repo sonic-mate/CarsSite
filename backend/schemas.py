@@ -29,6 +29,10 @@ class CarOut(CarBase):
     drive: Optional[str] = None
     power: Optional[str] = None
     grade: Optional[str] = None
+    steering: Optional[str] = None
+    town: Optional[str] = None
+    equip: Optional[str] = None
+    kuzov: Optional[str] = None
 
     class Config:
         from_attributes = True
