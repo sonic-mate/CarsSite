@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import CarCard from "@/components/CarCard";
 import { Car, COUNTRY_LABEL } from "@/lib/types";
 import { getCars } from "@/lib/api";
@@ -9,66 +9,76 @@ const COUNTRIES = ["all", "japan", "china", "korea"] as const;
 const BODIES = ["Седан", "Кроссовер", "Внедорожник", "Минивэн", "Хэтчбэк", "Лифтбек", "Универсал", "Фургон"];
 const FUELS = ["Бензин", "Гибрид", "Электро", "Дизель"];
 
-const BODY_KEYWORDS: Record<string, string[]> = {
-  "Седан":       ["седан", "sedan"],
-  "Кроссовер":   ["кроссов", "crossover"],
-  "Внедорожник": ["внедор", "suv", "4wd"],
-  "Лифтбек":     ["лифтбек", "liftback"],
-  "Минивэн":     ["минивэн", "minivan"],
-  "Универсал":   ["универсал", "wagon"],
-  "Хэтчбэк":    ["хэтчбэк", "hatchback"],
-  "Фургон":      ["фургон", "van", "hiace", "caravan"],
-};
-
-function matchBody(carBody: string, filter: string): boolean {
-  if (carBody === filter) return true;
-  const b = carBody.toLowerCase();
-  const keywords = BODY_KEYWORDS[filter] ?? [];
-  return keywords.some(k => b.includes(k));
-}
+const PAGE_SIZE = 60;
 
 export default function CatalogPage() {
-  const [allCars, setAllCars] = useState<Car[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [country, setCountry] = useState<string>("all");
-  const [bodies, setBodies] = useState<Set<string>>(new Set());
-  const [fuels, setFuels] = useState<Set<string>>(new Set());
-  const [sort, setSort] = useState("popular");
+  const [cars, setCars]             = useState<Car[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore]       = useState(true);
+  const [counts, setCounts]         = useState<{ total: number; by_country: Record<string, number> } | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
 
-  useEffect(() => {
+  const [country, setCountry] = useState<string>("all");
+  const [body, setBody]       = useState<string>("");
+  const [fuel, setFuel]       = useState<string>("");
+  const [sort, setSort]       = useState("popular");
+
+  function buildParams(offset = 0): Record<string, string> {
+    const p: Record<string, string> = {
+      limit: String(PAGE_SIZE),
+      offset: String(offset),
+    };
+    if (country !== "all") p.country = country;
+    if (body) p.body = body;
+    if (fuel) p.fuel = fuel;
+    if (sort !== "popular") p.sort = sort;
+    return p;
+  }
+
+  const load = useCallback(async () => {
     setLoading(true);
-    getCars()
-      .then(setAllCars)
-      .finally(() => setLoading(false));
-  }, []);
+    try {
+      const data = await getCars(buildParams(0));
+      setCars(data);
+      setHasMore(data.length === PAGE_SIZE);
+    } finally {
+      setLoading(false);
+    }
+  }, [country, body, fuel, sort]);
 
-  let cars = [...allCars];
-  if (country !== "all") cars = cars.filter(c => c.country === country);
-  if (bodies.size) cars = cars.filter(c => [...bodies].some(b => matchBody(c.body, b)));
-  if (fuels.size) cars = cars.filter(c => [...fuels].some(f => c.engine.includes(f)));
-  if (sort === "price-asc") cars.sort((a, b) => a.price - b.price);
-  if (sort === "price-desc") cars.sort((a, b) => b.price - a.price);
-  if (sort === "year") cars.sort((a, b) => b.year - a.year);
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const data = await getCars(buildParams(cars.length));
+      setCars(prev => [...prev, ...data]);
+      setHasMore(data.length === PAGE_SIZE);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
-  const toggleBody = (b: string) => {
-    const next = new Set(bodies);
-    next.has(b) ? next.delete(b) : next.add(b);
-    setBodies(next);
-  };
+  // Fetch counts for tab badges
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (body) p.set("body", body);
+    if (fuel) p.set("fuel", fuel);
+    fetch(`/api/cars-count?${p}`)
+      .then(r => r.json())
+      .then(setCounts)
+      .catch(() => {});
+  }, [body, fuel]);
 
-  const toggleFuel = (f: string) => {
-    const next = new Set(fuels);
-    next.has(f) ? next.delete(f) : next.add(f);
-    setFuels(next);
-  };
+  useEffect(() => { load(); }, [load]);
+
+  const activeFilters = (body ? 1 : 0) + (fuel ? 1 : 0);
 
   return (
     <main>
       <section style={{ padding: "48px 0 24px", borderBottom: "1px solid var(--border-soft)" }}>
         <div className="container">
           <span className="eyebrow" style={{ color: "var(--accent)", marginBottom: 12 }}>Каталог</span>
-          <h1>{cars.length} автомобилей</h1>
+          <h1>{counts ? counts.total.toLocaleString("ru") : "—"} автомобилей</h1>
         </div>
       </section>
 
@@ -80,18 +90,17 @@ export default function CatalogPage() {
               <button key={k} className={`country-tab${country === k ? " active" : ""}`} onClick={() => setCountry(k)}>
                 {k !== "all" && <img src={`/flags/${k}.svg`} alt={k} width={24} height={16}/>}
                 <span>{k === "all" ? "Все" : COUNTRY_LABEL[k]}</span>
-                <span className="tab-count">
-                  {k === "all" ? allCars.length : allCars.filter(c => c.country === k).length}
-                </span>
+                {counts && (
+                  <span className="tab-count">
+                    {k === "all" ? counts.total : (counts.by_country[k] ?? 0)}
+                  </span>
+                )}
               </button>
             ))}
           </div>
 
-          <button
-            onClick={() => setFilterOpen(o => !o)}
-            className="filter-toggle"
-          >
-            <span>Фильтры{(bodies.size + fuels.size) > 0 ? ` · ${bodies.size + fuels.size}` : ""}</span>
+          <button onClick={() => setFilterOpen(o => !o)} className="filter-toggle">
+            <span>Фильтры{activeFilters > 0 ? ` · ${activeFilters}` : ""}</span>
             <span>{filterOpen ? "↑" : "↓"}</span>
           </button>
 
@@ -102,10 +111,9 @@ export default function CatalogPage() {
                 {BODIES.map(b => (
                   <label key={b} className="filter-check">
                     <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <input type="checkbox" checked={bodies.has(b)} onChange={() => toggleBody(b)}/>
+                      <input type="checkbox" checked={body === b} onChange={() => setBody(body === b ? "" : b)}/>
                       {b}
                     </span>
-                    <span className="filter-count">{allCars.filter(c => matchBody(c.body, b)).length}</span>
                   </label>
                 ))}
               </div>
@@ -114,9 +122,8 @@ export default function CatalogPage() {
                 {FUELS.map(f => (
                   <label key={f} className="filter-check">
                     <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <input type="checkbox" checked={fuels.has(f)} onChange={() => toggleFuel(f)}/>{f}
+                      <input type="checkbox" checked={fuel === f} onChange={() => setFuel(fuel === f ? "" : f)}/>{f}
                     </span>
-                    <span className="filter-count">{allCars.filter(c => c.engine.includes(f)).length}</span>
                   </label>
                 ))}
               </div>
@@ -129,18 +136,39 @@ export default function CatalogPage() {
                   <option value="year">Сначала новее</option>
                 </select>
               </div>
+              {activeFilters > 0 && (
+                <button
+                  className="btn btn-ghost"
+                  style={{ marginTop: 16, width: "100%", justifyContent: "center" }}
+                  onClick={() => { setBody(""); setFuel(""); }}
+                >
+                  Сбросить фильтры
+                </button>
+              )}
             </aside>
 
             <div>
               <div style={{ marginBottom: 24 }}>
                 <span style={{ fontSize: 14, color: "var(--fg-muted)" }}>
-                  Найдено: <strong style={{ color: "var(--ink-10)" }}>{cars.length}</strong>
+                  Показано: <strong style={{ color: "var(--ink-10)" }}>{cars.length}</strong>
+                  {hasMore && <span style={{ color: "var(--fg-muted)" }}> из {counts?.total.toLocaleString("ru") ?? "..."}</span>}
                 </span>
               </div>
               {loading && <p style={{ color: "var(--fg-muted)", padding: "32px 0" }}>Загрузка...</p>}
               <div className="car-grid">
                 {!loading && cars.map(c => <CarCard key={c.id} car={c}/>)}
               </div>
+              {!loading && hasMore && (
+                <div style={{ textAlign: "center", marginTop: 40 }}>
+                  <button
+                    className="btn btn-secondary btn-lg"
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? "Загрузка..." : "Показать ещё"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

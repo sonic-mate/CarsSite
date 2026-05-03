@@ -263,6 +263,8 @@ def list_cars(request: Request,
     year_max: Optional[int] = None,
     fuel: Optional[str] = None,
     sort: str = "popular",
+    limit: int = 60,
+    offset: int = 0,
     db: Session = Depends(get_db),
 ):
     q = db.query(Car).filter(Car.is_active == True)
@@ -286,7 +288,34 @@ def list_cars(request: Request,
         q = q.order_by(Car.price.desc())
     elif sort == "year":
         q = q.order_by(Car.year.desc())
-    return q.all()
+    return q.offset(offset).limit(min(limit, 200)).all()
+
+
+@app.get("/api/cars-count")
+@limiter.limit("60/minute")
+def count_cars(request: Request,
+    country: Optional[str] = None,
+    body: Optional[str] = None,
+    fuel: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    q = db.query(Car).filter(Car.is_active == True)
+    if country:
+        q = q.filter(Car.country == country)
+    if body:
+        q = q.filter(Car.body == body)
+    if fuel:
+        q = q.filter(Car.engine.ilike(f"%{fuel}%"))
+    total = q.count()
+    by_country = {}
+    for c in ["japan", "korea", "china"]:
+        qc = db.query(Car).filter(Car.is_active == True)
+        if body:
+            qc = qc.filter(Car.body == body)
+        if fuel:
+            qc = qc.filter(Car.engine.ilike(f"%{fuel}%"))
+        by_country[c] = qc.filter(Car.country == c).count()
+    return {"total": total, "by_country": by_country}
 
 
 # ─── Car detail ───────────────────────────────────────────────────────────────
