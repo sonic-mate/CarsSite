@@ -115,11 +115,46 @@ async def _rates_loop():
         await asyncio.sleep(60)
 
 
+async def _fetch_all_pages(source_fetch) -> list[dict]:
+    """Fetch all pages from a source until empty page returned."""
+    all_cars: list[dict] = []
+    page = 1
+    page_size = 200
+    while True:
+        try:
+            batch = await source_fetch(page=page, limit=page_size)
+        except Exception as e:
+            print(f"Source fetch error (page {page}): {e}")
+            break
+        if not batch:
+            break
+        all_cars.extend(batch)
+        if len(batch) < page_size:
+            break
+        page += 1
+    return all_cars
+
+
 async def _sync_live_cars():
+    from sources import japan, korea, china
     try:
-        cars = await aggregator.search(limit=2000)
+        results = await asyncio.gather(
+            _fetch_all_pages(japan.fetch),
+            _fetch_all_pages(korea.fetch),
+            _fetch_all_pages(china.fetch),
+            return_exceptions=True,
+        )
+        cars: list[dict] = []
+        for r in results:
+            if isinstance(r, list):
+                cars.extend(r)
+
+        cars = [c for c in cars if c.get("price", 0) > 0 and c.get("brand")]
+
         if not cars:
+            print("Sync: no cars returned, keeping existing data")
             return
+
         db = SessionLocal()
         try:
             db.query(Car).filter(Car.source == "live").delete()
@@ -143,7 +178,7 @@ async def _sync_live_cars():
                     kuzov=d.get("kuzov"),
                 ))
             db.commit()
-            print(f"Synced {len(cars)} live cars.")
+            print(f"Synced {len(cars)} live cars (jp+kr+cn).")
         finally:
             db.close()
     except Exception as e:
@@ -153,7 +188,7 @@ async def _sync_live_cars():
 async def _sync_loop():
     while True:
         await _sync_live_cars()
-        await asyncio.sleep(3600)
+        await asyncio.sleep(300)  # every 5 minutes
 
 
 @asynccontextmanager
@@ -263,35 +298,6 @@ def get_car(car_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Автомобиль не найден")
     return db_car
 
-
-# ─── Live cars from external APIs ────────────────────────────────────────────
-
-@app.get("/api/live/cars")
-@limiter.limit("30/minute")
-async def live_cars(request: Request,
-    country: Optional[str] = None,
-    brand: Optional[str] = None,
-    body: Optional[str] = None,
-    price_max: Optional[int] = None,
-    year_min: Optional[int] = None,
-    page: int = 1,
-    limit: int = 100,
-):
-    cars = await aggregator.search(
-        country=country,
-        brand=brand,
-        body=body,
-        price_max=price_max,
-        year_min=year_min,
-        page=page,
-        limit=limit,
-    )
-    return {
-        "cars": cars,
-        "count": len(cars),
-        "page": page,
-        "active_sources": aggregator.active_sources(),
-    }
 
 
 # ─── Debug (gated behind DEBUG_ENDPOINTS env var) ────────────────────────────
