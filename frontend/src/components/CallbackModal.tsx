@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PHONE } from "@/lib/types";
 import Icon from "./Icon";
 
-export default function CallbackModal() {
+export default function CallbackModal({ triggerClassName, triggerLabel }: { triggerClassName?: string; triggerLabel?: string } = {}) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -38,10 +38,10 @@ export default function CallbackModal() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="btn btn-lg btn-block"
-        style={{ borderColor: "rgba(245,243,238,0.3)", color: "#fff", background: "transparent", border: "1px solid rgba(245,243,238,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}
+        className={triggerClassName ?? "btn btn-lg btn-block"}
+        style={triggerClassName ? undefined : { borderColor: "rgba(245,243,238,0.3)", color: "#fff", background: "transparent", border: "1px solid rgba(245,243,238,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}
       >
-        Заказать звонок
+        {triggerLabel ?? "Заказать звонок"}
       </button>
 
       {open && (

@@ -4,16 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import Icon from "./Icon";
+import CallbackModal from "./CallbackModal";
 import { PHONE, ADDRESS, SOCIALS } from "@/lib/types";
 
 const NAV = [
-  { href: "/", label: "Главная" },
   { href: "/catalog?country=japan", label: "Авто из Японии" },
   { href: "/catalog?country=korea", label: "Авто из Кореи" },
   { href: "/catalog?country=china", label: "Авто из Китая" },
   { href: "/catalog", label: "Каталог" },
   { href: "/calculator", label: "Калькулятор" },
   { href: "/process", label: "Как мы работаем" },
+  { href: "/#reviews", label: "Отзывы" },
 ];
 
 export default function Header() {
@@ -54,6 +55,7 @@ export default function Header() {
             <Icon name="phone" size={16}/>
             {PHONE}
           </a>
+          <CallbackModal triggerClassName="btn btn-primary btn-sm" triggerLabel="Заказать звонок"/>
         </div>
 
         {/* Bottom bar: nav */}

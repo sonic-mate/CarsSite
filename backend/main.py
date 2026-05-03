@@ -261,8 +261,10 @@ def list_cars(request: Request,
     price_max: Optional[int] = None,
     year_min: Optional[int] = None,
     year_max: Optional[int] = None,
+    mileage_max: Optional[int] = None,
     fuel: Optional[str] = None,
     brand: Optional[str] = None,
+    color: Optional[str] = None,
     sort: str = "popular",
     limit: int = 60,
     offset: int = 0,
@@ -281,10 +283,14 @@ def list_cars(request: Request,
         q = q.filter(Car.year >= year_min)
     if year_max:
         q = q.filter(Car.year <= year_max)
+    if mileage_max:
+        q = q.filter(Car.mileage <= mileage_max)
     if fuel:
         q = q.filter(Car.engine.ilike(f"%{fuel}%"))
     if brand:
         q = q.filter(Car.brand.ilike(f"%{brand}%"))
+    if color:
+        q = q.filter(Car.color.ilike(f"%{color}%"))
     if sort == "price-asc":
         q = q.order_by(Car.price.asc())
     elif sort == "price-desc":
@@ -312,6 +318,12 @@ def count_cars(request: Request,
     body: Optional[str] = None,
     fuel: Optional[str] = None,
     brand: Optional[str] = None,
+    price_min: Optional[int] = None,
+    price_max: Optional[int] = None,
+    year_min: Optional[int] = None,
+    year_max: Optional[int] = None,
+    mileage_max: Optional[int] = None,
+    color: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     q = db.query(Car).filter(Car.is_active == True)
@@ -323,6 +335,18 @@ def count_cars(request: Request,
         q = q.filter(Car.engine.ilike(f"%{fuel}%"))
     if brand:
         q = q.filter(Car.brand.ilike(f"%{brand}%"))
+    if price_min:
+        q = q.filter(Car.price >= price_min)
+    if price_max:
+        q = q.filter(Car.price <= price_max)
+    if year_min:
+        q = q.filter(Car.year >= year_min)
+    if year_max:
+        q = q.filter(Car.year <= year_max)
+    if mileage_max:
+        q = q.filter(Car.mileage <= mileage_max)
+    if color:
+        q = q.filter(Car.color.ilike(f"%{color}%"))
     total = q.count()
     by_country = {}
     for c in ["japan", "korea", "china"]:

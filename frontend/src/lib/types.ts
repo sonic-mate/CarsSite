@@ -12,6 +12,11 @@ export interface Car {
   photo_tint: string;
   silhouette: "sedan" | "suv";
   is_active: boolean;
+  photo_url?: string | null;
+  color?: string | null;
+  drive?: string | null;
+  power?: string | null;
+  grade?: string | null;
 }
 
 export interface CalculatorResult {

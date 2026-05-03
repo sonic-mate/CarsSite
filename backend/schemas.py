@@ -25,6 +25,10 @@ class CarCreate(CarBase):
 
 class CarOut(CarBase):
     is_active: bool
+    color: Optional[str] = None
+    drive: Optional[str] = None
+    power: Optional[str] = None
+    grade: Optional[str] = None
 
     class Config:
         from_attributes = True
