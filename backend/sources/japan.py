@@ -9,6 +9,7 @@ import httpx
 from typing import Optional
 import tariff_cache
 import calc
+import color_map
 
 API_KEY  = os.getenv("AJES_API_KEY", "")
 API_HOST = os.getenv("AJES_HOST", "78.46.90.228")
@@ -221,7 +222,7 @@ def _norm(i: dict) -> dict:
         "source": "ajes",
         "auction_price": auction_price_rub,
         "engine_cc": engine_cc,
-        "color": (i.get("COLOR") or "").strip() or None,
+        "color": color_map.normalize(i.get("COLOR")),
         "drive": drive,
         "grade": html.unescape((i.get("GRADE") or "").strip()) or None,
         "power": (str(i.get("PW", "")).strip() + " л.с.") if i.get("PW") else None,

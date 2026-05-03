@@ -178,6 +178,8 @@ async def _sync_live_cars():
                     town=d.get("town"),
                     equip=d.get("equip"),
                     kuzov=d.get("kuzov"),
+                    auction_price=d.get("auction_price", 0),
+                    engine_cc=d.get("engine_cc", 0),
                 ))
             db.commit()
             print(f"Synced {len(cars)} live cars (jp+kr+cn).")
