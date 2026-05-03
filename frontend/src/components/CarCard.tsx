@@ -9,7 +9,7 @@ const BADGE_CLASS: Record<string, string> = {
 };
 
 interface CarCardProps {
-  car: Car & { photo_url?: string };
+  car: Car;
 }
 
 export default function CarCard({ car }: CarCardProps) {
@@ -24,9 +24,9 @@ export default function CarCard({ car }: CarCardProps) {
           style={{ background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}
         >
           <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 90%, rgba(255,255,255,0.04) 0%, transparent 50%)" }}/>
-          {(car as any).photo_url ? (
+          {car.photo_url ? (
             <img
-              src={(car as any).photo_url}
+              src={car.photo_url}
               alt={`${car.brand} ${car.model}`}
               style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }}
             />
