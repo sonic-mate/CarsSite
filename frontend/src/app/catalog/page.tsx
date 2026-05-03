@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import CarListCard from "@/components/CarListCard";
 import { Car, COUNTRY_LABEL } from "@/lib/types";
 import { getCars } from "@/lib/api";
@@ -16,14 +17,17 @@ const YEARS = Array.from({ length: CUR_YEAR - 1999 }, (_, i) => CUR_YEAR - i);
 interface BrandItem { brand: string; count: number; }
 interface Counts { total: number; by_country: Record<string, number>; }
 
-export default function CatalogPage() {
+function CatalogInner() {
+  const searchParams = useSearchParams();
+  const initCountry = searchParams.get("country") ?? "all";
+
   const [cars, setCars]       = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage]       = useState(1);
   const [counts, setCounts]   = useState<Counts | null>(null);
   const [brands, setBrands]   = useState<BrandItem[]>([]);
 
-  const [country,    setCountry]    = useState<string>("all");
+  const [country,    setCountry]    = useState<string>(initCountry);
   const [brand,      setBrand]      = useState<string>("");
   const [body,       setBody]       = useState<string>("");
   const [fuel,       setFuel]       = useState<string>("");
@@ -265,6 +269,14 @@ export default function CatalogPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function CatalogPage() {
+  return (
+    <Suspense fallback={<main><div className="container" style={{ padding: "64px 0" }}>Загрузка...</div></main>}>
+      <CatalogInner/>
+    </Suspense>
   );
 }
 

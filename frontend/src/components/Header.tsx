@@ -2,36 +2,57 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Icon from "./Icon";
 import CallbackModal from "./CallbackModal";
 import { PHONE, ADDRESS, SOCIALS } from "@/lib/types";
 
-const NAV = [
+const NAV_LINKS = [
   { href: "/catalog?country=japan", label: "Авто из Японии" },
   { href: "/catalog?country=korea", label: "Авто из Кореи" },
   { href: "/catalog?country=china", label: "Авто из Китая" },
-  { href: "/catalog", label: "Каталог" },
   { href: "/calculator", label: "Калькулятор" },
+];
+
+const COMPANY_LINKS = [
+  { href: "/about", label: "О компании" },
+  { href: "/directions", label: "Направления" },
   { href: "/process", label: "Как мы работаем" },
   { href: "/#reviews", label: "Отзывы" },
+];
+
+const ALL_MOBILE_NAV = [
+  ...NAV_LINKS,
+  ...COMPANY_LINKS,
 ];
 
 export default function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [companyOpen, setCompanyOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => { setOpen(false); setCompanyOpen(false); }, [pathname]);
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setCompanyOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   return (
     <>
       <header className="site-header">
 
-        {/* Top bar: logo + address + socials + phone */}
+        {/* Top bar */}
         <div className="site-header-top">
           <Link href="/" className="header-brand" style={{ textDecoration: "none" }}>
             <span style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
@@ -61,9 +82,29 @@ export default function Header() {
         {/* Bottom bar: nav */}
         <div className="site-header-row">
           <nav className="site-nav">
-            {NAV.map(({ href, label }) => (
+            {NAV_LINKS.map(({ href, label }) => (
               <Link key={href} href={href} className={pathname === href ? "nav-link active" : "nav-link"}>{label}</Link>
             ))}
+
+            {/* Компания dropdown */}
+            <div className="nav-dropdown" ref={dropdownRef}>
+              <button
+                className={`nav-link nav-dropdown-trigger${COMPANY_LINKS.some(l => pathname === l.href) ? " active" : ""}`}
+                onClick={() => setCompanyOpen(o => !o)}
+              >
+                Компания
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: 4, transition: "transform 150ms", transform: companyOpen ? "rotate(180deg)" : "none" }}>
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+              {companyOpen && (
+                <div className="nav-dropdown-menu">
+                  {COMPANY_LINKS.map(({ href, label }) => (
+                    <Link key={href} href={href} className="nav-dropdown-item">{label}</Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
           <button className="burger" onClick={() => setOpen(o => !o)} aria-label="Меню">
             <span className={`burger-icon${open ? " open" : ""}`}/>
@@ -79,7 +120,7 @@ export default function Header() {
               <span style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--gold)", letterSpacing: "0.14em", fontWeight: 700 }}>ВОСТОК</span>
               <span style={{ fontFamily: "var(--font-display)", fontSize: 10, color: "rgba(245,243,238,0.6)", letterSpacing: "0.2em", fontWeight: 400, marginTop: 4 }}>АВТО ИМПОРТ</span>
             </div>
-            {NAV.map(({ href, label }) => (
+            {ALL_MOBILE_NAV.map(({ href, label }) => (
               <Link key={href} href={href} className={`mobile-nav-link${pathname === href ? " active" : ""}`}>{label}</Link>
             ))}
             <a href={`tel:${PHONE.replace(/\s/g, "")}`} className="btn btn-primary btn-lg btn-block" style={{ marginTop: 24, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>

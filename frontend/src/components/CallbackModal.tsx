@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { PHONE } from "@/lib/types";
 import Icon from "./Icon";
 
 export default function CallbackModal({ triggerClassName, triggerLabel }: { triggerClassName?: string; triggerLabel?: string } = {}) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
+
+  useEffect(() => { setMounted(true); }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,11 +48,11 @@ export default function CallbackModal({ triggerClassName, triggerLabel }: { trig
         {triggerLabel ?? "Заказать звонок"}
       </button>
 
-      {open && (
+      {mounted && open && createPortal(
         <div
           onClick={(e) => e.target === e.currentTarget && close()}
           style={{
-            position: "fixed", inset: 0, zIndex: 1000,
+            position: "fixed", inset: 0, zIndex: 9999,
             background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: 16,
@@ -113,7 +117,8 @@ export default function CallbackModal({ triggerClassName, triggerLabel }: { trig
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
