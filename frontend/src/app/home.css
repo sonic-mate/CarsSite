@@ -114,6 +114,10 @@
 .platform-name { font-size: 14px; font-weight: 600; line-height: 1; }
 .platform-sub { font-size: 11px; color: var(--fg-muted); line-height: 1; margin-top: 3px; }
 
+@media (max-width: 900px) {
+  .search-row { grid-template-columns: 1fr 1fr; }
+}
+
 @media (max-width: 768px) {
   .hero-inner { padding: 64px var(--container-pad-mobile) 48px; }
   .hero h1 { font-size: 44px; }

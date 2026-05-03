@@ -5,6 +5,7 @@ import { getCars } from "@/lib/api";
 import CarCard from "@/components/CarCard";
 import CarSilhouette from "@/components/CarSilhouette";
 import Icon from "@/components/Icon";
+import SearchPanel from "@/components/SearchPanel";
 import { PHONE, EMAIL, ADDRESS, SOCIALS, formatPrice } from "@/lib/types";
 import "./home.css";
 
@@ -72,14 +73,7 @@ export default async function HomePage() {
             Подберём лучший вариант по Вашим параметрам. Рассчитаем стоимость «под ключ» за&nbsp;5&nbsp;минут. Доставка за&nbsp;30&nbsp;дней.
           </p>
 
-          <div className="search-panel">
-            <div className="search-row">
-              <select className="select search-select"><option>Любая марка</option><option>Toyota</option><option>Lexus</option><option>BYD</option><option>Genesis</option><option>Hyundai</option><option>Honda</option><option>Nissan</option></select>
-              <select className="select search-select"><option>Любой кузов</option><option>Седан</option><option>Внедорожник</option><option>Кроссовер</option></select>
-              <select className="select search-select"><option>Любая цена</option><option>До 2 млн</option><option>До 3 млн</option><option>До 5 млн</option><option>До 10 млн</option></select>
-              <Link href="/catalog" className="btn btn-primary btn-lg">Найти</Link>
-            </div>
-          </div>
+          <SearchPanel />
 
           <div className="hero-stats">
             <div className="stat">

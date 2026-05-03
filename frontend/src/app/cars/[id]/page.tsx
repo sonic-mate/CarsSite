@@ -13,7 +13,7 @@ interface PriceBreakdown {
 import CarSilhouette from "@/components/CarSilhouette";
 import Icon from "@/components/Icon";
 import CallbackModal from "@/components/CallbackModal";
-import CarCard from "@/components/CarCard";
+import SimilarStrip from "@/components/SimilarStrip";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -182,9 +182,7 @@ export default async function CarDetailPage({ params }: { params: { id: string }
         <section style={{ paddingBottom: 64 }}>
           <div className="container">
             <h3 style={{ marginBottom: 24 }}>Похожие автомобили</h3>
-            <div className="similar-strip">
-              {similar.map((c: any) => <CarCard key={c.id} car={c}/>)}
-            </div>
+            <SimilarStrip cars={similar}/>
           </div>
         </section>
       )}
