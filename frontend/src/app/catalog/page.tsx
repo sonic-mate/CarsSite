@@ -351,9 +351,7 @@ function CatalogInner() {
                     <rect x="10" y="104" width="10" height="10" rx="3" fill="rgba(200,164,92,0.08)" stroke="rgba(200,164,92,0.2)" strokeWidth="1" strokeDasharray="3 2"/>
                     <rect x="26" y="107" width="50" height="4" rx="2" fill="rgba(200,164,92,0.15)"/>
 
-                    {/* Bottom match badge */}
-                    <rect x="8" y="118" width="72" height="8" rx="4" fill="rgba(138,43,43,0.7)"/>
-                    <text x="44" y="124" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="6" fontFamily="sans-serif" fontWeight="600">ПОДБОР ЗАВЕРШЁН</text>
+                    {/* Row 5 extra spacing filler */}
                   </g>
 
                   {/* ── Connecting dots from glass to checklist ── */}
