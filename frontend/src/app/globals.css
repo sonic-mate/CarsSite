@@ -457,6 +457,37 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-
 .detail-cta { background: var(--ink-10); color: #fff; border-radius: var(--r-md); padding: 24px; }
 .detail-cta .price { font-family: var(--font-display); font-size: 44px; color: var(--gold); letter-spacing: 0.01em; line-height: 1; margin-top: 12px; }
 .detail-cta .price-note { font-size: 12px; color: rgba(245,243,238,0.6); margin-top: 6px; }
+.price-row { display: flex; align-items: flex-end; gap: 10px; }
+.price-info-wrap { position: relative; display: flex; align-items: center; }
+.price-info-btn {
+  background: none; border: none; cursor: pointer; padding: 3px;
+  color: #aaa; transition: color 0.15s;
+  display: flex; align-items: center; line-height: 1;
+}
+.price-info-btn:hover { color: var(--accent, #2563eb); }
+.detail-cta .price-info-btn { color: rgba(245,243,238,0.4); }
+.detail-cta .price-info-btn:hover { color: var(--gold); }
+.price-info-popup {
+  position: absolute; bottom: calc(100% + 8px); right: 0;
+  background: #1a1d24; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 14px 16px; min-width: 260px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45); z-index: 300;
+  color: rgba(245,243,238,0.9);
+}
+.price-info-loading { font-size: 13px; color: rgba(245,243,238,0.5); text-align: center; padding: 4px 0; }
+.price-info-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(245,243,238,0.4); margin-bottom: 10px; }
+.price-info-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; color: rgba(245,243,238,0.65);
+  padding: 5px 0; border-bottom: 1px solid rgba(245,243,238,0.06);
+}
+.price-info-row span:last-child { font-weight: 600; color: rgba(245,243,238,0.9); font-feature-settings: 'tnum' 1; white-space: nowrap; padding-left: 12px; }
+.price-info-total {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 14px; font-weight: 700; color: var(--gold);
+  padding-top: 8px; margin-top: 2px;
+  font-feature-settings: 'tnum' 1;
+}
 .price-breakdown { margin-top: 16px; margin-bottom: 4px; display: flex; flex-direction: column; gap: 0; border-top: 1px solid rgba(245,243,238,0.12); border-bottom: 1px solid rgba(245,243,238,0.12); padding: 8px 0; }
 .price-breakdown-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; font-size: 13.5px; color: rgba(245,243,238,0.75); border-bottom: 1px solid rgba(245,243,238,0.07); }
 .price-breakdown-row:last-child { border-bottom: none; }

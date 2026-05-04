@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Car, COUNTRY_LABEL, formatPrice, formatKm, formatLocalPrice } from "@/lib/types";
+import PriceBreakdownTooltip from "./PriceBreakdownTooltip";
 
 export default function CarListCard({ car }: { car: Car }) {
   return (
@@ -50,16 +51,15 @@ export default function CarListCard({ car }: { car: Car }) {
               {car.power}
             </span>
           )}
-          <span className="car-list-spec car-list-spec-muted">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-            {car.id}
-          </span>
         </div>
       </div>
 
       <div className="car-list-price">
         <div className="car-list-price-label">Цена в г. Омск</div>
-        <div className="car-list-price-value">{formatPrice(car.price)}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div className="car-list-price-value">{formatPrice(car.price)}</div>
+          <PriceBreakdownTooltip carId={car.id}/>
+        </div>
         {formatLocalPrice(car.auction_price_local, car.country) && (
           <div className="car-list-local-price">
             {formatLocalPrice(car.auction_price_local, car.country)} на аукционе
