@@ -40,6 +40,7 @@ export default function PriceBreakdownTooltip({ carId }: { carId: string }) {
     });
   }
 
+
   function handleEnter() {
     load();
     calcPos();
@@ -71,7 +72,7 @@ export default function PriceBreakdownTooltip({ carId }: { carId: string }) {
   const popup = open ? (
     <div
       className="price-info-popup"
-      style={{ position: "absolute", top: pos.top, left: pos.left, transform: "translateY(-100%)" }}
+      style={{ position: "absolute", top: pos.top, left: pos.left, transform: "translateY(-100%) translateX(-100%)" }}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
