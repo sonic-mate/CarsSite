@@ -1,39 +1,89 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { calculate } from "@/lib/api";
 import { COUNTRY_LABEL, PHONE, formatPrice } from "@/lib/types";
 import Icon from "@/components/Icon";
 
-const COUNTRIES = ["japan", "china", "korea"] as const;
-const FUELS = ["Бензин", "Гибрид", "Электро", "Дизель"] as const;
-const YEARS = [2024, 2023, 2022, 2021, 2020, 2019];
+const COUNTRIES = ["japan", "korea", "china"] as const;
+const FUELS = ["Бензин", "Гибрид", "Электро", "Дизель", "Газ"] as const;
+const YEARS = Array.from({ length: 22 }, (_, i) => 2026 - i);
+
+const CURRENCIES = [
+  { code: "RUB", sym: "₽", label: "RUB" },
+  { code: "JPY", sym: "¥", label: "JPY" },
+  { code: "KRW", sym: "₩", label: "KRW" },
+  { code: "CNY", sym: "¥", label: "CNY" },
+] as const;
+
+const COUNTRY_DEFAULT_CURRENCY: Record<string, string> = {
+  japan: "JPY",
+  korea: "KRW",
+  china: "CNY",
+};
+
+interface Rates { jpy_to_rub: number; krw_to_rub: number; cny_to_rub: number; }
+
+function toRub(amount: number, currency: string, rates: Rates): number {
+  if (currency === "JPY") return Math.round(amount * rates.jpy_to_rub);
+  if (currency === "KRW") return Math.round(amount * rates.krw_to_rub);
+  if (currency === "CNY") return Math.round(amount * rates.cny_to_rub);
+  return amount;
+}
+
+function formatLocalAmount(amount: number, currency: string): string {
+  if (currency === "RUB") return formatPrice(amount);
+  const sym = CURRENCIES.find(c => c.code === currency)?.sym ?? "";
+  return sym + " " + amount.toLocaleString("ru-RU");
+}
 
 export default function CalculatorPage() {
-  const [country, setCountry] = useState("japan");
-  const [auctionPrice, setAuctionPrice] = useState(1850000);
-  const [engineCC, setEngineCC] = useState(2500);
+  const [country, setCountry] = useState<"japan" | "korea" | "china">("japan");
+  const [priceInput, setPriceInput] = useState(3400000);
+  const [currency, setCurrency] = useState("JPY");
+  const [engineCC, setEngineCC] = useState(2800);
+  const [power, setPower] = useState(177);
   const [year, setYear] = useState(2021);
   const [fuel, setFuel] = useState("Бензин");
+  const [rates, setRates] = useState<Rates>({ jpy_to_rub: 0.47, krw_to_rub: 0.051, cny_to_rub: 11.0 });
   const [result, setResult] = useState<{
     auction_price: number; delivery: number; customs: number;
     customs_fee: number; services: number; total: number;
     eur_rate?: number; price_eur?: number; customs_method?: string;
-  }>({
-    auction_price: 1850000,
-    delivery: 180000,
-    customs: 369000,
-    customs_fee: 8530,
-    services: 80000,
-    total: 2479000,
-  });
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const recalc = async (overrides: Partial<typeof result> = {}) => {
+  useEffect(() => {
+    fetch("/api/tariffs").then(r => r.ok ? r.json() : null).then(d => {
+      if (d) setRates({ jpy_to_rub: d.jpy_to_rub, krw_to_rub: d.krw_to_rub, cny_to_rub: d.cny_to_rub });
+    }).catch(() => {});
+  }, []);
+
+  const recalc = useCallback(async (overrides: { country?: string; priceInput?: number; currency?: string; engineCC?: number; year?: number; fuel?: string } = {}) => {
+    const c = overrides.country ?? country;
+    const pi = overrides.priceInput ?? priceInput;
+    const cur = overrides.currency ?? currency;
+    const cc = overrides.engineCC ?? engineCC;
+    const y = overrides.year ?? year;
+    const f = overrides.fuel ?? fuel;
+    const auctionPriceRub = toRub(pi, cur, rates);
+    if (auctionPriceRub <= 0 || cc < 0) return;
+    setLoading(true);
     try {
-      const r = await calculate({ country, auction_price: auctionPrice, engine_cc: engineCC, year, fuel_type: fuel, ...overrides as any });
+      const r = await calculate({ country: c, auction_price: auctionPriceRub, engine_cc: cc, year: y, fuel_type: f });
       setResult(r);
     } catch {}
-  };
+    setLoading(false);
+  }, [country, priceInput, currency, engineCC, year, fuel, rates]);
+
+  function handleCountryChange(k: "japan" | "korea" | "china") {
+    const newCur = COUNTRY_DEFAULT_CURRENCY[k];
+    setCountry(k);
+    setCurrency(newCur);
+    recalc({ country: k, currency: newCur });
+  }
+
+  const auctionPriceRub = toRub(priceInput, currency, rates);
 
   return (
     <main>
@@ -48,6 +98,8 @@ export default function CalculatorPage() {
           <div className="calc-grid">
             <div className="calc-card">
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+                {/* Country */}
                 <div className="field">
                   <label className="field-label">Страна</label>
                   <div style={{ display: "flex", gap: 8 }}>
@@ -55,7 +107,7 @@ export default function CalculatorPage() {
                       <button
                         key={k}
                         className={`chip${country === k ? " active" : ""}`}
-                        onClick={() => { setCountry(k); recalc(); }}
+                        onClick={() => handleCountryChange(k)}
                         style={{ flex: 1, justifyContent: "center" }}
                       >
                         <img src={`/flags/${k}.svg`} alt={k} width={18} height={12}/>
@@ -65,100 +117,134 @@ export default function CalculatorPage() {
                   </div>
                 </div>
 
+                {/* Year */}
                 <div className="field">
-                  <label className="field-label">Аукционная цена, ₽</label>
-                  <input
-                    className="input" type="number" value={auctionPrice}
-                    onChange={e => setAuctionPrice(+e.target.value || 0)}
-                    onBlur={() => recalc()}
-                  />
+                  <label className="field-label">Год выпуска</label>
+                  <select className="select" value={year} onChange={e => { setYear(+e.target.value); recalc({ year: +e.target.value }); }}>
+                    {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
                 </div>
 
+                {/* Fuel */}
+                <div className="field">
+                  <label className="field-label">Тип двигателя</label>
+                  <select className="select" value={fuel} onChange={e => { setFuel(e.target.value); recalc({ fuel: e.target.value }); }}>
+                    {FUELS.map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                </div>
+
+                {/* Engine CC + Power */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   <div className="field">
-                    <label className="field-label">Объём двигателя, см³</label>
-                    <input
-                      className="input" type="number" value={engineCC}
-                      onChange={e => setEngineCC(+e.target.value || 0)}
-                      onBlur={() => recalc()}
-                    />
+                    <label className="field-label">Объём двигателя</label>
+                    <div className="input-unit-wrap">
+                      <input
+                        className="input input-unit" type="number" min={0} max={10000}
+                        value={engineCC}
+                        onChange={e => setEngineCC(+e.target.value || 0)}
+                        onBlur={() => recalc()}
+                      />
+                      <span className="input-unit-label">см³</span>
+                    </div>
                   </div>
                   <div className="field">
-                    <label className="field-label">Год выпуска</label>
-                    <select className="select" value={year} onChange={e => { setYear(+e.target.value); recalc(); }}>
-                      {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                    <label className="field-label">Мощность</label>
+                    <div className="input-unit-wrap">
+                      <input
+                        className="input input-unit" type="number" min={0} max={2000}
+                        value={power}
+                        onChange={e => setPower(+e.target.value || 0)}
+                      />
+                      <span className="input-unit-label">л.с.</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Price + currency */}
+                <div className="field">
+                  <label className="field-label">Стоимость авто на аукционе</label>
+                  <div className="input-currency-wrap">
+                    <input
+                      className="input input-with-select" type="number" min={0}
+                      value={priceInput}
+                      onChange={e => setPriceInput(+e.target.value || 0)}
+                      onBlur={() => recalc()}
+                    />
+                    <select
+                      className="input-currency-select"
+                      value={currency}
+                      onChange={e => { setCurrency(e.target.value); recalc({ currency: e.target.value }); }}
+                    >
+                      {CURRENCIES.map(c => (
+                        <option key={c.code} value={c.code}>{c.label}</option>
+                      ))}
                     </select>
                   </div>
+                  {currency !== "RUB" && auctionPriceRub > 0 && (
+                    <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 4 }}>
+                      ≈ {formatPrice(auctionPriceRub)} по курсу ЦБ
+                    </div>
+                  )}
                 </div>
 
-                <div className="field">
-                  <label className="field-label">Тип топлива</label>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {FUELS.map(t => (
-                      <button
-                        key={t}
-                        className={`chip${fuel === t ? " active" : ""}`}
-                        onClick={() => { setFuel(t); recalc(); }}
-                        style={{ flex: 1, justifyContent: "center" }}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <button className="btn btn-dark btn-block btn-lg" onClick={() => recalc()}>
-                  Рассчитать
+                <button className="btn btn-dark btn-block btn-lg" onClick={() => recalc()} disabled={loading}>
+                  {loading ? "Считаем…" : "Рассчитать"}
                 </button>
               </div>
             </div>
 
             <div className="calc-result">
               <span className="eyebrow-gold">Итого под ключ</span>
-              <div className="total">{formatPrice(result.total)}</div>
+              <div className="total">{result ? formatPrice(result.total) : "—"}</div>
               <div style={{ fontSize: 12, color: "rgba(245,243,238,0.6)", marginBottom: 24 }}>
                 срок доставки 35–55 дней
               </div>
-              <div className="calc-line">
-                <span className="k">Аукционная цена</span>
-                <span className="v">{formatPrice(result.auction_price)}</span>
-              </div>
-              <div className="calc-line">
-                <span className="k">Доставка и страхование</span>
-                <span className="v">{formatPrice(result.delivery)}</span>
-              </div>
-              <div className="calc-line">
-                <span className="k">Таможенная пошлина</span>
-                <span className="v">{formatPrice(result.customs)}</span>
-              </div>
-              <div className="calc-line">
-                <span className="k">Таможенный сбор</span>
-                <span className="v">{formatPrice(result.customs_fee)}</span>
-              </div>
-              <div className="calc-line" style={{ borderBottom: 0 }}>
-                <span className="k">Услуги «Восток»</span>
-                <span className="v">{formatPrice(result.services)}</span>
-              </div>
 
-              {(result.eur_rate || result.customs_method) && (
-                <div style={{ marginTop: 20, padding: "14px 16px", background: "rgba(245,243,238,0.05)", borderRadius: "var(--r-sm)", border: "1px solid rgba(200,164,92,0.15)" }}>
-                  <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 600, marginBottom: 10 }}>
-                    Детали расчёта
-                  </div>
-                  {result.eur_rate && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "5px 0", borderBottom: "1px solid rgba(245,243,238,0.08)" }}>
-                      <span style={{ color: "rgba(245,243,238,0.55)" }}>Курс EUR/RUB (ЦБ)</span>
-                      <span style={{ fontFamily: "var(--font-mono)", color: "rgba(245,243,238,0.85)" }}>{result.eur_rate.toFixed(2)} ₽</span>
-                    </div>
-                  )}
-                  {result.price_eur != null && result.price_eur > 0 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "5px 0", borderBottom: "1px solid rgba(245,243,238,0.08)" }}>
-                      <span style={{ color: "rgba(245,243,238,0.55)" }}>Цена в EUR</span>
-                      <span style={{ fontFamily: "var(--font-mono)", color: "rgba(245,243,238,0.85)" }}>≈ {result.price_eur?.toLocaleString("ru-RU")} €</span>
-                    </div>
-                  )}
+              {result && (<>
+                <div className="calc-line">
+                  <span className="k">Аукционная цена</span>
+                  <span className="v">
+                    {currency !== "RUB" ? formatLocalAmount(priceInput, currency) + " / " : ""}
+                    {formatPrice(result.auction_price)}
+                  </span>
                 </div>
-              )}
+                <div className="calc-line">
+                  <span className="k">Доставка и страхование</span>
+                  <span className="v">{formatPrice(result.delivery)}</span>
+                </div>
+                <div className="calc-line">
+                  <span className="k">Таможенная пошлина</span>
+                  <span className="v">{formatPrice(result.customs)}</span>
+                </div>
+                <div className="calc-line">
+                  <span className="k">Таможенный сбор</span>
+                  <span className="v">{formatPrice(result.customs_fee)}</span>
+                </div>
+                <div className="calc-line" style={{ borderBottom: 0 }}>
+                  <span className="k">Услуги «Восток»</span>
+                  <span className="v">{formatPrice(result.services)}</span>
+                </div>
+
+                {(result.eur_rate || result.customs_method) && (
+                  <div style={{ marginTop: 20, padding: "14px 16px", background: "rgba(245,243,238,0.05)", borderRadius: "var(--r-sm)", border: "1px solid rgba(200,164,92,0.15)" }}>
+                    <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 600, marginBottom: 10 }}>
+                      Детали расчёта
+                    </div>
+                    {result.eur_rate && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "5px 0", borderBottom: "1px solid rgba(245,243,238,0.08)" }}>
+                        <span style={{ color: "rgba(245,243,238,0.55)" }}>Курс EUR/RUB (ЦБ)</span>
+                        <span style={{ fontFamily: "var(--font-mono)", color: "rgba(245,243,238,0.85)" }}>{result.eur_rate.toFixed(2)} ₽</span>
+                      </div>
+                    )}
+                    {result.price_eur != null && result.price_eur > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "5px 0" }}>
+                        <span style={{ color: "rgba(245,243,238,0.55)" }}>Цена в EUR</span>
+                        <span style={{ fontFamily: "var(--font-mono)", color: "rgba(245,243,238,0.85)" }}>≈ {result.price_eur?.toLocaleString("ru-RU")} €</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>)}
 
               <a
                 href={`tel:${PHONE.replace(/\s/g, "")}`}

@@ -238,6 +238,31 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-
   background-size: 5px 5px; background-repeat: no-repeat;
 }
 
+/* Input with unit label */
+.input-unit-wrap { position: relative; }
+.input-unit { padding-right: 44px; }
+.input-unit-label {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 12px; color: var(--fg-muted); pointer-events: none;
+}
+
+/* Input with currency selector */
+.input-currency-wrap { display: flex; }
+.input-with-select { border-radius: var(--r-sm) 0 0 var(--r-sm); border-right: none; flex: 1; }
+.input-with-select:focus { z-index: 1; }
+.input-currency-select {
+  width: auto; min-width: 80px; padding: 12px 28px 12px 10px;
+  font-family: var(--font-sans); font-size: 14px; color: var(--ink-10);
+  background: #f5f5f7; border: 1px solid var(--ink-85);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-30) 50%), linear-gradient(135deg, var(--ink-30) 50%, transparent 50%);
+  background-position: calc(100% - 10px) 19px, calc(100% - 5px) 19px;
+  background-size: 5px 5px; background-repeat: no-repeat;
+  outline: none; cursor: pointer; flex-shrink: 0;
+}
+.input-currency-select:focus { border-color: var(--accent); }
+
 /* Chip */
 .chip {
   display: inline-flex; align-items: center; gap: 6px;
