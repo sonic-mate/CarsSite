@@ -136,8 +136,47 @@ def calc_customs(auction_price: int, engine_cc: int, year: int, fuel_type: str, 
     return d["customs"] + d["fee"]
 
 
+def get_delivery(country: str, t) -> int:
+    freight = {"japan": getattr(t, "freight_vlad_japan", 33_250),
+               "korea": getattr(t, "freight_vlad_korea", 28_000),
+               "china": getattr(t, "freight_vlad_china", 40_000)}.get(country, 33_250)
+    return getattr(t, "delivery_port", 30_606) + getattr(t, "export_docs", 11_477) + freight
+
+
+def get_services_total(t) -> int:
+    return (getattr(t, "recycling_fee", 3_366) + getattr(t, "broker_fee", 9_000) +
+            getattr(t, "bank_commission", 7_300) + getattr(t, "lab_docs", 25_000) +
+            getattr(t, "storage_fee", 35_000) + getattr(t, "local_delivery", 7_000) +
+            getattr(t, "registration_fee", 10_000) + getattr(t, "delivery_omsk", 135_000) +
+            getattr(t, "company_commission", 60_000))
+
+
+def get_items(auction_price: int, customs: int, customs_fee_val: int, country: str, t) -> list:
+    freight = {"japan": getattr(t, "freight_vlad_japan", 33_250),
+               "korea": getattr(t, "freight_vlad_korea", 28_000),
+               "china": getattr(t, "freight_vlad_china", 40_000)}.get(country, 33_250)
+    return [
+        {"label": "Цена аукциона", "value": auction_price},
+        {"label": "Доставка в порт трейлером", "value": getattr(t, "delivery_port", 30_606)},
+        {"label": "Оформление экспортных документов", "value": getattr(t, "export_docs", 11_477)},
+        {"label": "Фрахт до Владивостока", "value": freight},
+        {"label": "Утилизационный сбор", "value": getattr(t, "recycling_fee", 3_366)},
+        {"label": "Пошлина", "value": customs},
+        {"label": "Таможенный сбор", "value": customs_fee_val},
+        {"label": "Услуги брокера", "value": getattr(t, "broker_fee", 9_000)},
+        {"label": "Комиссия за банковские переводы", "value": getattr(t, "bank_commission", 7_300)},
+        {"label": "Лаборатория, ЕПТС, СБКТС", "value": getattr(t, "lab_docs", 25_000)},
+        {"label": "Склад Временного Хранения", "value": getattr(t, "storage_fee", 35_000)},
+        {"label": "Перегон по Владивостоку", "value": getattr(t, "local_delivery", 7_000)},
+        {"label": "Прописка, ИНН", "value": getattr(t, "registration_fee", 10_000)},
+        {"label": "Доставка до Омска", "value": getattr(t, "delivery_omsk", 135_000)},
+        {"label": "Комиссия компании и подготовка к выдаче", "value": getattr(t, "company_commission", 60_000)},
+    ]
+
+
 def turnkey_price(auction_price_rub: int, engine_cc: int, year: int, fuel_type: str,
                   country: str, t) -> int:
     customs_total = calc_customs(auction_price_rub, engine_cc, year, fuel_type, t)
-    delivery = {"japan": t.delivery_japan, "korea": t.delivery_korea, "china": t.delivery_china}.get(country, t.delivery_japan)
-    return auction_price_rub + customs_total + delivery + t.services
+    delivery = get_delivery(country, t)
+    services = get_services_total(t)
+    return auction_price_rub + customs_total + delivery + services

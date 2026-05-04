@@ -38,6 +38,20 @@ def _migrate():
         ("cars",    "auction_price",       "INTEGER DEFAULT 0"),
         ("cars",    "auction_price_local", "INTEGER DEFAULT 0"),
         ("cars",    "engine_cc",           "INTEGER DEFAULT 0"),
+        ("tariffs", "delivery_port",        "INTEGER DEFAULT 30606"),
+        ("tariffs", "export_docs",          "INTEGER DEFAULT 11477"),
+        ("tariffs", "freight_vlad_japan",   "INTEGER DEFAULT 33250"),
+        ("tariffs", "freight_vlad_korea",   "INTEGER DEFAULT 28000"),
+        ("tariffs", "freight_vlad_china",   "INTEGER DEFAULT 40000"),
+        ("tariffs", "recycling_fee",        "INTEGER DEFAULT 3366"),
+        ("tariffs", "broker_fee",           "INTEGER DEFAULT 9000"),
+        ("tariffs", "bank_commission",      "INTEGER DEFAULT 7300"),
+        ("tariffs", "lab_docs",             "INTEGER DEFAULT 25000"),
+        ("tariffs", "storage_fee",          "INTEGER DEFAULT 35000"),
+        ("tariffs", "local_delivery",       "INTEGER DEFAULT 7000"),
+        ("tariffs", "registration_fee",     "INTEGER DEFAULT 10000"),
+        ("tariffs", "delivery_omsk",        "INTEGER DEFAULT 135000"),
+        ("tariffs", "company_commission",   "INTEGER DEFAULT 60000"),
     ]:
         try:
             with engine.connect() as conn:
@@ -416,14 +430,18 @@ def get_car_breakdown(car_id: str, db: Session = Depends(get_db)):
     if ap <= 0:
         return None
     detail = _calc.calc_customs_detail(ap, cc, db_car.year, db_car.engine or "Бензин", t)
-    delivery = {"japan": t.delivery_japan, "korea": t.delivery_korea, "china": t.delivery_china}.get(db_car.country, t.delivery_japan)
+    delivery = _calc.get_delivery(db_car.country, t)
+    services = _calc.get_services_total(t)
+    items = _calc.get_items(ap, detail["customs"], detail["fee"], db_car.country, t)
+    total = sum(i["value"] for i in items)
     return {
         "auction_price": ap,
         "customs": detail["customs"],
         "customs_fee": detail["fee"],
         "delivery": delivery,
-        "services": t.services,
-        "total": db_car.price,
+        "services": services,
+        "total": total,
+        "items": items,
     }
 
 
@@ -639,18 +657,21 @@ def calculate(request: Request, data: CalculatorIn, db: Session = Depends(get_db
     detail = _calc.calc_customs_detail(data.auction_price, data.engine_cc, data.year, data.fuel_type, t)
     customs = detail["customs"]
     fee = detail["fee"]
-    delivery = {"japan": t.delivery_japan, "korea": t.delivery_korea, "china": t.delivery_china}.get(data.country, t.delivery_japan)
-    total = data.auction_price + customs + fee + delivery + t.services
+    delivery = _calc.get_delivery(data.country, t)
+    services = _calc.get_services_total(t)
+    items = _calc.get_items(data.auction_price, customs, fee, data.country, t)
+    total = sum(i["value"] for i in items)
     return CalculatorOut(
         auction_price=data.auction_price,
         delivery=delivery,
         customs=customs,
         customs_fee=fee,
-        services=t.services,
+        services=services,
         total=total,
         eur_rate=detail["eur_rate"],
         price_eur=detail["price_eur"],
         customs_method=detail["method"],
+        items=items,
     )
 
 

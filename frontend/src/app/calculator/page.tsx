@@ -50,6 +50,7 @@ export default function CalculatorPage() {
     auction_price: number; delivery: number; customs: number;
     customs_fee: number; services: number; total: number;
     eur_rate?: number; price_eur?: number; customs_method?: string;
+    items?: { label: string; value: number }[];
   } | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -201,29 +202,42 @@ export default function CalculatorPage() {
               </div>
 
               {result && (<>
-                <div className="calc-line">
-                  <span className="k">Аукционная цена</span>
-                  <span className="v">
-                    {currency !== "RUB" ? formatLocalAmount(priceInput, currency) + " / " : ""}
-                    {formatPrice(result.auction_price)}
-                  </span>
-                </div>
-                <div className="calc-line">
-                  <span className="k">Доставка и страхование</span>
-                  <span className="v">{formatPrice(result.delivery)}</span>
-                </div>
-                <div className="calc-line">
-                  <span className="k">Таможенная пошлина</span>
-                  <span className="v">{formatPrice(result.customs)}</span>
-                </div>
-                <div className="calc-line">
-                  <span className="k">Таможенный сбор</span>
-                  <span className="v">{formatPrice(result.customs_fee)}</span>
-                </div>
-                <div className="calc-line" style={{ borderBottom: 0 }}>
-                  <span className="k">Услуги «Восток»</span>
-                  <span className="v">{formatPrice(result.services)}</span>
-                </div>
+                {result.items && result.items.length > 0 ? (
+                  result.items.map((item, idx) => (
+                    <div key={item.label} className="calc-line" style={idx === result.items!.length - 1 ? { borderBottom: 0 } : {}}>
+                      <span className="k">{item.label}</span>
+                      <span className="v">
+                        {item.label === "Цена аукциона" && currency !== "RUB"
+                          ? formatLocalAmount(priceInput, currency) + " / " + formatPrice(item.value)
+                          : formatPrice(item.value)}
+                      </span>
+                    </div>
+                  ))
+                ) : (<>
+                  <div className="calc-line">
+                    <span className="k">Аукционная цена</span>
+                    <span className="v">
+                      {currency !== "RUB" ? formatLocalAmount(priceInput, currency) + " / " : ""}
+                      {formatPrice(result.auction_price)}
+                    </span>
+                  </div>
+                  <div className="calc-line">
+                    <span className="k">Доставка и страхование</span>
+                    <span className="v">{formatPrice(result.delivery)}</span>
+                  </div>
+                  <div className="calc-line">
+                    <span className="k">Таможенная пошлина</span>
+                    <span className="v">{formatPrice(result.customs)}</span>
+                  </div>
+                  <div className="calc-line">
+                    <span className="k">Таможенный сбор</span>
+                    <span className="v">{formatPrice(result.customs_fee)}</span>
+                  </div>
+                  <div className="calc-line" style={{ borderBottom: 0 }}>
+                    <span className="k">Услуги «Восток»</span>
+                    <span className="v">{formatPrice(result.services)}</span>
+                  </div>
+                </>)}
 
                 {(result.eur_rate || result.customs_method) && (
                   <div style={{ marginTop: 20, padding: "14px 16px", background: "rgba(245,243,238,0.05)", borderRadius: "var(--r-sm)", border: "1px solid rgba(200,164,92,0.15)" }}>

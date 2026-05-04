@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { getCar } from "@/lib/api";
 import { COUNTRY_LABEL, PHONE, formatPrice, formatKm } from "@/lib/types";
 
+interface BreakdownItem { label: string; value: number; }
 interface PriceBreakdown {
   auction_price: number;
   customs: number;
@@ -9,6 +10,7 @@ interface PriceBreakdown {
   delivery: number;
   services: number;
   total: number;
+  items?: BreakdownItem[];
 }
 import CarSilhouette from "@/components/CarSilhouette";
 import Icon from "@/components/Icon";
@@ -129,26 +131,21 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                 <span className="eyebrow-gold">Цена под ключ</span>
                 {breakdown && (
                   <div className="price-breakdown">
-                    <div className="price-breakdown-row">
-                      <span>Цена аукциона</span>
-                      <span>{formatPrice(breakdown.auction_price)}</span>
-                    </div>
-                    <div className="price-breakdown-row">
-                      <span>Таможенная пошлина</span>
-                      <span>{formatPrice(breakdown.customs)}</span>
-                    </div>
-                    <div className="price-breakdown-row">
-                      <span>Таможенный сбор</span>
-                      <span>{formatPrice(breakdown.customs_fee)}</span>
-                    </div>
-                    <div className="price-breakdown-row">
-                      <span>Доставка</span>
-                      <span>{formatPrice(breakdown.delivery)}</span>
-                    </div>
-                    <div className="price-breakdown-row">
-                      <span>Услуги компании</span>
-                      <span>{formatPrice(breakdown.services)}</span>
-                    </div>
+                    {(breakdown.items && breakdown.items.length > 0
+                      ? breakdown.items
+                      : [
+                          { label: "Цена аукциона", value: breakdown.auction_price },
+                          { label: "Таможенная пошлина", value: breakdown.customs },
+                          { label: "Таможенный сбор", value: breakdown.customs_fee },
+                          { label: "Доставка", value: breakdown.delivery },
+                          { label: "Услуги компании", value: breakdown.services },
+                        ]
+                    ).map(item => (
+                      <div key={item.label} className="price-breakdown-row">
+                        <span>{item.label}</span>
+                        <span>{formatPrice(item.value)}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
                 <div className="price">{formatPrice(car.price)}</div>

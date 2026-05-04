@@ -18,12 +18,28 @@ class Tariffs(Base):
     customs_coef_new = Column(Float, default=1.0)
     customs_coef_mid = Column(Float, default=1.1)
     customs_coef_old = Column(Float, default=1.25)
-    # Logistics
+    # Logistics (legacy totals, kept for compat)
     delivery_japan = Column(Integer, default=180_000)
     delivery_korea = Column(Integer, default=160_000)
     delivery_china = Column(Integer, default=200_000)
-    # Services
+    # Services (legacy total, kept for compat)
     services = Column(Integer, default=80_000)
+    # Detailed delivery items
+    delivery_port = Column(Integer, default=30_606)
+    export_docs = Column(Integer, default=11_477)
+    freight_vlad_japan = Column(Integer, default=33_250)
+    freight_vlad_korea = Column(Integer, default=28_000)
+    freight_vlad_china = Column(Integer, default=40_000)
+    # Detailed service items
+    recycling_fee = Column(Integer, default=3_366)
+    broker_fee = Column(Integer, default=9_000)
+    bank_commission = Column(Integer, default=7_300)
+    lab_docs = Column(Integer, default=25_000)
+    storage_fee = Column(Integer, default=35_000)
+    local_delivery = Column(Integer, default=7_000)
+    registration_fee = Column(Integer, default=10_000)
+    delivery_omsk = Column(Integer, default=135_000)
+    company_commission = Column(Integer, default=60_000)
 
 
 class AdminUser(Base):

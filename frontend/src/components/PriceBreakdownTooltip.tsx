@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { formatPrice } from "@/lib/types";
 
+interface BreakdownItem { label: string; value: number; }
+
 interface Breakdown {
   auction_price: number;
   customs: number;
@@ -10,6 +12,7 @@ interface Breakdown {
   delivery: number;
   services: number;
   total: number;
+  items?: BreakdownItem[];
 }
 
 export default function PriceBreakdownTooltip({ carId }: { carId: string }) {
@@ -61,14 +64,6 @@ export default function PriceBreakdownTooltip({ carId }: { carId: string }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, [open]);
 
-  const rows = breakdown ? [
-    { label: "Цена аукциона", value: breakdown.auction_price },
-    { label: "Таможенная пошлина", value: breakdown.customs },
-    { label: "Таможенный сбор", value: breakdown.customs_fee },
-    { label: "Доставка", value: breakdown.delivery },
-    { label: "Услуги компании", value: breakdown.services },
-  ] : [];
-
   const popup = open ? (
     <div
       className="price-info-popup"
@@ -80,7 +75,16 @@ export default function PriceBreakdownTooltip({ carId }: { carId: string }) {
       {!loading && breakdown && (
         <>
           <div className="price-info-title">Состав цены</div>
-          {rows.map(r => (
+          {(breakdown.items && breakdown.items.length > 0
+            ? breakdown.items
+            : [
+                { label: "Цена аукциона", value: breakdown.auction_price },
+                { label: "Таможенная пошлина", value: breakdown.customs },
+                { label: "Таможенный сбор", value: breakdown.customs_fee },
+                { label: "Доставка", value: breakdown.delivery },
+                { label: "Услуги компании", value: breakdown.services },
+              ]
+          ).map(r => (
             <div key={r.label} className="price-info-row">
               <span>{r.label}</span>
               <span>{formatPrice(r.value)}</span>

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 
 class CarBase(BaseModel):
@@ -49,6 +49,11 @@ class CalculatorIn(BaseModel):
     fuel_type: str = Field("Бензин")
 
 
+class BreakdownItem(BaseModel):
+    label: str
+    value: int
+
+
 class CalculatorOut(BaseModel):
     auction_price: int
     delivery: int
@@ -59,6 +64,7 @@ class CalculatorOut(BaseModel):
     eur_rate: float = 95.0
     price_eur: int = 0
     customs_method: str = ""
+    items: List[BreakdownItem] = []
 
 
 class TariffsSchema(BaseModel):
