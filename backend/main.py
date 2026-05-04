@@ -137,6 +137,13 @@ async def _fetch_all_pages(source_fetch) -> list[dict]:
     return all_cars
 
 
+def _proxy_url(url: str | None) -> str | None:
+    if not url:
+        return None
+    from urllib.parse import quote
+    return f"/api/img-proxy?url={quote(url, safe='')}"
+
+
 async def _sync_live_cars():
     from sources import japan, korea, china
     try:
@@ -168,7 +175,7 @@ async def _sync_live_cars():
                     badge=str(d["badge"]) if d.get("badge") else None,
                     photo_tint=d.get("photo_tint", "#1a1d24"),
                     silhouette=d.get("silhouette", "sedan"),
-                    photo_url=d.get("photo_url"),
+                    photo_url=_proxy_url(d.get("photo_url")),
                     source="live", is_active=True,
                     color=d.get("color"),
                     drive=d.get("drive"),
@@ -418,6 +425,33 @@ def get_similar_cars(car_id: str, db: Session = Depends(get_db)):
     ).limit(6 - len(by_brand)).all()
 
     return by_brand + by_body
+
+
+# ─── Image proxy ─────────────────────────────────────────────────────────────
+
+ALLOWED_IMG_HOSTS = {"ajes.com", "7.ajes.com", "img.ajes.com"}
+
+@app.get("/api/img-proxy")
+@limiter.limit("120/minute")
+async def img_proxy(request: Request, url: str):
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    host = parsed.netloc.lstrip("www.")
+    if not any(host == h or host.endswith("." + h) for h in ALLOWED_IMG_HOSTS):
+        raise HTTPException(status_code=403, detail="Host not allowed")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as c:
+            r = await c.get(url, headers={"Referer": "https://ajes.com/"})
+            if r.status_code != 200:
+                raise HTTPException(status_code=502, detail="Upstream error")
+            content_type = r.headers.get("content-type", "image/jpeg")
+            return Response(content=r.content, media_type=content_type,
+                headers={"Cache-Control": "public, max-age=86400"})
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=502, detail="Fetch failed")
 
 
 # ─── Debug (gated behind DEBUG_ENDPOINTS env var) ────────────────────────────
