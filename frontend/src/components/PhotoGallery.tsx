@@ -1,39 +1,47 @@
 "use client";
 import { useState } from "react";
 
-export default function PhotoGallery({ urls, alt }: { urls: string[]; alt: string }) {
+interface Props {
+  urls: string[];
+  alt: string;
+  bg?: string;
+}
+
+export default function PhotoGallery({ urls, alt, bg }: Props) {
   const [active, setActive] = useState(0);
 
   if (urls.length === 0) return null;
 
-  if (urls.length === 1) {
-    return (
-      <img src={urls[0]} alt={alt} style={{ display: "block", width: "100%", height: "auto" }}/>
-    );
-  }
+  const bgStyle = bg
+    ? { background: `radial-gradient(ellipse at 50% 70%, ${bg} 0%, #08090C 100%)` }
+    : {};
 
   return (
     <>
-      <img
-        src={urls[active]}
-        alt={alt}
-        style={{ display: "block", width: "100%", height: "auto" }}
-      />
-      <div className="gallery-thumbs">
-        {urls.map((url, i) => (
-          <div
-            key={i}
-            className={`gallery-thumb${i === active ? " active" : ""}`}
-            onClick={() => setActive(i)}
-          >
-            <img
-              src={url}
-              alt={`фото ${i + 1}`}
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          </div>
-        ))}
+      <div className="gallery-main" style={bgStyle}>
+        <img
+          src={urls[active]}
+          alt={alt}
+          style={{ display: "block", width: "100%", height: "auto" }}
+        />
       </div>
+      {urls.length > 1 && (
+        <div className="gallery-thumbs">
+          {urls.map((url, i) => (
+            <div
+              key={i}
+              className={`gallery-thumb${i === active ? " active" : ""}`}
+              onClick={() => setActive(i)}
+            >
+              <img
+                src={url}
+                alt={`фото ${i + 1}`}
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }

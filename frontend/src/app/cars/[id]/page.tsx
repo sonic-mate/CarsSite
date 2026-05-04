@@ -75,15 +75,15 @@ export default async function CarDetailPage({ params }: { params: { id: string }
 
           <div className="detail-grid">
             <div>
-              <div className="gallery-main" style={{ background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}>
-                {hasPhotos ? (
-                  <PhotoGallery urls={photoUrls} alt={`${car.brand} ${car.model}`}/>
-                ) : (
+              {hasPhotos ? (
+                <PhotoGallery urls={photoUrls} alt={`${car.brand} ${car.model}`} bg={car.photo_tint}/>
+              ) : (
+                <div className="gallery-main" style={{ background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}>
                   <div style={{ aspectRatio: "16/10", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 10% 8%" }}>
                     <CarSilhouette kind={car.silhouette} w={480}/>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <h3 style={{ marginTop: 48, marginBottom: 24 }}>Характеристики</h3>
               <div className="spec-table">

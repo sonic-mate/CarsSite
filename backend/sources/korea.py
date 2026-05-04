@@ -114,7 +114,7 @@ def _norm(i: dict) -> dict:
     photo = _photo_url(raw_images)
     photo_urls = [
         url for p in (raw_images or "").split("#")
-        if p.strip() and (url := _photo_url(p.strip(), size="&w=800"))
+        if p.strip() and (url := _photo_url(p.strip(), size="&w=320"))
     ]
     brand = (i.get("MARKA_NAME") or "").strip()
     model = (i.get("MODEL_NAME") or "").strip()
