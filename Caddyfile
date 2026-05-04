@@ -1,0 +1,4 @@
+vostokavtoimport.ru {
+    reverse_proxy /api/* backend:8000
+    reverse_proxy frontend:3000
+}
