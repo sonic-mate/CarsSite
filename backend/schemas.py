@@ -25,6 +25,9 @@ class CarCreate(CarBase):
 
 class CarOut(CarBase):
     is_active: bool
+    auction_price: Optional[int] = None
+    auction_price_local: Optional[int] = None
+    engine_cc: Optional[int] = None
     color: Optional[str] = None
     drive: Optional[str] = None
     power: Optional[str] = None

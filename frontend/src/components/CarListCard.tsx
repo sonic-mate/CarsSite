@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Car, COUNTRY_LABEL, formatPrice, formatKm } from "@/lib/types";
+import { Car, COUNTRY_LABEL, formatPrice, formatKm, formatLocalPrice } from "@/lib/types";
 
 export default function CarListCard({ car }: { car: Car }) {
   return (
@@ -60,6 +60,11 @@ export default function CarListCard({ car }: { car: Car }) {
       <div className="car-list-price">
         <div className="car-list-price-label">Цена в г. Омск</div>
         <div className="car-list-price-value">{formatPrice(car.price)}</div>
+        {formatLocalPrice(car.auction_price_local, car.country) && (
+          <div className="car-list-local-price">
+            {formatLocalPrice(car.auction_price_local, car.country)} на аукционе
+          </div>
+        )}
         <div className="car-list-country">
           <img src={`/flags/${car.country}.svg`} alt={car.country} width={16} height={11}/>
           {COUNTRY_LABEL[car.country]}

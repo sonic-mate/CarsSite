@@ -10,12 +10,15 @@ import { getCars } from "@/lib/api";
 const COUNTRIES = ["all", "japan", "china", "korea"] as const;
 const BODIES = ["Все", "Седан", "Кроссовер", "Внедорожник", "Минивэн", "Хэтчбэк", "Лифтбек", "Универсал", "Фургон"];
 const FUELS = ["Все", "Бензин", "Гибрид", "Электро", "Дизель"];
+const TRANSMISSIONS = ["Все", "AT", "MT", "CVT", "AMT"];
 
 const PAGE_SIZE = 60;
 const CUR_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CUR_YEAR - 1999 }, (_, i) => CUR_YEAR - i);
 
 interface BrandItem { brand: string; count: number; }
+interface ModelItem { model: string; count: number; }
+interface ColorItem { color: string; count: number; }
 interface Counts { total: number; by_country: Record<string, number>; }
 
 function CatalogInner() {
@@ -26,106 +29,152 @@ function CatalogInner() {
   const [page, setPage]       = useState(1);
   const [counts, setCounts]   = useState<Counts | null>(null);
   const [brands, setBrands]   = useState<BrandItem[]>([]);
+  const [models, setModels]   = useState<ModelItem[]>([]);
+  const [colors, setColors]   = useState<ColorItem[]>([]);
 
-  const [country,    setCountry]    = useState<string>(searchParams.get("country") ?? "all");
-  const [brand,      setBrand]      = useState<string>(searchParams.get("brand") ?? "");
-  const [body,       setBody]       = useState<string>(searchParams.get("body") ?? "");
-  const [fuel,       setFuel]       = useState<string>(searchParams.get("fuel") ?? "");
-  const [yearMin,    setYearMin]    = useState<string>(searchParams.get("year_min") ?? "");
-  const [yearMax,    setYearMax]    = useState<string>(searchParams.get("year_max") ?? "");
-  const [priceMin,   setPriceMin]   = useState<string>(searchParams.get("price_min") ?? "");
-  const [priceMax,   setPriceMax]   = useState<string>(searchParams.get("price_max") ?? "");
-  const [mileageMax, setMileageMax] = useState<string>(searchParams.get("mileage_max") ?? "");
-  const [sort,       setSort]       = useState(searchParams.get("sort") ?? "popular");
+  const sp = searchParams;
+  const [country,      setCountry]      = useState<string>(sp.get("country") ?? "all");
+  const [brand,        setBrand]        = useState<string>(sp.get("brand") ?? "");
+  const [model,        setModel]        = useState<string>(sp.get("model") ?? "");
+  const [body,         setBody]         = useState<string>(sp.get("body") ?? "");
+  const [fuel,         setFuel]         = useState<string>(sp.get("fuel") ?? "");
+  const [transmission, setTransmission] = useState<string>(sp.get("transmission") ?? "");
+  const [color,        setColor]        = useState<string>(sp.get("color") ?? "");
+  const [yearMin,      setYearMin]      = useState<string>(sp.get("year_min") ?? "");
+  const [yearMax,      setYearMax]      = useState<string>(sp.get("year_max") ?? "");
+  const [priceMin,     setPriceMin]     = useState<string>(sp.get("price_min") ?? "");
+  const [priceMax,     setPriceMax]     = useState<string>(sp.get("price_max") ?? "");
+  const [mileageMin,   setMileageMin]   = useState<string>(sp.get("mileage_min") ?? "");
+  const [mileageMax,   setMileageMax]   = useState<string>(sp.get("mileage_max") ?? "");
+  const [engineCcMin,  setEngineCcMin]  = useState<string>(sp.get("engine_cc_min") ?? "");
+  const [engineCcMax,  setEngineCcMax]  = useState<string>(sp.get("engine_cc_max") ?? "");
+  const [lotId,        setLotId]        = useState<string>(sp.get("lot_id") ?? "");
+  const [sort,         setSort]         = useState(sp.get("sort") ?? "popular");
 
-  // pending values — applied only on "Показать предложения"
-  const [pBrand,      setPBrand]      = useState<string>(searchParams.get("brand") ?? "");
-  const [pBody,       setPBody]       = useState<string>(searchParams.get("body") ?? "");
-  const [pFuel,       setPFuel]       = useState<string>(searchParams.get("fuel") ?? "");
-  const [pYearMin,    setPYearMin]    = useState<string>(searchParams.get("year_min") ?? "");
-  const [pYearMax,    setPYearMax]    = useState<string>(searchParams.get("year_max") ?? "");
-  const [pPriceMin,   setPPriceMin]   = useState<string>(searchParams.get("price_min") ?? "");
-  const [pPriceMax,   setPPriceMax]   = useState<string>(searchParams.get("price_max") ?? "");
-  const [pMileageMax, setPMileageMax] = useState<string>(searchParams.get("mileage_max") ?? "");
-  const [pSort,       setPSort]       = useState(searchParams.get("sort") ?? "popular");
+  // pending
+  const [pBrand,        setPBrand]        = useState<string>(sp.get("brand") ?? "");
+  const [pModel,        setPModel]        = useState<string>(sp.get("model") ?? "");
+  const [pBody,         setPBody]         = useState<string>(sp.get("body") ?? "");
+  const [pFuel,         setPFuel]         = useState<string>(sp.get("fuel") ?? "");
+  const [pTransmission, setPTransmission] = useState<string>(sp.get("transmission") ?? "");
+  const [pColor,        setPColor]        = useState<string>(sp.get("color") ?? "");
+  const [pYearMin,      setPYearMin]      = useState<string>(sp.get("year_min") ?? "");
+  const [pYearMax,      setPYearMax]      = useState<string>(sp.get("year_max") ?? "");
+  const [pPriceMin,     setPPriceMin]     = useState<string>(sp.get("price_min") ?? "");
+  const [pPriceMax,     setPPriceMax]     = useState<string>(sp.get("price_max") ?? "");
+  const [pMileageMin,   setPMileageMin]   = useState<string>(sp.get("mileage_min") ?? "");
+  const [pMileageMax,   setPMileageMax]   = useState<string>(sp.get("mileage_max") ?? "");
+  const [pEngineCcMin,  setPEngineCcMin]  = useState<string>(sp.get("engine_cc_min") ?? "");
+  const [pEngineCcMax,  setPEngineCcMax]  = useState<string>(sp.get("engine_cc_max") ?? "");
+  const [pLotId,        setPLotId]        = useState<string>(sp.get("lot_id") ?? "");
+  const [pSort,         setPSort]         = useState(sp.get("sort") ?? "popular");
 
   const totalPages = counts ? Math.max(1, Math.ceil(counts.total / PAGE_SIZE)) : 1;
-  const activeFilters = (brand ? 1 : 0) + (body ? 1 : 0) + (fuel ? 1 : 0) +
-    (yearMin || yearMax ? 1 : 0) + (priceMin || priceMax ? 1 : 0) + (mileageMax ? 1 : 0);
+  const activeFilters = [brand, model, body, fuel, transmission, color, yearMin, yearMax,
+    priceMin, priceMax, mileageMin, mileageMax, engineCcMin, engineCcMax, lotId].filter(Boolean).length;
 
   function buildParams(p: number): Record<string, string> {
-    const params: Record<string, string> = {
-      limit: String(PAGE_SIZE),
-      offset: String((p - 1) * PAGE_SIZE),
-    };
+    const params: Record<string, string> = { limit: String(PAGE_SIZE), offset: String((p - 1) * PAGE_SIZE) };
     if (country !== "all") params.country = country;
-    if (body)       params.body = body;
-    if (fuel)       params.fuel = fuel;
-    if (brand)      params.brand = brand;
-    if (yearMin)    params.year_min = yearMin;
-    if (yearMax)    params.year_max = yearMax;
-    if (priceMin)   params.price_min = priceMin;
-    if (priceMax)   params.price_max = priceMax;
-    if (mileageMax) params.mileage_max = mileageMax;
+    if (brand)        params.brand = brand;
+    if (model)        params.model = model;
+    if (body)         params.body = body;
+    if (fuel)         params.fuel = fuel;
+    if (transmission) params.transmission = transmission;
+    if (color)        params.color = color;
+    if (yearMin)      params.year_min = yearMin;
+    if (yearMax)      params.year_max = yearMax;
+    if (priceMin)     params.price_min = priceMin;
+    if (priceMax)     params.price_max = priceMax;
+    if (mileageMin)   params.mileage_min = mileageMin;
+    if (mileageMax)   params.mileage_max = mileageMax;
+    if (engineCcMin)  params.engine_cc_min = engineCcMin;
+    if (engineCcMax)  params.engine_cc_max = engineCcMax;
+    if (lotId)        params.lot_id = lotId;
     if (sort !== "popular") params.sort = sort;
     return params;
   }
 
+  const FILTER_DEPS = [country, brand, model, body, fuel, transmission, color,
+    yearMin, yearMax, priceMin, priceMax, mileageMin, mileageMax, engineCcMin, engineCcMax, lotId, sort];
+
   const load = useCallback(async (p: number) => {
     setLoading(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
-    try {
-      const data = await getCars(buildParams(p));
-      setCars(data);
-    } finally {
-      setLoading(false);
-    }
-  }, [country, body, fuel, brand, yearMin, yearMax, priceMin, priceMax, mileageMax, sort]);
+    try { setCars(await getCars(buildParams(p))); }
+    finally { setLoading(false); }
+  }, FILTER_DEPS);
 
   useEffect(() => {
     const c = searchParams.get("country") ?? "all";
     if (c !== country) setCountry(c);
   }, [searchParams]);
 
-  useEffect(() => { setPage(1); load(1); }, [country, body, fuel, brand, yearMin, yearMax, priceMin, priceMax, mileageMax, sort]);
+  useEffect(() => { setPage(1); load(1); }, FILTER_DEPS);
   useEffect(() => { load(page); }, [page]);
 
   useEffect(() => {
     const p = new URLSearchParams();
     if (country !== "all") p.set("country", country);
-    if (body)       p.set("body", body);
-    if (fuel)       p.set("fuel", fuel);
-    if (brand)      p.set("brand", brand);
-    if (yearMin)    p.set("year_min", yearMin);
-    if (yearMax)    p.set("year_max", yearMax);
-    if (priceMin)   p.set("price_min", priceMin);
-    if (priceMax)   p.set("price_max", priceMax);
-    if (mileageMax) p.set("mileage_max", mileageMax);
+    if (brand)        p.set("brand", brand);
+    if (model)        p.set("model", model);
+    if (body)         p.set("body", body);
+    if (fuel)         p.set("fuel", fuel);
+    if (transmission) p.set("transmission", transmission);
+    if (color)        p.set("color", color);
+    if (yearMin)      p.set("year_min", yearMin);
+    if (yearMax)      p.set("year_max", yearMax);
+    if (priceMin)     p.set("price_min", priceMin);
+    if (priceMax)     p.set("price_max", priceMax);
+    if (mileageMin)   p.set("mileage_min", mileageMin);
+    if (mileageMax)   p.set("mileage_max", mileageMax);
+    if (engineCcMin)  p.set("engine_cc_min", engineCcMin);
+    if (engineCcMax)  p.set("engine_cc_max", engineCcMax);
+    if (lotId)        p.set("lot_id", lotId);
     fetch(`/api/cars-count?${p}`).then(r => r.json()).then(setCounts).catch(() => {});
-  }, [country, body, fuel, brand, yearMin, yearMax, priceMin, priceMax, mileageMax]);
+  }, FILTER_DEPS);
 
   useEffect(() => {
     const p = country !== "all" ? `?country=${country}` : "";
     fetch(`/api/cars-brands${p}`).then(r => r.json()).then(setBrands).catch(() => {});
-    setBrand(""); setPBrand("");
+    const cp = country !== "all" ? `?country=${country}` : "";
+    fetch(`/api/cars-colors${cp}`).then(r => r.json()).then(setColors).catch(() => {});
+    setBrand(""); setPBrand(""); setModel(""); setPModel("");
   }, [country]);
 
+  useEffect(() => {
+    if (!pBrand) { setModels([]); return; }
+    const p = country !== "all" ? `&country=${country}` : "";
+    fetch(`/api/cars-models?brand=${encodeURIComponent(pBrand)}${p}`)
+      .then(r => r.json()).then(setModels).catch(() => {});
+    setPModel("");
+  }, [pBrand]);
+
   function applyFilters() {
-    setBrand(pBrand); setBody(pBody); setFuel(pFuel);
+    setBrand(pBrand); setModel(pModel); setBody(pBody); setFuel(pFuel);
+    setTransmission(pTransmission); setColor(pColor);
     setYearMin(pYearMin); setYearMax(pYearMax);
     setPriceMin(pPriceMin); setPriceMax(pPriceMax);
-    setMileageMax(pMileageMax); setSort(pSort);
+    setMileageMin(pMileageMin); setMileageMax(pMileageMax);
+    setEngineCcMin(pEngineCcMin); setEngineCcMax(pEngineCcMax);
+    setLotId(pLotId); setSort(pSort);
   }
 
   function resetFilters() {
-    setPBrand(""); setPBody(""); setPFuel("");
+    setPBrand(""); setPModel(""); setPBody(""); setPFuel("");
+    setPTransmission(""); setPColor("");
     setPYearMin(""); setPYearMax("");
     setPPriceMin(""); setPPriceMax("");
-    setPMileageMax(""); setPSort("popular");
-    setBrand(""); setBody(""); setFuel("");
+    setPMileageMin(""); setPMileageMax("");
+    setPEngineCcMin(""); setPEngineCcMax("");
+    setPLotId(""); setPSort("popular");
+    setBrand(""); setModel(""); setBody(""); setFuel("");
+    setTransmission(""); setColor("");
     setYearMin(""); setYearMax("");
     setPriceMin(""); setPriceMax("");
-    setMileageMax(""); setSort("popular");
+    setMileageMin(""); setMileageMax("");
+    setEngineCcMin(""); setEngineCcMax("");
+    setLotId(""); setSort("popular");
   }
 
   function goTo(p: number) {
@@ -160,8 +209,6 @@ function CatalogInner() {
     );
   }
 
-  const pendingActive = (pBrand ? 1:0) + (pBody ? 1:0) + (pFuel ? 1:0) +
-    (pYearMin||pYearMax ? 1:0) + (pPriceMin||pPriceMax ? 1:0) + (pMileageMax ? 1:0);
 
   return (
     <main>
@@ -201,20 +248,24 @@ function CatalogInner() {
           <div className="catalog-filter-panel">
             <div className="catalog-filter-grid">
 
-              {/* Row 1 */}
+              {/* Марка */}
               <select className="filter-select" value={pBrand} onChange={e => setPBrand(e.target.value)}>
                 <option value="">Марка</option>
                 {brands.map(b => <option key={b.brand} value={b.brand}>{b.brand} ({b.count})</option>)}
               </select>
 
+              {/* Модель — активна только если выбрана марка */}
+              <select className="filter-select" value={pModel} onChange={e => setPModel(e.target.value)} disabled={!pBrand}>
+                <option value="">Модель</option>
+                {models.map(m => <option key={m.model} value={m.model}>{m.model} ({m.count})</option>)}
+              </select>
+
+              {/* Кузов */}
               <select className="filter-select" value={pBody} onChange={e => setPBody(e.target.value)}>
                 {BODIES.map(b => <option key={b} value={b === "Все" ? "" : b}>{b === "Все" ? "Тип кузова" : b}</option>)}
               </select>
 
-              <select className="filter-select" value={pFuel} onChange={e => setPFuel(e.target.value)}>
-                {FUELS.map(f => <option key={f} value={f === "Все" ? "" : f}>{f === "Все" ? "Тип топлива" : f}</option>)}
-              </select>
-
+              {/* Год */}
               <div className="filter-range">
                 <select className="filter-select" value={pYearMin} onChange={e => setPYearMin(e.target.value)}>
                   <option value="">Год от</option>
@@ -226,26 +277,55 @@ function CatalogInner() {
                 </select>
               </div>
 
-              {/* Row 2 */}
+              {/* Объём двигателя */}
+              <div className="filter-range">
+                <input className="filter-input" type="number" placeholder="Объём от, cc" value={pEngineCcMin} onChange={e => setPEngineCcMin(e.target.value)}/>
+                <input className="filter-input" type="number" placeholder="до" value={pEngineCcMax} onChange={e => setPEngineCcMax(e.target.value)}/>
+              </div>
+
+              {/* Пробег */}
+              <div className="filter-range">
+                <input className="filter-input" type="number" placeholder="Пробег от, км" value={pMileageMin} onChange={e => setPMileageMin(e.target.value)}/>
+                <input className="filter-input" type="number" placeholder="до" value={pMileageMax} onChange={e => setPMileageMax(e.target.value)}/>
+              </div>
+
+              {/* Цена */}
               <div className="filter-range">
                 <input className="filter-input" type="number" placeholder="Цена от, ₽" value={pPriceMin} onChange={e => setPPriceMin(e.target.value)}/>
                 <input className="filter-input" type="number" placeholder="до" value={pPriceMax} onChange={e => setPPriceMax(e.target.value)}/>
               </div>
 
-              <input className="filter-input" type="number" placeholder="Пробег до, км" value={pMileageMax} onChange={e => setPMileageMax(e.target.value)}/>
+              {/* Цвет */}
+              <select className="filter-select" value={pColor} onChange={e => setPColor(e.target.value)}>
+                <option value="">Цвет</option>
+                {colors.map(c => <option key={c.color} value={c.color}>{c.color} ({c.count})</option>)}
+              </select>
 
+              {/* Топливо */}
+              <select className="filter-select" value={pFuel} onChange={e => setPFuel(e.target.value)}>
+                {FUELS.map(f => <option key={f} value={f === "Все" ? "" : f}>{f === "Все" ? "Тип топлива" : f}</option>)}
+              </select>
+
+              {/* КПП */}
+              <select className="filter-select" value={pTransmission} onChange={e => setPTransmission(e.target.value)}>
+                {TRANSMISSIONS.map(t => <option key={t} value={t === "Все" ? "" : t}>{t === "Все" ? "Тип КПП" : t}</option>)}
+              </select>
+
+              {/* Лот */}
+              <input className="filter-input" type="text" placeholder="Лот / ID" value={pLotId} onChange={e => setPLotId(e.target.value)}/>
+
+              {/* Сортировка + кнопки */}
               <select className="filter-select" value={pSort} onChange={e => setPSort(e.target.value)}>
-                <option value="popular">Сортировка: по умолчанию</option>
+                <option value="popular">По умолчанию</option>
                 <option value="price-asc">Сначала дешевле</option>
                 <option value="price-desc">Сначала дороже</option>
                 <option value="year">Сначала новее</option>
+                <option value="mileage">По пробегу</option>
               </select>
 
               <div className="filter-range" style={{ justifyContent: "flex-end" }}>
-                {(activeFilters > 0 || pendingActive > 0) && (
-                  <button className="filter-reset" onClick={resetFilters}>
-                    Сбросить ×
-                  </button>
+                {activeFilters > 0 && (
+                  <button className="filter-reset" onClick={resetFilters}>Сбросить ×</button>
                 )}
                 <button className="btn btn-primary" onClick={applyFilters}>
                   Показать предложения

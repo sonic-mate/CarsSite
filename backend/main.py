@@ -35,8 +35,9 @@ def _migrate():
         ("cars",    "town",     "VARCHAR"),
         ("cars",    "equip",       "VARCHAR"),
         ("cars",    "kuzov",       "VARCHAR"),
-        ("cars",    "auction_price", "INTEGER DEFAULT 0"),
-        ("cars",    "engine_cc",    "INTEGER DEFAULT 0"),
+        ("cars",    "auction_price",       "INTEGER DEFAULT 0"),
+        ("cars",    "auction_price_local", "INTEGER DEFAULT 0"),
+        ("cars",    "engine_cc",           "INTEGER DEFAULT 0"),
     ]:
         try:
             with engine.connect() as conn:
@@ -186,6 +187,7 @@ async def _sync_live_cars():
                     equip=d.get("equip"),
                     kuzov=d.get("kuzov"),
                     auction_price=d.get("auction_price", 0),
+                    auction_price_local=d.get("auction_price_local", 0),
                     engine_cc=d.get("engine_cc", 0),
                 ))
             db.commit()
@@ -272,42 +274,42 @@ def list_cars(request: Request,
     price_max: Optional[int] = None,
     year_min: Optional[int] = None,
     year_max: Optional[int] = None,
+    mileage_min: Optional[int] = None,
     mileage_max: Optional[int] = None,
     fuel: Optional[str] = None,
     brand: Optional[str] = None,
+    model: Optional[str] = None,
     color: Optional[str] = None,
+    transmission: Optional[str] = None,
+    engine_cc_min: Optional[int] = None,
+    engine_cc_max: Optional[int] = None,
+    lot_id: Optional[str] = None,
     sort: str = "popular",
     limit: int = 60,
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
     q = db.query(Car).filter(Car.is_active == True)
-    if country:
-        q = q.filter(Car.country == country)
-    if body:
-        q = q.filter(Car.body == body)
-    if price_min:
-        q = q.filter(Car.price >= price_min)
-    if price_max:
-        q = q.filter(Car.price <= price_max)
-    if year_min:
-        q = q.filter(Car.year >= year_min)
-    if year_max:
-        q = q.filter(Car.year <= year_max)
-    if mileage_max:
-        q = q.filter(Car.mileage <= mileage_max)
-    if fuel:
-        q = q.filter(Car.engine.ilike(f"%{fuel}%"))
-    if brand:
-        q = q.filter(Car.brand.ilike(f"%{brand}%"))
-    if color:
-        q = q.filter(Car.color.ilike(f"%{color}%"))
-    if sort == "price-asc":
-        q = q.order_by(Car.price.asc())
-    elif sort == "price-desc":
-        q = q.order_by(Car.price.desc())
-    elif sort == "year":
-        q = q.order_by(Car.year.desc())
+    if country:       q = q.filter(Car.country == country)
+    if body:          q = q.filter(Car.body == body)
+    if brand:         q = q.filter(Car.brand.ilike(f"%{brand}%"))
+    if model:         q = q.filter(Car.model.ilike(f"%{model}%"))
+    if fuel:          q = q.filter(Car.engine.ilike(f"%{fuel}%"))
+    if transmission:  q = q.filter(Car.engine.ilike(f"%{transmission}%"))
+    if color:         q = q.filter(Car.color.ilike(f"%{color}%"))
+    if price_min:     q = q.filter(Car.price >= price_min)
+    if price_max:     q = q.filter(Car.price <= price_max)
+    if year_min:      q = q.filter(Car.year >= year_min)
+    if year_max:      q = q.filter(Car.year <= year_max)
+    if mileage_min:   q = q.filter(Car.mileage >= mileage_min)
+    if mileage_max:   q = q.filter(Car.mileage <= mileage_max)
+    if engine_cc_min: q = q.filter(Car.engine_cc >= engine_cc_min)
+    if engine_cc_max: q = q.filter(Car.engine_cc <= engine_cc_max)
+    if lot_id:        q = q.filter(Car.id.ilike(f"%{lot_id}%"))
+    if sort == "price-asc":   q = q.order_by(Car.price.asc())
+    elif sort == "price-desc": q = q.order_by(Car.price.desc())
+    elif sort == "year":       q = q.order_by(Car.year.desc())
+    elif sort == "mileage":    q = q.order_by(Car.mileage.asc())
     return q.offset(offset).limit(min(limit, 200)).all()
 
 
@@ -322,6 +324,28 @@ def cars_brands(request: Request, country: Optional[str] = None, db: Session = D
     return [{"brand": r.brand, "count": r.cnt} for r in rows]
 
 
+@app.get("/api/cars-models")
+@limiter.limit("30/minute")
+def cars_models(request: Request, brand: str, country: Optional[str] = None, db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    q = db.query(Car.model, func.count(Car.id).label("cnt")).filter(Car.is_active == True, Car.brand.ilike(f"%{brand}%"))
+    if country:
+        q = q.filter(Car.country == country)
+    rows = q.group_by(Car.model).order_by(func.count(Car.id).desc()).limit(60).all()
+    return [{"model": r.model, "count": r.cnt} for r in rows]
+
+
+@app.get("/api/cars-colors")
+@limiter.limit("30/minute")
+def cars_colors(request: Request, country: Optional[str] = None, db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    q = db.query(Car.color, func.count(Car.id).label("cnt")).filter(Car.is_active == True, Car.color.isnot(None), Car.color != "")
+    if country:
+        q = q.filter(Car.country == country)
+    rows = q.group_by(Car.color).order_by(func.count(Car.id).desc()).limit(40).all()
+    return [{"color": r.color, "count": r.cnt} for r in rows]
+
+
 @app.get("/api/cars-count")
 @limiter.limit("60/minute")
 def count_cars(request: Request,
@@ -329,44 +353,45 @@ def count_cars(request: Request,
     body: Optional[str] = None,
     fuel: Optional[str] = None,
     brand: Optional[str] = None,
+    model: Optional[str] = None,
     price_min: Optional[int] = None,
     price_max: Optional[int] = None,
     year_min: Optional[int] = None,
     year_max: Optional[int] = None,
+    mileage_min: Optional[int] = None,
     mileage_max: Optional[int] = None,
     color: Optional[str] = None,
+    transmission: Optional[str] = None,
+    engine_cc_min: Optional[int] = None,
+    engine_cc_max: Optional[int] = None,
+    lot_id: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    q = db.query(Car).filter(Car.is_active == True)
+    def _apply(q):
+        if body:          q = q.filter(Car.body == body)
+        if fuel:          q = q.filter(Car.engine.ilike(f"%{fuel}%"))
+        if brand:         q = q.filter(Car.brand.ilike(f"%{brand}%"))
+        if model:         q = q.filter(Car.model.ilike(f"%{model}%"))
+        if transmission:  q = q.filter(Car.engine.ilike(f"%{transmission}%"))
+        if color:         q = q.filter(Car.color.ilike(f"%{color}%"))
+        if price_min:     q = q.filter(Car.price >= price_min)
+        if price_max:     q = q.filter(Car.price <= price_max)
+        if year_min:      q = q.filter(Car.year >= year_min)
+        if year_max:      q = q.filter(Car.year <= year_max)
+        if mileage_min:   q = q.filter(Car.mileage >= mileage_min)
+        if mileage_max:   q = q.filter(Car.mileage <= mileage_max)
+        if engine_cc_min: q = q.filter(Car.engine_cc >= engine_cc_min)
+        if engine_cc_max: q = q.filter(Car.engine_cc <= engine_cc_max)
+        if lot_id:        q = q.filter(Car.id.ilike(f"%{lot_id}%"))
+        return q
+    base = db.query(Car).filter(Car.is_active == True)
     if country:
-        q = q.filter(Car.country == country)
-    if body:
-        q = q.filter(Car.body == body)
-    if fuel:
-        q = q.filter(Car.engine.ilike(f"%{fuel}%"))
-    if brand:
-        q = q.filter(Car.brand.ilike(f"%{brand}%"))
-    if price_min:
-        q = q.filter(Car.price >= price_min)
-    if price_max:
-        q = q.filter(Car.price <= price_max)
-    if year_min:
-        q = q.filter(Car.year >= year_min)
-    if year_max:
-        q = q.filter(Car.year <= year_max)
-    if mileage_max:
-        q = q.filter(Car.mileage <= mileage_max)
-    if color:
-        q = q.filter(Car.color.ilike(f"%{color}%"))
-    total = q.count()
-    by_country = {}
-    for c in ["japan", "korea", "china"]:
-        qc = db.query(Car).filter(Car.is_active == True)
-        if body:
-            qc = qc.filter(Car.body == body)
-        if fuel:
-            qc = qc.filter(Car.engine.ilike(f"%{fuel}%"))
-        by_country[c] = qc.filter(Car.country == c).count()
+        base = base.filter(Car.country == country)
+    total = _apply(base).count()
+    by_country = {
+        c: _apply(db.query(Car).filter(Car.is_active == True, Car.country == c)).count()
+        for c in ["japan", "korea", "china"]
+    }
     return {"total": total, "by_country": by_country}
 
 

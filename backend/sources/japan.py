@@ -221,6 +221,7 @@ def _norm(i: dict) -> dict:
         "photo_urls": photo_urls,
         "source": "ajes",
         "auction_price": auction_price_rub,
+        "auction_price_local": finish,
         "engine_cc": engine_cc,
         "color": color_map.normalize(i.get("COLOR")),
         "drive": drive,

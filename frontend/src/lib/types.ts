@@ -21,6 +21,9 @@ export interface Car {
   town?: string | null;
   equip?: string | null;
   kuzov?: string | null;
+  auction_price?: number | null;
+  auction_price_local?: number | null;
+  engine_cc?: number | null;
 }
 
 export interface CalculatorResult {
@@ -58,4 +61,16 @@ export function formatPrice(n: number): string {
 
 export function formatKm(n: number): string {
   return n.toLocaleString("ru-RU") + " км";
+}
+
+const CURRENCY_SYMBOL: Record<string, string> = {
+  japan: "¥",
+  china: "¥",
+  korea: "₩",
+};
+
+export function formatLocalPrice(amount: number | null | undefined, country: string): string | null {
+  if (!amount || amount <= 0) return null;
+  const sym = CURRENCY_SYMBOL[country] ?? "";
+  return sym + " " + amount.toLocaleString("ru-RU");
 }
