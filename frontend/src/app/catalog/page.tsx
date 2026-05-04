@@ -12,6 +12,24 @@ const BODIES = ["Все", "Седан", "Кроссовер", "Внедорож�
 const FUELS = ["Все", "Бензин", "Гибрид", "Электро", "Дизель"];
 const TRANSMISSIONS = ["Все", "AT", "MT", "CVT", "AMT"];
 
+const PRICE_CURRENCIES = [
+  { code: "RUB", sym: "₽" },
+  { code: "JPY", sym: "¥" },
+  { code: "KRW", sym: "₩" },
+  { code: "CNY", sym: "¥CN" },
+] as const;
+
+interface Rates { jpy_to_rub: number; krw_to_rub: number; cny_to_rub: number; }
+
+function toRub(amount: string, currency: string, rates: Rates): string {
+  const n = parseFloat(amount);
+  if (!n || !isFinite(n)) return amount;
+  if (currency === "JPY") return String(Math.round(n * rates.jpy_to_rub));
+  if (currency === "KRW") return String(Math.round(n * rates.krw_to_rub));
+  if (currency === "CNY") return String(Math.round(n * rates.cny_to_rub));
+  return amount;
+}
+
 const PAGE_SIZE = 60;
 const CUR_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CUR_YEAR - 1999 }, (_, i) => CUR_YEAR - i);
@@ -68,6 +86,8 @@ function CatalogInner() {
   const [pEngineCcMax,  setPEngineCcMax]  = useState<string>(sp.get("engine_cc_max") ?? "");
   const [pLotId,        setPLotId]        = useState<string>(sp.get("lot_id") ?? "");
   const [pSort,         setPSort]         = useState(sp.get("sort") ?? "popular");
+  const [priceCurrency, setPriceCurrency] = useState("RUB");
+  const [rates, setRates] = useState<Rates>({ jpy_to_rub: 0.47, krw_to_rub: 0.051, cny_to_rub: 11.0 });
 
   const totalPages = counts ? Math.max(1, Math.ceil(counts.total / PAGE_SIZE)) : 1;
   const activeFilters = [brand, model, body, fuel, transmission, color, yearMin, yearMax,
@@ -150,11 +170,18 @@ function CatalogInner() {
     setPModel("");
   }, [pBrand]);
 
+  useEffect(() => {
+    fetch("/api/tariffs").then(r => r.ok ? r.json() : null).then(d => {
+      if (d) setRates({ jpy_to_rub: d.jpy_to_rub, krw_to_rub: d.krw_to_rub, cny_to_rub: d.cny_to_rub });
+    }).catch(() => {});
+  }, []);
+
   function applyFilters() {
     setBrand(pBrand); setModel(pModel); setBody(pBody); setFuel(pFuel);
     setTransmission(pTransmission); setColor(pColor);
     setYearMin(pYearMin); setYearMax(pYearMax);
-    setPriceMin(pPriceMin); setPriceMax(pPriceMax);
+    setPriceMin(toRub(pPriceMin, priceCurrency, rates));
+    setPriceMax(toRub(pPriceMax, priceCurrency, rates));
     setMileageMin(pMileageMin); setMileageMax(pMileageMax);
     setEngineCcMin(pEngineCcMin); setEngineCcMax(pEngineCcMax);
     setLotId(pLotId); setSort(pSort);
@@ -167,7 +194,7 @@ function CatalogInner() {
     setPPriceMin(""); setPPriceMax("");
     setPMileageMin(""); setPMileageMax("");
     setPEngineCcMin(""); setPEngineCcMax("");
-    setPLotId(""); setPSort("popular");
+    setPLotId(""); setPSort("popular"); setPriceCurrency("RUB");
     setBrand(""); setModel(""); setBody(""); setFuel("");
     setTransmission(""); setColor("");
     setYearMin(""); setYearMax("");
@@ -291,8 +318,34 @@ function CatalogInner() {
 
               {/* Цена */}
               <div className="filter-range">
-                <input className="filter-input" type="number" placeholder="Цена от, ₽" value={pPriceMin} onChange={e => setPPriceMin(e.target.value)}/>
-                <input className="filter-input" type="number" placeholder="до" value={pPriceMax} onChange={e => setPPriceMax(e.target.value)}/>
+                <div style={{ display: "flex", gap: 4, width: "100%", alignItems: "center" }}>
+                  <select
+                    className="filter-select"
+                    style={{ flex: "0 0 auto", width: "auto", minWidth: 0, paddingLeft: 8, paddingRight: 8 }}
+                    value={priceCurrency}
+                    onChange={e => { setPriceCurrency(e.target.value); setPPriceMin(""); setPPriceMax(""); }}
+                  >
+                    {PRICE_CURRENCIES.map(c => (
+                      <option key={c.code} value={c.code}>{c.sym}</option>
+                    ))}
+                  </select>
+                  <input
+                    className="filter-input"
+                    type="number"
+                    placeholder={`Цена от`}
+                    value={pPriceMin}
+                    onChange={e => setPPriceMin(e.target.value)}
+                    style={{ flex: 1, minWidth: 0 }}
+                  />
+                  <input
+                    className="filter-input"
+                    type="number"
+                    placeholder="до"
+                    value={pPriceMax}
+                    onChange={e => setPPriceMax(e.target.value)}
+                    style={{ flex: 1, minWidth: 0 }}
+                  />
+                </div>
               </div>
 
               {/* Цвет */}
