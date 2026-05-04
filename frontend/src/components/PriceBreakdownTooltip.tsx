@@ -35,8 +35,8 @@ export default function PriceBreakdownTooltip({ carId }: { carId: string }) {
     if (!btnRef.current) return;
     const r = btnRef.current.getBoundingClientRect();
     setPos({
-      top: r.top + window.scrollY - 8,
-      left: r.right + window.scrollX,
+      top: r.top - 8,
+      left: r.right,
     });
   }
 
@@ -72,7 +72,7 @@ export default function PriceBreakdownTooltip({ carId }: { carId: string }) {
   const popup = open ? (
     <div
       className="price-info-popup"
-      style={{ position: "absolute", top: pos.top, left: pos.left, transform: "translateY(-100%) translateX(-100%)" }}
+      style={{ position: "fixed", top: pos.top, left: pos.left, transform: "translateY(-100%) translateX(-100%)", zIndex: 9999 }}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
