@@ -1,5 +1,6 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { formatPrice } from "@/lib/types";
 
 interface Breakdown {
@@ -15,6 +16,8 @@ export default function PriceBreakdownTooltip({ carId }: { carId: string }) {
   const [open, setOpen] = useState(false);
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
   const fetchedRef = useRef(false);
 
   async function load() {
@@ -28,17 +31,34 @@ export default function PriceBreakdownTooltip({ carId }: { carId: string }) {
     setLoading(false);
   }
 
+  function calcPos() {
+    if (!btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    setPos({
+      top: r.top + window.scrollY - 8,
+      left: r.right + window.scrollX,
+    });
+  }
+
   function handleEnter() {
     load();
+    calcPos();
     setOpen(true);
   }
 
   function handleClick(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (!open) load();
+    if (!open) { load(); calcPos(); }
     setOpen(v => !v);
   }
+
+  useEffect(() => {
+    if (!open) return;
+    function onScroll() { setOpen(false); }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [open]);
 
   const rows = breakdown ? [
     { label: "Цена аукциона", value: breakdown.auction_price },
@@ -48,6 +68,35 @@ export default function PriceBreakdownTooltip({ carId }: { carId: string }) {
     { label: "Услуги компании", value: breakdown.services },
   ] : [];
 
+  const popup = open ? (
+    <div
+      className="price-info-popup"
+      style={{ position: "absolute", top: pos.top, left: pos.left, transform: "translateY(-100%)" }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      {loading && <div className="price-info-loading">Загрузка…</div>}
+      {!loading && breakdown && (
+        <>
+          <div className="price-info-title">Состав цены</div>
+          {rows.map(r => (
+            <div key={r.label} className="price-info-row">
+              <span>{r.label}</span>
+              <span>{formatPrice(r.value)}</span>
+            </div>
+          ))}
+          <div className="price-info-total">
+            <span>Итого под ключ</span>
+            <span>{formatPrice(breakdown.total)}</span>
+          </div>
+        </>
+      )}
+      {!loading && !breakdown && (
+        <div className="price-info-loading">Нет данных</div>
+      )}
+    </div>
+  ) : null;
+
   return (
     <div
       className="price-info-wrap"
@@ -55,6 +104,7 @@ export default function PriceBreakdownTooltip({ carId }: { carId: string }) {
       onMouseLeave={() => setOpen(false)}
     >
       <button
+        ref={btnRef}
         className="price-info-btn"
         type="button"
         aria-label="Состав цены"
@@ -67,29 +117,7 @@ export default function PriceBreakdownTooltip({ carId }: { carId: string }) {
           <path d="M12 8h.01"/>
         </svg>
       </button>
-      {open && (
-        <div className="price-info-popup">
-          {loading && <div className="price-info-loading">Загрузка…</div>}
-          {!loading && breakdown && (
-            <>
-              <div className="price-info-title">Состав цены</div>
-              {rows.map(r => (
-                <div key={r.label} className="price-info-row">
-                  <span>{r.label}</span>
-                  <span>{formatPrice(r.value)}</span>
-                </div>
-              ))}
-              <div className="price-info-total">
-                <span>Итого под ключ</span>
-                <span>{formatPrice(breakdown.total)}</span>
-              </div>
-            </>
-          )}
-          {!loading && !breakdown && (
-            <div className="price-info-loading">Нет данных</div>
-          )}
-        </div>
-      )}
+      {typeof document !== "undefined" && popup && createPortal(popup, document.body)}
     </div>
   );
 }
