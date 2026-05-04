@@ -36,6 +36,9 @@ class CarOut(CarBase):
     town: Optional[str] = None
     equip: Optional[str] = None
     kuzov: Optional[str] = None
+    photo_urls_json: Optional[str] = None
+    auction_date: Optional[str] = None
+    auction_name: Optional[str] = None
 
     class Config:
         from_attributes = True

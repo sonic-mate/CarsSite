@@ -16,6 +16,7 @@ import CarSilhouette from "@/components/CarSilhouette";
 import Icon from "@/components/Icon";
 import CallbackModal from "@/components/CallbackModal";
 import SimilarStrip from "@/components/SimilarStrip";
+import PhotoGallery from "@/components/PhotoGallery";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -41,7 +42,9 @@ export default async function CarDetailPage({ params }: { params: { id: string }
     { cache: "no-store" }
   ).then(r => r.ok ? r.json() : []).catch(() => []);
 
-  const photoUrls: string[] = (car as any).photo_urls ?? ((car as any).photo_url ? [(car as any).photo_url] : []);
+  const photoUrls: string[] = (car as any).photo_urls?.length
+    ? (car as any).photo_urls
+    : (car as any).photo_url ? [(car as any).photo_url] : [];
   const hasPhotos = photoUrls.length > 0;
 
   return (
@@ -74,24 +77,13 @@ export default async function CarDetailPage({ params }: { params: { id: string }
             <div>
               <div className="gallery-main" style={{ background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}>
                 {hasPhotos ? (
-                  <img src={photoUrls[0]} alt={`${car.brand} ${car.model}`}
-                    style={{ display: "block", width: "100%", height: "auto" }}/>
+                  <PhotoGallery urls={photoUrls} alt={`${car.brand} ${car.model}`}/>
                 ) : (
                   <div style={{ aspectRatio: "16/10", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 10% 8%" }}>
                     <CarSilhouette kind={car.silhouette} w={480}/>
                   </div>
                 )}
               </div>
-              {photoUrls.length > 1 && (
-                <div className="gallery-thumbs">
-                  {photoUrls.map((url, i) => (
-                    <div key={i} className={`gallery-thumb${i === 0 ? " active" : ""}`}>
-                      <img src={url} alt={`фото ${i + 1}`}
-                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}/>
-                    </div>
-                  ))}
-                </div>
-              )}
 
               <h3 style={{ marginTop: 48, marginBottom: 24 }}>Характеристики</h3>
               <div className="spec-table">
@@ -119,6 +111,12 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                 )}
                 {(car as any).equip && (
                   <div className="spec-row"><span className="k">Доп. оборудование</span><span className="v" style={{ textAlign: "right", maxWidth: "60%" }}>{(car as any).equip}</span></div>
+                )}
+                {(car as any).auction_name && (
+                  <div className="spec-row"><span className="k">Аукцион</span><span className="v" style={{ textAlign: "right" }}>{(car as any).auction_name}</span></div>
+                )}
+                {(car as any).auction_date && (
+                  <div className="spec-row"><span className="k">Дата аукциона</span><span className="v">{(car as any).auction_date}</span></div>
                 )}
                 {(car as any).badge && (
                   <div className="spec-row" style={{ borderBottom: 0 }}><span className="k">Оценка аукциона</span><span className="v">★ {(car as any).badge}</span></div>

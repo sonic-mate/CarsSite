@@ -24,6 +24,9 @@ export interface Car {
   auction_price?: number | null;
   auction_price_local?: number | null;
   engine_cc?: number | null;
+  photo_urls?: string[] | null;
+  auction_date?: string | null;
+  auction_name?: string | null;
 }
 
 export interface CalculatorResult {

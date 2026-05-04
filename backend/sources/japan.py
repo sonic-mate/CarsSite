@@ -170,7 +170,7 @@ def _norm(i: dict) -> dict:
     photo = _photo_url(raw_images)
     photo_urls = [
         url for p in (raw_images or "").split("#")
-        if p.strip() and (url := _photo_url(p.strip()))
+        if p.strip() and (url := _photo_url(p.strip(), size="&w=800"))
     ]
     brand = (i.get("MARKA_NAME") or "").strip()
     model = (i.get("MODEL_NAME") or "").strip()
@@ -231,4 +231,6 @@ def _norm(i: dict) -> dict:
         "town": (i.get("TOWN") or "").strip() or None,
         "equip": (i.get("EQUIP") or "").strip() or None,
         "kuzov": (i.get("KUZOV") or "").strip() or None,
+        "auction_date": (i.get("AUCTION_DATE") or "").strip()[:10] or None,
+        "auction_name": (i.get("AUCTION") or "").strip() or None,
     }

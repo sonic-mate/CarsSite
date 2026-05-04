@@ -38,6 +38,9 @@ def _migrate():
         ("cars",    "auction_price",       "INTEGER DEFAULT 0"),
         ("cars",    "auction_price_local", "INTEGER DEFAULT 0"),
         ("cars",    "engine_cc",           "INTEGER DEFAULT 0"),
+        ("cars",    "photo_urls_json",     "VARCHAR"),
+        ("cars",    "auction_date",        "VARCHAR"),
+        ("cars",    "auction_name",        "VARCHAR"),
         ("tariffs", "delivery_port",        "INTEGER DEFAULT 30606"),
         ("tariffs", "export_docs",          "INTEGER DEFAULT 11477"),
         ("tariffs", "freight_vlad_japan",   "INTEGER DEFAULT 33250"),
@@ -203,6 +206,11 @@ async def _sync_live_cars():
                     auction_price=d.get("auction_price", 0),
                     auction_price_local=d.get("auction_price_local", 0),
                     engine_cc=d.get("engine_cc", 0),
+                    photo_urls_json=__import__("json").dumps(
+                        [_proxy_url(u) for u in (d.get("photo_urls") or []) if u]
+                    ) if d.get("photo_urls") else None,
+                    auction_date=d.get("auction_date"),
+                    auction_name=d.get("auction_name"),
                 ))
             db.commit()
             print(f"Synced {len(cars)} live cars (jp+kr+cn).")
@@ -413,10 +421,16 @@ def count_cars(request: Request,
 
 @app.get("/api/cars/{car_id}")
 def get_car(car_id: str, db: Session = Depends(get_db)):
+    import json as _json
     db_car = db.query(Car).filter(Car.id == car_id, Car.is_active == True).first()
     if not db_car:
         raise HTTPException(status_code=404, detail="Автомобиль не найден")
-    return db_car
+    result = {c.name: getattr(db_car, c.name) for c in db_car.__table__.columns}
+    try:
+        result["photo_urls"] = _json.loads(result.get("photo_urls_json") or "[]")
+    except Exception:
+        result["photo_urls"] = []
+    return result
 
 
 @app.get("/api/cars/{car_id}/breakdown")

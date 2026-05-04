@@ -97,3 +97,6 @@ class Car(Base):
     town = Column(String, nullable=True)
     equip = Column(String, nullable=True)
     kuzov = Column(String, nullable=True)
+    photo_urls_json = Column(String, nullable=True)
+    auction_date = Column(String, nullable=True)
+    auction_name = Column(String, nullable=True)
