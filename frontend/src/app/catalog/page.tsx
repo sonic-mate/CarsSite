@@ -30,7 +30,7 @@ function toRub(amount: string, currency: string, rates: Rates): string {
   return amount;
 }
 
-const PAGE_SIZE = 60;
+const PAGE_SIZE = 20;
 const CUR_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CUR_YEAR - 1999 }, (_, i) => CUR_YEAR - i);
 
