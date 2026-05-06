@@ -177,6 +177,13 @@ async def _sync_live_cars():
                 cars.extend(r)
 
         cars = [c for c in cars if c.get("price", 0) > 0 and c.get("brand")]
+        seen: set[str] = set()
+        unique_cars: list[dict] = []
+        for c in cars:
+            if c["id"] not in seen:
+                seen.add(c["id"])
+                unique_cars.append(c)
+        cars = unique_cars
 
         if not cars:
             print("Sync: no cars returned, keeping existing data")
@@ -223,7 +230,7 @@ async def _sync_live_cars():
 async def _sync_loop():
     while True:
         await _sync_live_cars()
-        await asyncio.sleep(300)  # every 5 minutes
+        await asyncio.sleep(600)  # every 10 minutes
 
 
 @asynccontextmanager
@@ -307,7 +314,7 @@ def list_cars(request: Request,
     engine_cc_max: Optional[int] = None,
     lot_id: Optional[str] = None,
     sort: str = "popular",
-    limit: int = 60,
+    limit: int = 20,
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
@@ -488,6 +495,24 @@ def get_similar_cars(car_id: str, db: Session = Depends(get_db)):
 
 ALLOWED_IMG_HOSTS = {"ajes.com", "7.ajes.com", "img.ajes.com"}
 
+def _compress_image(data: bytes, accept: str) -> tuple[bytes, str]:
+    """Convert image to WebP if supported, else optimize in-place. Perceptually lossless."""
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(data))
+        if img.mode not in ("RGB", "RGBA"):
+            img = img.convert("RGB")
+        out = io.BytesIO()
+        if "image/webp" in accept:
+            img.save(out, format="WEBP", quality=85, method=4)
+            return out.getvalue(), "image/webp"
+        img.save(out, format="JPEG", quality=85, optimize=True, progressive=True)
+        return out.getvalue(), "image/jpeg"
+    except Exception:
+        return data, "image/jpeg"
+
+
 @app.get("/api/img-proxy")
 @limiter.limit("120/minute")
 async def img_proxy(request: Request, url: str):
@@ -502,9 +527,10 @@ async def img_proxy(request: Request, url: str):
             r = await c.get(url, headers={"Referer": "https://ajes.com/"})
             if r.status_code != 200:
                 raise HTTPException(status_code=502, detail="Upstream error")
-            content_type = r.headers.get("content-type", "image/jpeg")
-            return Response(content=r.content, media_type=content_type,
-                headers={"Cache-Control": "public, max-age=86400"})
+        accept = request.headers.get("accept", "")
+        content, content_type = _compress_image(r.content, accept)
+        return Response(content=content, media_type=content_type,
+            headers={"Cache-Control": "public, max-age=86400"})
     except HTTPException:
         raise
     except Exception:

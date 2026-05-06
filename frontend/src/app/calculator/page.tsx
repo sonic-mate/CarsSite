@@ -39,10 +39,10 @@ function formatLocalAmount(amount: number, currency: string): string {
 
 export default function CalculatorPage() {
   const [country, setCountry] = useState<"japan" | "korea" | "china">("japan");
-  const [priceInput, setPriceInput] = useState(0);
+  const [priceInput, setPriceInput] = useState("");
   const [currency, setCurrency] = useState("JPY");
-  const [engineCC, setEngineCC] = useState(0);
-  const [power, setPower] = useState(0);
+  const [engineCC, setEngineCC] = useState("");
+  const [power, setPower] = useState("");
   const [year, setYear] = useState("");
   const [fuel, setFuel] = useState("");
   const [rates, setRates] = useState<Rates>({ jpy_to_rub: 0.47, krw_to_rub: 0.051, cny_to_rub: 11.0 });
@@ -60,11 +60,11 @@ export default function CalculatorPage() {
     }).catch(() => {});
   }, []);
 
-  const recalc = useCallback(async (overrides: { country?: string; priceInput?: number; currency?: string; engineCC?: number; year?: string; fuel?: string } = {}) => {
+  const recalc = useCallback(async (overrides: { country?: string; priceInput?: string; currency?: string; engineCC?: string; year?: string; fuel?: string } = {}) => {
     const c = overrides.country ?? country;
-    const pi = overrides.priceInput ?? priceInput;
+    const pi = +(overrides.priceInput ?? priceInput) || 0;
     const cur = overrides.currency ?? currency;
-    const cc = overrides.engineCC ?? engineCC;
+    const cc = +(overrides.engineCC ?? engineCC) || 0;
     const y = overrides.year ?? year;
     const f = overrides.fuel ?? fuel;
     const auctionPriceRub = toRub(pi, cur, rates);
@@ -84,7 +84,7 @@ export default function CalculatorPage() {
     recalc({ country: k, currency: newCur });
   }
 
-  const auctionPriceRub = priceInput > 0 ? toRub(priceInput, currency, rates) : 0;
+  const auctionPriceRub = +priceInput > 0 ? toRub(+priceInput, currency, rates) : 0;
 
   return (
     <main>
@@ -143,9 +143,9 @@ export default function CalculatorPage() {
                     <div className="input-unit-wrap">
                       <input
                         className="input input-unit" type="number" min={0} max={10000}
-                        value={engineCC || ""}
+                        value={engineCC}
                         placeholder="0"
-                        onChange={e => setEngineCC(+e.target.value || 0)}
+                        onChange={e => setEngineCC(e.target.value)}
                         onBlur={() => recalc()}
                       />
                       <span className="input-unit-label">см³</span>
@@ -156,9 +156,9 @@ export default function CalculatorPage() {
                     <div className="input-unit-wrap">
                       <input
                         className="input input-unit" type="number" min={0} max={2000}
-                        value={power || ""}
+                        value={power}
                         placeholder="0"
-                        onChange={e => setPower(+e.target.value || 0)}
+                        onChange={e => setPower(e.target.value)}
                       />
                       <span className="input-unit-label">л.с.</span>
                     </div>
@@ -171,9 +171,9 @@ export default function CalculatorPage() {
                   <div className="input-currency-wrap">
                     <input
                       className="input input-with-select" type="number" min={0}
-                      value={priceInput || ""}
+                      value={priceInput}
                       placeholder="0"
-                      onChange={e => setPriceInput(+e.target.value || 0)}
+                      onChange={e => setPriceInput(e.target.value)}
                       onBlur={() => recalc()}
                     />
                     <select

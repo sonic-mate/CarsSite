@@ -131,7 +131,6 @@ function CatalogInner() {
   }, [searchParams]);
 
   useEffect(() => { setPage(1); load(1); }, FILTER_DEPS);
-  useEffect(() => { load(page); }, [page]);
 
   useEffect(() => {
     const p = new URLSearchParams();
@@ -207,6 +206,7 @@ function CatalogInner() {
   function goTo(p: number) {
     if (p < 1 || p > totalPages) return;
     setPage(p);
+    load(p);
   }
 
   function renderPagination() {
