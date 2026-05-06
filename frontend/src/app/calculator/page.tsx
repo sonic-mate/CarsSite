@@ -213,7 +213,7 @@ export default function CalculatorPage() {
                       <span className="k">{item.label}</span>
                       <span className="v">
                         {item.label === "Цена аукциона" && currency !== "RUB"
-                          ? formatLocalAmount(priceInput, currency) + " / " + formatPrice(item.value)
+                          ? formatLocalAmount(+priceInput, currency) + " / " + formatPrice(item.value)
                           : formatPrice(item.value)}
                       </span>
                     </div>
@@ -222,7 +222,7 @@ export default function CalculatorPage() {
                   <div className="calc-line">
                     <span className="k">Аукционная цена</span>
                     <span className="v">
-                      {currency !== "RUB" ? formatLocalAmount(priceInput, currency) + " / " : ""}
+                      {currency !== "RUB" ? formatLocalAmount(+priceInput, currency) + " / " : ""}
                       {formatPrice(result.auction_price)}
                     </span>
                   </div>
