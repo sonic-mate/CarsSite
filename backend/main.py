@@ -14,8 +14,8 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from database import engine, get_db, Base, SessionLocal
-from models import Car, Tariffs, AdminUser
-from schemas import CarOut, CalculatorIn, CalculatorOut, TariffsSchema
+from models import Car, Tariffs, AdminUser, CityDelivery
+from schemas import CarOut, CalculatorIn, CalculatorOut, TariffsSchema, CityDeliveryOut
 import aggregator
 import tariff_cache
 import calc as _calc
@@ -47,14 +47,20 @@ def _migrate():
         ("tariffs", "freight_vlad_korea",   "INTEGER DEFAULT 28000"),
         ("tariffs", "freight_vlad_china",   "INTEGER DEFAULT 40000"),
         ("tariffs", "recycling_fee",        "INTEGER DEFAULT 3366"),
-        ("tariffs", "broker_fee",           "INTEGER DEFAULT 9000"),
+        ("tariffs", "freight_japan_jpy",    "INTEGER DEFAULT 175000"),
+        ("tariffs", "recycling_fee_new",    "INTEGER DEFAULT 3400"),
+        ("tariffs", "recycling_fee_old",    "INTEGER DEFAULT 5200"),
+        ("tariffs", "broker_fee",           "INTEGER DEFAULT 25000"),
         ("tariffs", "bank_commission",      "INTEGER DEFAULT 7300"),
         ("tariffs", "lab_docs",             "INTEGER DEFAULT 25000"),
         ("tariffs", "storage_fee",          "INTEGER DEFAULT 35000"),
         ("tariffs", "local_delivery",       "INTEGER DEFAULT 7000"),
         ("tariffs", "registration_fee",     "INTEGER DEFAULT 10000"),
-        ("tariffs", "delivery_omsk",        "INTEGER DEFAULT 135000"),
-        ("tariffs", "company_commission",   "INTEGER DEFAULT 60000"),
+        ("tariffs", "delivery_omsk",            "INTEGER DEFAULT 135000"),
+        ("tariffs", "company_commission",       "INTEGER DEFAULT 60000"),
+        ("tariffs", "customs_rates_new_json",   "VARCHAR"),
+        ("tariffs", "customs_rates_mid_json",   "VARCHAR"),
+        ("tariffs", "customs_rates_old_json",   "VARCHAR"),
     ]:
         try:
             with engine.connect() as conn:
@@ -91,6 +97,37 @@ def _init_tariffs():
             db.commit()
             db.refresh(t)
         tariff_cache.update(t)
+    finally:
+        db.close()
+
+
+_CITY_DEFAULTS = [
+    ("Владивосток",    0),
+    ("Хабаровск",      15_000),
+    ("Чита",           45_000),
+    ("Улан-Удэ",       60_000),
+    ("Иркутск",        75_000),
+    ("Красноярск",     95_000),
+    ("Новосибирск",    115_000),
+    ("Омск",           135_000),
+    ("Екатеринбург",   155_000),
+    ("Уфа",            165_000),
+    ("Казань",         180_000),
+    ("Нижний Новгород", 190_000),
+    ("Москва",         210_000),
+    ("Санкт-Петербург", 215_000),
+    ("Ростов-на-Дону", 210_000),
+    ("Краснодар",      215_000),
+]
+
+
+def _init_cities():
+    db = SessionLocal()
+    try:
+        if db.query(CityDelivery).count() == 0:
+            for city_name, cost in _CITY_DEFAULTS:
+                db.add(CityDelivery(city_name=city_name, cost_rub=cost))
+            db.commit()
     finally:
         db.close()
 
@@ -239,6 +276,7 @@ async def lifespan(app: FastAPI):
     _migrate()
     _init_tariffs()
     _init_admin()
+    _init_cities()
     tasks = [
         asyncio.create_task(_rates_loop()),
         asyncio.create_task(_sync_loop()),
@@ -685,6 +723,25 @@ def update_tariffs(
     return t
 
 
+# ─── Cities ──────────────────────────────────────────────────────────────────
+
+@app.get("/api/cities", response_model=List[CityDeliveryOut])
+def get_cities(db: Session = Depends(get_db)):
+    return db.query(CityDelivery).order_by(CityDelivery.id).all()
+
+
+@app.put("/api/cities/{city_id}", response_model=CityDeliveryOut)
+def update_city(city_id: int, cost_rub: int, db: Session = Depends(get_db),
+                _: str = Depends(_require_admin)):
+    city = db.query(CityDelivery).filter(CityDelivery.id == city_id).first()
+    if not city:
+        raise HTTPException(status_code=404, detail="City not found")
+    city.cost_rub = cost_rub
+    db.commit()
+    db.refresh(city)
+    return city
+
+
 # ─── Calculator ───────────────────────────────────────────────────────────────
 
 @app.post("/api/calculator", response_model=CalculatorOut)
@@ -694,18 +751,24 @@ def calculate(request: Request, data: CalculatorIn, db: Session = Depends(get_db
     if not t:
         t = Tariffs()
 
+    city_delivery = 0
+    city_name = "Омск"
+    if data.city:
+        city_row = db.query(CityDelivery).filter(CityDelivery.city_name == data.city).first()
+        if city_row:
+            city_delivery = city_row.cost_rub
+            city_name = city_row.city_name
+
     detail = _calc.calc_customs_detail(data.auction_price, data.engine_cc, data.year, data.fuel_type, t)
     customs = detail["customs"]
-    fee = detail["fee"]
     delivery = _calc.get_delivery(data.country, t)
-    services = _calc.get_services_total(t)
-    items = _calc.get_items(data.auction_price, customs, fee, data.country, t)
+    services = _calc.get_services_total(t, data.year, city_delivery)
+    items = _calc.get_items(data.auction_price, customs, data.country, t, city_delivery, city_name, data.year)
     total = sum(i["value"] for i in items)
     return CalculatorOut(
         auction_price=data.auction_price,
         delivery=delivery,
         customs=customs,
-        customs_fee=fee,
         services=services,
         total=total,
         eur_rate=detail["eur_rate"],
@@ -713,6 +776,101 @@ def calculate(request: Request, data: CalculatorIn, db: Session = Depends(get_db
         customs_method=detail["method"],
         items=items,
     )
+
+
+# ─── Customs rate tables ─────────────────────────────────────────────────────
+
+class _CustomsImportIn(_BaseModel):
+    url: str
+    bracket: str  # "new" | "mid" | "old"
+
+
+class _CustomsRatesIn(_BaseModel):
+    rates_new: Optional[List] = None
+    rates_mid: Optional[List] = None
+    rates_old: Optional[List] = None
+
+
+def _gsheet_to_csv_url(url: str) -> str:
+    import re
+    m = re.search(r'/spreadsheets/d/([a-zA-Z0-9_-]+)', url)
+    if not m:
+        raise HTTPException(status_code=400, detail="Не распознан URL Google Sheets")
+    sheet_id = m.group(1)
+    gid_m = re.search(r'[#&?]gid=(\d+)', url)
+    gid = gid_m.group(1) if gid_m else "0"
+    return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+
+
+@app.post("/api/admin/customs/preview-gsheet")
+@limiter.limit("10/minute")
+async def preview_customs_gsheet(request: Request, data: _CustomsImportIn,
+                                  _: str = Depends(_require_admin)):
+    import csv as _csv, io as _io
+    csv_url = _gsheet_to_csv_url(data.url)
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.get(csv_url)
+            if r.status_code != 200:
+                raise HTTPException(status_code=400, detail=f"Ошибка загрузки: HTTP {r.status_code}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Ошибка сети: {e}")
+
+    numeric_rows = []
+    for row in _csv.reader(_io.StringIO(r.text)):
+        cells = [c.strip().replace(",", ".").replace(" ", "").replace("%", "") for c in row if c.strip()]
+        if len(cells) < 3:
+            continue
+        try:
+            numeric_rows.append([float(cells[0]), float(cells[1]), float(cells[2])])
+        except ValueError:
+            continue  # skip header/non-numeric rows
+
+    if not numeric_rows:
+        raise HTTPException(status_code=400, detail="Не найдено числовых данных. Ожидается 3 числовых столбца.")
+
+    return {"rows": numeric_rows, "count": len(numeric_rows), "bracket": data.bracket}
+
+
+@app.put("/api/admin/customs")
+def update_customs_rates(data: _CustomsRatesIn, db: Session = Depends(get_db),
+                         _: str = Depends(_require_admin)):
+    import json as _json
+    t = db.query(Tariffs).filter(Tariffs.id == 1).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Tariffs not found")
+    if data.rates_new is not None:
+        t.customs_rates_new_json = _json.dumps(data.rates_new)
+    if data.rates_mid is not None:
+        t.customs_rates_mid_json = _json.dumps(data.rates_mid)
+    if data.rates_old is not None:
+        t.customs_rates_old_json = _json.dumps(data.rates_old)
+    db.commit()
+    db.refresh(t)
+    tariff_cache.update(t)
+    return {"ok": True}
+
+
+@app.get("/api/admin/customs")
+def get_customs_rates(db: Session = Depends(get_db), _: str = Depends(_require_admin)):
+    import json as _json
+    t = db.query(Tariffs).filter(Tariffs.id == 1).first()
+    def _parse(json_str, fallback):
+        if json_str:
+            try:
+                return _json.loads(json_str)
+            except Exception:
+                pass
+        return [list(row) for row in fallback]
+    from calc import _RATES_NEW_BY_PRICE, _RATES_MID, _RATES_OLD
+    return {
+        "rates_new": _parse(t.customs_rates_new_json if t else None, _RATES_NEW_BY_PRICE),
+        "rates_mid": _parse(t.customs_rates_mid_json if t else None, _RATES_MID),
+        "rates_old": _parse(t.customs_rates_old_json if t else None, _RATES_OLD),
+    }
 
 
 # ─── Callback requests ────────────────────────────────────────────────────────

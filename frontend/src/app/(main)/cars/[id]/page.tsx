@@ -12,11 +12,10 @@ interface PriceBreakdown {
   total: number;
   items?: BreakdownItem[];
 }
-import CarSilhouette from "@/components/CarSilhouette";
 import Icon from "@/components/Icon";
 import CallbackModal from "@/components/CallbackModal";
 import SimilarStrip from "@/components/SimilarStrip";
-import PhotoGallery from "@/components/PhotoGallery";
+import PhotosAndAuction from "@/components/PhotosAndAuction";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -45,7 +44,6 @@ export default async function CarDetailPage({ params }: { params: { id: string }
   const photoUrls: string[] = (car as any).photo_urls?.length
     ? (car as any).photo_urls
     : (car as any).photo_url ? [(car as any).photo_url] : [];
-  const hasPhotos = photoUrls.length > 0;
 
   return (
     <main>
@@ -75,15 +73,36 @@ export default async function CarDetailPage({ params }: { params: { id: string }
 
           <div className="detail-grid">
             <div>
-              {hasPhotos ? (
-                <PhotoGallery urls={photoUrls} alt={`${car.brand} ${car.model}`} bg={car.photo_tint}/>
-              ) : (
-                <div className="gallery-main" style={{ background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}>
-                  <div style={{ aspectRatio: "16/10", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 10% 8%" }}>
-                    <CarSilhouette kind={car.silhouette} w={480}/>
-                  </div>
-                </div>
-              )}
+              <PhotosAndAuction
+                photoUrls={photoUrls}
+                alt={`${car.brand} ${car.model}`}
+                car={{
+                  id: car.id,
+                  brand: car.brand,
+                  model: car.model,
+                  year: car.year,
+                  country: car.country,
+                  engine: car.engine,
+                  mileage: car.mileage,
+                  body: car.body,
+                  silhouette: car.silhouette,
+                  photo_tint: car.photo_tint,
+                  badge: car.badge,
+                  grade: (car as any).grade,
+                  kuzov: (car as any).kuzov,
+                  equip: (car as any).equip,
+                  color: (car as any).color,
+                  steering: (car as any).steering,
+                  drive: (car as any).drive,
+                  town: (car as any).town,
+                  engine_cc: (car as any).engine_cc,
+                  power: (car as any).power,
+                  auction_name: (car as any).auction_name,
+                  auction_date: (car as any).auction_date,
+                  auction_price: (car as any).auction_price,
+                  auction_price_local: (car as any).auction_price_local,
+                }}
+              />
 
               <h3 style={{ marginTop: 48, marginBottom: 24 }}>Характеристики</h3>
               <div className="spec-table">

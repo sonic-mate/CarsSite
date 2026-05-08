@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 
 const API = "";
 
@@ -8,9 +8,20 @@ interface Tariffs {
   jpy_to_rub: number; krw_to_rub: number; cny_to_rub: number; eur_to_rub: number;
   customs_rate: number; customs_coef_new: number; customs_coef_mid: number; customs_coef_old: number;
   delivery_japan: number; delivery_korea: number; delivery_china: number; services: number;
+  freight_japan_jpy: number;
+  recycling_fee_new: number; recycling_fee_old: number;
+  broker_fee: number; bank_commission: number; lab_docs: number;
+  storage_fee: number; local_delivery: number; registration_fee: number;
+  delivery_omsk: number; company_commission: number;
 }
 interface Stats { total_cars: number; delivered: number; cheaper_percent: number; avg_days: number; }
 interface User { id: number; username: string; created_at: string; }
+interface CityItem { id: number; city_name: string; cost_rub: number; }
+interface CustomsRates {
+  rates_new: number[][];
+  rates_mid: number[][];
+  rates_old: number[][];
+}
 
 const RATE_FIELDS: { key: keyof Tariffs; label: string; step: number; note: string }[] = [
   { key: "jpy_to_rub", label: "JPY → ₽", step: 0.001,  note: "1 японская иена" },
@@ -18,11 +29,27 @@ const RATE_FIELDS: { key: keyof Tariffs; label: string; step: number; note: stri
   { key: "cny_to_rub", label: "CNY → ₽", step: 0.01,   note: "1 китайский юань" },
   { key: "eur_to_rub", label: "EUR → ₽", step: 0.1,    note: "Для расчёта таможни ФТС" },
 ];
-const CALC_FIELDS: { key: keyof Tariffs; label: string; step: number; note?: string }[] = [
-  { key: "delivery_japan",   label: "Доставка из Японии, ₽",  step: 1000 },
-  { key: "delivery_korea",   label: "Доставка из Кореи, ₽",   step: 1000 },
-  { key: "delivery_china",   label: "Доставка из Китая, ₽",   step: 1000 },
-  { key: "services",         label: "Услуги брокера, ₽",       step: 1000 },
+
+const FREIGHT_FIELDS: { key: keyof Tariffs; label: string; step: number; note?: string }[] = [
+  { key: "freight_japan_jpy", label: "Фрахт из Японии, ¥",              step: 1000, note: "В иенах, конвертируется по курсу" },
+  { key: "delivery_korea",    label: "Доставка Корея → Владивосток, ₽", step: 1000 },
+  { key: "delivery_china",    label: "Доставка Китай → Владивосток, ₽", step: 1000 },
+  { key: "delivery_omsk",     label: "Доставка до Омска (умолч.), ₽",   step: 1000, note: "Используется в карточках каталога" },
+];
+
+const SERVICE_FIELDS: { key: keyof Tariffs; label: string; step: number; note?: string }[] = [
+  { key: "recycling_fee_new",  label: "Утилизационный сбор (до 3 лет), ₽", step: 100 },
+  { key: "recycling_fee_old",  label: "Утилизационный сбор (>3 лет), ₽",   step: 100 },
+  { key: "broker_fee",         label: "Услуги брокера, ₽",                  step: 1000 },
+  { key: "bank_commission",    label: "Комиссия за банковские переводы, ₽", step: 100 },
+  { key: "lab_docs",           label: "Лаборатория, ЕПТС, СБКТС, ₽",       step: 1000 },
+  { key: "storage_fee",        label: "Склад Временного Хранения (СВХ), ₽", step: 1000 },
+  { key: "local_delivery",     label: "Перегон по Владивостоку, ₽",         step: 500 },
+  { key: "registration_fee",   label: "Прописка, ИНН, ₽",                   step: 500 },
+  { key: "company_commission", label: "Комиссия компании и подготовка, ₽",  step: 1000 },
+];
+
+const CUSTOMS_FIELDS: { key: keyof Tariffs; label: string; step: number; note?: string }[] = [
   { key: "customs_rate",     label: "Запасная ставка таможни", step: 0.001, note: "Если объём двигателя не указан" },
   { key: "customs_coef_new", label: "Коэф. таможни: < 3 лет", step: 0.01 },
   { key: "customs_coef_mid", label: "Коэф. таможни: 3–5 лет", step: 0.01 },
@@ -38,9 +65,10 @@ const s = {
   input:   { width: "100%", padding: "10px 12px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "#f5f3ee", fontSize: 15, outline: "none", fontFamily: "inherit" } as React.CSSProperties,
   statVal: { fontFamily: "var(--font-display)", fontSize: 36, fontWeight: 700, color: "#c8a45c", lineHeight: 1 } as React.CSSProperties,
   statLbl: { fontSize: 12, color: "rgba(245,243,238,0.45)", marginTop: 6, letterSpacing: "0.06em" } as React.CSSProperties,
+  sectionTitle: { fontSize: 14, color: "#c8a45c", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16, marginTop: 28 } as React.CSSProperties,
 };
 
-type Tab = "overview" | "calculator" | "users";
+type Tab = "overview" | "calculator" | "cities" | "customs" | "users";
 
 export default function AdminPage() {
   const [username, setUsername] = useState("");
@@ -53,6 +81,15 @@ export default function AdminPage() {
   const [tariffs, setTariffs]   = useState<Tariffs | null>(null);
   const [stats, setStats]       = useState<Stats | null>(null);
   const [users, setUsers]       = useState<User[]>([]);
+  const [cities, setCities]     = useState<CityItem[]>([]);
+  const [cityEdits, setCityEdits] = useState<Record<number, number>>({});
+  const [citySaving, setCitySaving] = useState<Record<number, boolean>>({});
+  const [citySaved, setCitySaved]   = useState<Record<number, boolean>>({});
+
+  const [customsRates, setCustomsRates] = useState<CustomsRates | null>(null);
+  const [customsUrls, setCustomsUrls]   = useState({ new: "", mid: "", old: "" });
+  const [customsImporting, setCustomsImporting] = useState<"new"|"mid"|"old"|null>(null);
+  const [customsSaveStatus, setCustomsSaveStatus] = useState<"idle"|"saving"|"saved"|"error">("idle");
 
   const [saveStatus, setSaveStatus] = useState<"idle"|"saving"|"saved"|"error">("idle");
   const [saveError, setSaveError]   = useState("");
@@ -71,6 +108,15 @@ export default function AdminPage() {
     fetch(`${API}/api/tariffs`).then(r => r.json()).then(setTariffs).catch(() => {});
     fetch(`${API}/api/stats`).then(r => r.json()).then(setStats).catch(() => {});
     fetch(`${API}/api/admin/users`, { credentials: "include" }).then(r => r.json()).then(setUsers).catch(() => {});
+    fetch(`${API}/api/cities`).then(r => r.json()).then((data: CityItem[]) => {
+      setCities(data);
+      const edits: Record<number, number> = {};
+      data.forEach(c => { edits[c.id] = c.cost_rub; });
+      setCityEdits(edits);
+    }).catch(() => {});
+    fetch(`${API}/api/admin/customs`, { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => {
+      if (d) setCustomsRates(d);
+    }).catch(() => {});
   }, [authed]);
 
   async function login(e: React.FormEvent) {
@@ -93,7 +139,7 @@ export default function AdminPage() {
   async function logout() {
     await fetch(`${API}/api/admin/logout`, { method: "POST", credentials: "include" }).catch(() => {});
     sessionStorage.removeItem("admin_me");
-    setAuthed(false); setMe(""); setTariffs(null); setStats(null); setUsers([]);
+    setAuthed(false); setMe(""); setTariffs(null); setStats(null); setUsers([]); setCities([]); setCustomsRates(null);
   }
 
   function change(key: keyof Tariffs, val: string) {
@@ -116,6 +162,22 @@ export default function AdminPage() {
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 3000);
     } catch (err: any) { setSaveError(err.message); setSaveStatus("error"); }
+  }
+
+  async function saveCity(city: CityItem) {
+    const cost = cityEdits[city.id] ?? city.cost_rub;
+    setCitySaving(prev => ({ ...prev, [city.id]: true }));
+    try {
+      const r = await fetch(`${API}/api/cities/${city.id}?cost_rub=${cost}`, {
+        method: "PUT",
+        credentials: "include",
+      });
+      if (!r.ok) throw new Error();
+      setCities(cs => cs.map(c => c.id === city.id ? { ...c, cost_rub: cost } : c));
+      setCitySaved(prev => ({ ...prev, [city.id]: true }));
+      setTimeout(() => setCitySaved(prev => ({ ...prev, [city.id]: false })), 2000);
+    } catch {}
+    setCitySaving(prev => ({ ...prev, [city.id]: false }));
   }
 
   async function addUser(e: React.FormEvent) {
@@ -141,6 +203,72 @@ export default function AdminPage() {
     const r = await fetch(`${API}/api/admin/users/${id}`, { method: "DELETE", credentials: "include" });
     if (r.ok) setUsers(u => u.filter(x => x.id !== id));
     else { const j = await r.json(); alert(j.detail); }
+  }
+
+  async function importFromGsheet(bracket: "new" | "mid" | "old") {
+    const url = customsUrls[bracket];
+    if (!url.trim()) return;
+    setCustomsImporting(bracket);
+    try {
+      const r = await fetch(`${API}/api/admin/customs/preview-gsheet`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ url, bracket }),
+      });
+      const j = await r.json();
+      if (!r.ok) { alert(j.detail || "Ошибка"); return; }
+      setCustomsRates(prev => {
+        if (!prev) return prev;
+        return { ...prev, [`rates_${bracket}`]: j.rows };
+      });
+    } catch { alert("Ошибка сети"); }
+    setCustomsImporting(null);
+  }
+
+  async function saveCustomsRates() {
+    if (!customsRates) return;
+    setCustomsSaveStatus("saving");
+    try {
+      const r = await fetch(`${API}/api/admin/customs`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          rates_new: customsRates.rates_new,
+          rates_mid: customsRates.rates_mid,
+          rates_old: customsRates.rates_old,
+        }),
+      });
+      if (!r.ok) throw new Error((await r.json()).detail);
+      setCustomsSaveStatus("saved");
+      setTimeout(() => setCustomsSaveStatus("idle"), 3000);
+    } catch { setCustomsSaveStatus("error"); }
+  }
+
+  function updateCustomsRow(bracket: "new"|"mid"|"old", rowIdx: number, colIdx: number, val: string) {
+    setCustomsRates(prev => {
+      if (!prev) return prev;
+      const key = `rates_${bracket}` as keyof CustomsRates;
+      const table = prev[key].map((row, i) =>
+        i === rowIdx ? row.map((v, j) => j === colIdx ? (parseFloat(val) || 0) : v) : row
+      );
+      return { ...prev, [key]: table };
+    });
+  }
+
+  function FieldGroup({ fields, cols = 2 }: { fields: { key: keyof Tariffs; label: string; step: number; note?: string }[]; cols?: number }) {
+    if (!tariffs) return null;
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 12, marginBottom: 8 }}>
+        {fields.map(({ key, label, step, note }) => (
+          <div key={key} style={s.card}>
+            <label style={s.label}>{label}{note && <span style={{ opacity: 0.5 }}> — {note}</span>}</label>
+            <input type="number" step={step} value={tariffs[key]} onChange={e => change(key, e.target.value)} style={s.input}/>
+          </div>
+        ))}
+      </div>
+    );
   }
 
   if (!authed) {
@@ -181,6 +309,8 @@ export default function AdminPage() {
         <nav style={{ flex: 1 }}>
           <NavItem id="overview"   label="Общая информация"/>
           <NavItem id="calculator" label="Калькулятор"/>
+          <NavItem id="cities"     label="Доставка по городам"/>
+          <NavItem id="customs"    label="Таможенные ставки"/>
           <NavItem id="users"      label="Пользователи"/>
         </nav>
         <div style={{ padding: "0 16px 0" }}>
@@ -199,10 +329,10 @@ export default function AdminPage() {
             <h2 style={{ fontSize: 22, color: "#f5f3ee", marginBottom: 32 }}>Общая информация</h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 16, marginBottom: 40 }}>
               {[
-                { val: stats?.total_cars ?? "—",          lbl: "Машин в каталоге" },
-                { val: stats?.delivered ?? "—",            lbl: "Доставлено клиентам" },
+                { val: stats?.total_cars ?? "—",           lbl: "Машин в каталоге" },
+                { val: stats?.delivered ?? "—",             lbl: "Доставлено клиентам" },
                 { val: `${stats?.cheaper_percent ?? "—"}%`, lbl: "Дешевле рынка" },
-                { val: `${stats?.avg_days ?? "—"} дн.`,   lbl: "Средний срок" },
+                { val: `${stats?.avg_days ?? "—"} дн.`,    lbl: "Средний срок" },
               ].map(({ val, lbl }) => (
                 <div key={lbl} style={s.card}>
                   <div style={s.statVal}>{val}</div>
@@ -211,7 +341,7 @@ export default function AdminPage() {
               ))}
             </div>
             <h3 style={{ fontSize: 16, color: "#f5f3ee", marginBottom: 16 }}>Актуальные курсы (ЦБ РФ)</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 40 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
               {tariffs && [
                 { label: "1 JPY", val: `${tariffs.jpy_to_rub.toFixed(4)} ₽` },
                 { label: "1 KRW", val: `${tariffs.krw_to_rub.toFixed(5)} ₽` },
@@ -224,20 +354,6 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>
-            <h3 style={{ fontSize: 16, color: "#f5f3ee", marginBottom: 16 }}>Логистика и услуги</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
-              {tariffs && [
-                { label: "Доставка Япония", val: `${tariffs.delivery_japan.toLocaleString("ru")} ₽` },
-                { label: "Доставка Корея",  val: `${tariffs.delivery_korea.toLocaleString("ru")} ₽` },
-                { label: "Доставка Китай",  val: `${tariffs.delivery_china.toLocaleString("ru")} ₽` },
-                { label: "Услуги брокера",  val: `${tariffs.services.toLocaleString("ru")} ₽` },
-              ].map(({ label, val }) => (
-                <div key={label} style={{ ...s.card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 13, color: "rgba(245,243,238,0.5)" }}>{label}</span>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: "#f5f3ee" }}>{val}</span>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -245,30 +361,27 @@ export default function AdminPage() {
         {tab === "calculator" && (
           <div>
             <h2 style={{ fontSize: 22, color: "#f5f3ee", marginBottom: 8 }}>Настройки калькулятора</h2>
-            <p style={{ fontSize: 13, color: "rgba(245,243,238,0.4)", marginBottom: 32 }}>Курсы обновляются автоматически каждые 60 сек с ЦБ РФ.</p>
+            <p style={{ fontSize: 13, color: "rgba(245,243,238,0.4)", marginBottom: 24 }}>Курсы обновляются автоматически каждые 60 сек с ЦБ РФ.</p>
             {tariffs && (
               <form onSubmit={saveTariffs}>
-                <h3 style={{ fontSize: 14, color: "#c8a45c", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>Курсы валют</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 32 }}>
-                  {RATE_FIELDS.map(({ key, label, step, note }) => (
-                    <div key={key} style={s.card}>
-                      <label style={s.label}>{label} <span style={{ opacity: 0.5 }}>{note}</span></label>
-                      <input type="number" step={step} value={tariffs[key]} onChange={e => change(key, e.target.value)} style={s.input}/>
-                    </div>
-                  ))}
-                </div>
-                <h3 style={{ fontSize: 14, color: "#c8a45c", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>Доставка и услуги</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 32 }}>
-                  {CALC_FIELDS.map(({ key, label, step, note }) => (
-                    <div key={key} style={s.card}>
-                      <label style={s.label}>{label}{note && <span style={{ opacity: 0.5 }}> — {note}</span>}</label>
-                      <input type="number" step={step} value={tariffs[key]} onChange={e => change(key, e.target.value)} style={s.input}/>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                <h3 style={s.sectionTitle as any}>Курсы валют</h3>
+                <FieldGroup fields={RATE_FIELDS}/>
+
+                <h3 style={s.sectionTitle as any}>Логистика (фрахт и доставка)</h3>
+                <FieldGroup fields={FREIGHT_FIELDS}/>
+
+                <h3 style={s.sectionTitle as any}>Услуги и сборы</h3>
+                <FieldGroup fields={SERVICE_FIELDS}/>
+
+                <h3 style={s.sectionTitle as any}>Таможенные коэффициенты (резервные)</h3>
+                <p style={{ fontSize: 12, color: "rgba(245,243,238,0.35)", marginBottom: 12 }}>
+                  Применяются только если объём двигателя не указан. При наличии объёма используются таблицы ФТС.
+                </p>
+                <FieldGroup fields={CUSTOMS_FIELDS}/>
+
+                <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 32 }}>
                   <button type="submit" className="btn btn-primary btn-lg" disabled={saveStatus === "saving"}>
-                    {saveStatus === "saving" ? "Сохранение…" : "Сохранить"}
+                    {saveStatus === "saving" ? "Сохранение…" : "Сохранить всё"}
                   </button>
                   {saveStatus === "saved" && <span style={{ color: "#4caf50", fontSize: 14 }}>✓ Сохранено</span>}
                   {saveStatus === "error"  && <span style={{ color: "#ff6b6b", fontSize: 14 }}>{saveError}</span>}
@@ -278,12 +391,145 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* CITIES */}
+        {tab === "cities" && (
+          <div>
+            <h2 style={{ fontSize: 22, color: "#f5f3ee", marginBottom: 8 }}>Доставка по городам</h2>
+            <p style={{ fontSize: 13, color: "rgba(245,243,238,0.4)", marginBottom: 32 }}>
+              Стоимость доставки от Владивостока до каждого города. 0 = бесплатно (включено в базовый расчёт).
+            </p>
+            <div style={s.card}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    {["Город", "Стоимость доставки, ₽", ""].map(h => (
+                      <th key={h} style={{ textAlign: "left", padding: "8px 12px", fontSize: 11, color: "rgba(245,243,238,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {cities.map(city => (
+                    <tr key={city.id}>
+                      <td style={{ padding: "10px 12px", color: "#f5f3ee", fontWeight: 500, fontSize: 14, width: "40%" }}>{city.city_name}</td>
+                      <td style={{ padding: "10px 12px", width: "35%" }}>
+                        <input
+                          type="number"
+                          min={0}
+                          step={1000}
+                          value={cityEdits[city.id] ?? city.cost_rub}
+                          onChange={e => setCityEdits(ed => ({ ...ed, [city.id]: parseInt(e.target.value) || 0 }))}
+                          style={{ ...s.input, width: 180 }}
+                        />
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                        {citySaved[city.id]
+                          ? <span style={{ color: "#4caf50", fontSize: 13 }}>✓ Сохранено</span>
+                          : (
+                            <button
+                              onClick={() => saveCity(city)}
+                              disabled={citySaving[city.id]}
+                              className="btn btn-primary"
+                              style={{ fontSize: 13, padding: "6px 16px" }}
+                            >
+                              {citySaving[city.id] ? "…" : "Сохранить"}
+                            </button>
+                          )
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* CUSTOMS */}
+        {tab === "customs" && (
+          <div>
+            <h2 style={{ fontSize: 22, color: "#f5f3ee", marginBottom: 8 }}>Таможенные ставки ФТС</h2>
+            <p style={{ fontSize: 13, color: "rgba(245,243,238,0.4)", marginBottom: 32 }}>
+              Ставки таможни для физлиц (ЕАЭС). Можно редактировать вручную или импортировать из Google Sheets.
+              Формат CSV: для авто до 3 лет — (цена_макс_EUR, ставка_доли, мин_EUR/куб.см);
+              для 3–5 лет и 5+ лет — (объём_от_куб.см, объём_до_куб.см, EUR/куб.см).
+            </p>
+
+            {customsRates && (
+              <>
+                {(["new", "mid", "old"] as const).map(bracket => {
+                  const labels = bracket === "new"
+                    ? ["Цена макс, EUR", "Ставка (доли)", "Мин EUR/куб.см"]
+                    : ["Объём от, куб.см", "Объём до, куб.см", "EUR/куб.см"];
+                  const title = bracket === "new" ? "До 3 лет (по цене)" : bracket === "mid" ? "3–5 лет (по объёму)" : "Более 5 лет (по объёму)";
+                  const rows = customsRates[`rates_${bracket}` as keyof CustomsRates];
+                  return (
+                    <div key={bracket} style={{ marginBottom: 32 }}>
+                      <h3 style={{ fontSize: 15, color: "#f5f3ee", marginBottom: 12 }}>{title}</h3>
+                      <div style={{ ...s.card, padding: "12px 16px", marginBottom: 10 }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                          <thead>
+                            <tr>
+                              {labels.map(l => (
+                                <th key={l} style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "rgba(245,243,238,0.4)", letterSpacing: "0.08em", textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{l}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((row, ri) => (
+                              <tr key={ri}>
+                                {row.slice(0, 3).map((val, ci) => (
+                                  <td key={ci} style={{ padding: "4px 8px" }}>
+                                    <input
+                                      type="number"
+                                      step="any"
+                                      value={val}
+                                      onChange={e => updateCustomsRow(bracket, ri, ci, e.target.value)}
+                                      style={{ ...s.input, width: 140, padding: "6px 8px", fontSize: 13 }}
+                                    />
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        <input
+                          type="text"
+                          placeholder="https://docs.google.com/spreadsheets/d/..."
+                          value={customsUrls[bracket]}
+                          onChange={e => setCustomsUrls(u => ({ ...u, [bracket]: e.target.value }))}
+                          style={{ ...s.input, flex: 1, fontSize: 13 }}
+                        />
+                        <button
+                          onClick={() => importFromGsheet(bracket)}
+                          disabled={customsImporting === bracket}
+                          className="btn btn-primary"
+                          style={{ flexShrink: 0, fontSize: 13 }}
+                        >
+                          {customsImporting === bracket ? "Загрузка…" : "Импорт из Sheets"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 8 }}>
+                  <button onClick={saveCustomsRates} disabled={customsSaveStatus === "saving"} className="btn btn-primary btn-lg">
+                    {customsSaveStatus === "saving" ? "Сохранение…" : "Сохранить все ставки"}
+                  </button>
+                  {customsSaveStatus === "saved" && <span style={{ color: "#4caf50", fontSize: 14 }}>✓ Сохранено</span>}
+                  {customsSaveStatus === "error"  && <span style={{ color: "#ff6b6b", fontSize: 14 }}>Ошибка сохранения</span>}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* USERS */}
         {tab === "users" && (
           <div>
             <h2 style={{ fontSize: 22, color: "#f5f3ee", marginBottom: 32 }}>Пользователи</h2>
-
-            {/* List */}
             <div style={{ ...s.card, marginBottom: 32 }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
@@ -312,7 +558,6 @@ export default function AdminPage() {
               </table>
             </div>
 
-            {/* Add user */}
             <h3 style={{ fontSize: 16, color: "#f5f3ee", marginBottom: 16 }}>Добавить пользователя</h3>
             <form onSubmit={addUser} style={{ ...s.card, display: "flex", gap: 12, alignItems: "flex-end", maxWidth: 560 }}>
               <div style={{ flex: 1 }}>

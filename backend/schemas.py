@@ -50,6 +50,7 @@ class CalculatorIn(BaseModel):
     engine_cc: int = Field(..., ge=0, le=12000)
     year: int = Field(..., ge=1900, le=2030)
     fuel_type: str = Field("Бензин")
+    city: Optional[str] = None
 
 
 class BreakdownItem(BaseModel):
@@ -70,6 +71,15 @@ class CalculatorOut(BaseModel):
     items: List[BreakdownItem] = []
 
 
+class CityDeliveryOut(BaseModel):
+    id: int
+    city_name: str
+    cost_rub: int
+
+    class Config:
+        from_attributes = True
+
+
 class TariffsSchema(BaseModel):
     jpy_to_rub: float
     krw_to_rub: float
@@ -83,3 +93,17 @@ class TariffsSchema(BaseModel):
     delivery_korea: int
     delivery_china: int
     services: int
+    freight_japan_jpy: int = 175_000
+    recycling_fee_new: int = 3_400
+    recycling_fee_old: int = 5_200
+    broker_fee: int = 25_000
+    bank_commission: int = 7_300
+    lab_docs: int = 25_000
+    storage_fee: int = 35_000
+    local_delivery: int = 7_000
+    registration_fee: int = 10_000
+    delivery_omsk: int = 135_000
+    company_commission: int = 60_000
+    customs_rates_new_json: Optional[str] = None
+    customs_rates_mid_json: Optional[str] = None
+    customs_rates_old_json: Optional[str] = None

@@ -23,6 +23,7 @@ const COUNTRY_DEFAULT_CURRENCY: Record<string, string> = {
 };
 
 interface Rates { jpy_to_rub: number; krw_to_rub: number; cny_to_rub: number; }
+interface CityItem { id: number; city_name: string; cost_rub: number; }
 
 function toRub(amount: number, currency: string, rates: Rates): number {
   if (currency === "JPY") return Math.round(amount * rates.jpy_to_rub);
@@ -45,6 +46,8 @@ export default function CalculatorPage() {
   const [power, setPower] = useState("");
   const [year, setYear] = useState("");
   const [fuel, setFuel] = useState("");
+  const [city, setCity] = useState("");
+  const [cities, setCities] = useState<CityItem[]>([]);
   const [rates, setRates] = useState<Rates>({ jpy_to_rub: 0.47, krw_to_rub: 0.051, cny_to_rub: 11.0 });
   const [result, setResult] = useState<{
     auction_price: number; delivery: number; customs: number;
@@ -58,24 +61,29 @@ export default function CalculatorPage() {
     fetch("/api/tariffs").then(r => r.ok ? r.json() : null).then(d => {
       if (d) setRates({ jpy_to_rub: d.jpy_to_rub, krw_to_rub: d.krw_to_rub, cny_to_rub: d.cny_to_rub });
     }).catch(() => {});
+    fetch("/api/cities").then(r => r.ok ? r.json() : []).then(setCities).catch(() => {});
   }, []);
 
-  const recalc = useCallback(async (overrides: { country?: string; priceInput?: string; currency?: string; engineCC?: string; year?: string; fuel?: string } = {}) => {
+  const recalc = useCallback(async (overrides: {
+    country?: string; priceInput?: string; currency?: string;
+    engineCC?: string; year?: string; fuel?: string; city?: string;
+  } = {}) => {
     const c = overrides.country ?? country;
     const pi = +(overrides.priceInput ?? priceInput) || 0;
     const cur = overrides.currency ?? currency;
     const cc = +(overrides.engineCC ?? engineCC) || 0;
     const y = overrides.year ?? year;
     const f = overrides.fuel ?? fuel;
+    const ct = overrides.city ?? city;
     const auctionPriceRub = toRub(pi, cur, rates);
     if (auctionPriceRub <= 0 || !y || !f) return;
     setLoading(true);
     try {
-      const r = await calculate({ country: c, auction_price: auctionPriceRub, engine_cc: cc, year: +y, fuel_type: f });
+      const r = await calculate({ country: c, auction_price: auctionPriceRub, engine_cc: cc, year: +y, fuel_type: f, city: ct || undefined });
       setResult(r);
     } catch {}
     setLoading(false);
-  }, [country, priceInput, currency, engineCC, year, fuel, rates]);
+  }, [country, priceInput, currency, engineCC, year, fuel, city, rates]);
 
   function handleCountryChange(k: "japan" | "korea" | "china") {
     const newCur = COUNTRY_DEFAULT_CURRENCY[k];
@@ -116,6 +124,34 @@ export default function CalculatorPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Price + currency — moved to top */}
+                <div className="field">
+                  <label className="field-label">Стоимость авто на аукционе</label>
+                  <div className="input-currency-wrap">
+                    <input
+                      className="input input-with-select" type="number" min={0}
+                      value={priceInput}
+                      placeholder="0"
+                      onChange={e => setPriceInput(e.target.value)}
+                      onBlur={() => recalc()}
+                    />
+                    <select
+                      className="input-currency-select"
+                      value={currency}
+                      onChange={e => { setCurrency(e.target.value); recalc({ currency: e.target.value }); }}
+                    >
+                      {CURRENCIES.map(c => (
+                        <option key={c.code} value={c.code}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {currency !== "RUB" && auctionPriceRub > 0 && (
+                    <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 4 }}>
+                      ≈ {formatPrice(auctionPriceRub)} по курсу ЦБ
+                    </div>
+                  )}
                 </div>
 
                 {/* Year */}
@@ -165,32 +201,17 @@ export default function CalculatorPage() {
                   </div>
                 </div>
 
-                {/* Price + currency */}
+                {/* City */}
                 <div className="field">
-                  <label className="field-label">Стоимость авто на аукционе</label>
-                  <div className="input-currency-wrap">
-                    <input
-                      className="input input-with-select" type="number" min={0}
-                      value={priceInput}
-                      placeholder="0"
-                      onChange={e => setPriceInput(e.target.value)}
-                      onBlur={() => recalc()}
-                    />
-                    <select
-                      className="input-currency-select"
-                      value={currency}
-                      onChange={e => { setCurrency(e.target.value); recalc({ currency: e.target.value }); }}
-                    >
-                      {CURRENCIES.map(c => (
-                        <option key={c.code} value={c.code}>{c.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {currency !== "RUB" && auctionPriceRub > 0 && (
-                    <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 4 }}>
-                      ≈ {formatPrice(auctionPriceRub)} по курсу ЦБ
-                    </div>
-                  )}
+                  <label className="field-label">Город доставки</label>
+                  <select className="select" value={city} onChange={e => { setCity(e.target.value); recalc({ city: e.target.value }); }}>
+                    <option value="">Выберите город</option>
+                    {cities.map(c => (
+                      <option key={c.id} value={c.city_name}>
+                        {c.city_name}{c.cost_rub > 0 ? ` (+${formatPrice(c.cost_rub)})` : " (бесплатно)"}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <button className="btn btn-dark btn-block btn-lg" onClick={() => recalc()} disabled={loading}>
@@ -227,19 +248,15 @@ export default function CalculatorPage() {
                     </span>
                   </div>
                   <div className="calc-line">
-                    <span className="k">Доставка и страхование</span>
+                    <span className="k">Доставка</span>
                     <span className="v">{formatPrice(result.delivery)}</span>
                   </div>
                   <div className="calc-line">
                     <span className="k">Таможенная пошлина</span>
                     <span className="v">{formatPrice(result.customs)}</span>
                   </div>
-                  <div className="calc-line">
-                    <span className="k">Таможенный сбор</span>
-                    <span className="v">{formatPrice(result.customs_fee)}</span>
-                  </div>
                   <div className="calc-line" style={{ borderBottom: 0 }}>
-                    <span className="k">Услуги «Восток»</span>
+                    <span className="k">Услуги</span>
                     <span className="v">{formatPrice(result.services)}</span>
                   </div>
                 </>)}

@@ -30,16 +30,31 @@ class Tariffs(Base):
     freight_vlad_japan = Column(Integer, default=33_250)
     freight_vlad_korea = Column(Integer, default=28_000)
     freight_vlad_china = Column(Integer, default=40_000)
+    # Detailed delivery
+    freight_japan_jpy = Column(Integer, default=175_000)   # JPY, converted at runtime
     # Detailed service items
-    recycling_fee = Column(Integer, default=3_366)
-    broker_fee = Column(Integer, default=9_000)
+    recycling_fee = Column(Integer, default=3_366)          # legacy, kept for compat
+    recycling_fee_new = Column(Integer, default=3_400)      # < 3 лет
+    recycling_fee_old = Column(Integer, default=5_200)      # >= 3 лет
+    broker_fee = Column(Integer, default=25_000)
     bank_commission = Column(Integer, default=7_300)
     lab_docs = Column(Integer, default=25_000)
     storage_fee = Column(Integer, default=35_000)
     local_delivery = Column(Integer, default=7_000)
     registration_fee = Column(Integer, default=10_000)
-    delivery_omsk = Column(Integer, default=135_000)
+    delivery_omsk = Column(Integer, default=135_000)        # fallback for catalog cards
     company_commission = Column(Integer, default=60_000)
+    # Customs rate tables (JSON arrays); None = use hardcoded ФТС defaults
+    customs_rates_new_json = Column(String, nullable=True)   # [[price_max_eur, pct, min_ecc], ...]
+    customs_rates_mid_json = Column(String, nullable=True)   # [[cc_lo, cc_hi, eur_per_cc], ...]
+    customs_rates_old_json = Column(String, nullable=True)   # [[cc_lo, cc_hi, eur_per_cc], ...]
+
+
+class CityDelivery(Base):
+    __tablename__ = "city_delivery"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    city_name = Column(String, nullable=False, unique=True)
+    cost_rub = Column(Integer, nullable=False, default=0)
 
 
 class AdminUser(Base):

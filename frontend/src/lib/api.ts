@@ -31,6 +31,7 @@ export async function calculate(data: {
   engine_cc: number;
   year: number;
   fuel_type?: string;
+  city?: string;
 }): Promise<CalculatorResult> {
   return apiFetch<CalculatorResult>("/api/calculator", {
     method: "POST",
