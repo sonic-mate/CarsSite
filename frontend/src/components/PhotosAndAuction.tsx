@@ -14,7 +14,7 @@ export interface AuctionInfo {
   engine: string;
   mileage: number;
   body: string;
-  silhouette: string;
+  silhouette: "sedan" | "suv";
   photo_tint: string;
   badge?: string | null;
   grade?: string | null;
