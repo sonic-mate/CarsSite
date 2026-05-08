@@ -558,9 +558,9 @@ def _compress_image(data: bytes, accept: str) -> tuple[bytes, str]:
             img = img.convert("RGB")
         out = io.BytesIO()
         if "image/webp" in accept:
-            img.save(out, format="WEBP", quality=85, method=4)
+            img.save(out, format="WEBP", quality=95, method=4)
             return out.getvalue(), "image/webp"
-        img.save(out, format="JPEG", quality=85, optimize=True, progressive=True)
+        img.save(out, format="JPEG", quality=92, optimize=True, progressive=True)
         return out.getvalue(), "image/jpeg"
     except Exception:
         return data, "image/jpeg"
