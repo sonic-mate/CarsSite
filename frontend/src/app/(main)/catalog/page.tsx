@@ -44,7 +44,6 @@ function CatalogInner() {
 
   const [cars, setCars]       = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage]       = useState<number>(+(sp.get("page") ?? "1") || 1);
   const [counts, setCounts]   = useState<Counts | null>(null);
   const [brands, setBrands]   = useState<BrandItem[]>([]);
   const [models, setModels]   = useState<ModelItem[]>([]);
@@ -55,6 +54,7 @@ function CatalogInner() {
   const mountedBrand    = useRef(false);
   const mountedFilters  = useRef(false);
   const sp = searchParams;
+  const [page, setPage]       = useState<number>(+(sp.get("page") ?? "1") || 1);
   const [country,      setCountry]      = useState<string>(sp.get("country") ?? "all");
   const [brand,        setBrand]        = useState<string>(sp.get("brand") ?? "");
   const [model,        setModel]        = useState<string>(sp.get("model") ?? "");
