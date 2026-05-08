@@ -7,7 +7,7 @@ import CarSilhouette from "@/components/CarSilhouette";
 import Icon from "@/components/Icon";
 import SearchPanel from "@/components/SearchPanel";
 import { PHONE, EMAIL, ADDRESS, SOCIALS, formatPrice } from "@/lib/types";
-import "../home.css";
+import "../../home.css";
 
 const REVIEWS = [
   {
