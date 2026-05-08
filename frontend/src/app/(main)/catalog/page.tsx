@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import CarListCard from "@/components/CarListCard";
 import CallbackModal from "@/components/CallbackModal";
 import { Car, COUNTRY_LABEL } from "@/lib/types";
@@ -50,6 +50,7 @@ function CatalogInner() {
   const [models, setModels]   = useState<ModelItem[]>([]);
   const [colors, setColors]   = useState<ColorItem[]>([]);
 
+  const router = useRouter();
   const sp = searchParams;
   const [country,      setCountry]      = useState<string>(sp.get("country") ?? "all");
   const [brand,        setBrand]        = useState<string>(sp.get("brand") ?? "");
@@ -175,15 +176,32 @@ function CatalogInner() {
     }).catch(() => {});
   }, []);
 
+  function pushUrl(c: string, filters: Record<string, string>) {
+    const p = new URLSearchParams();
+    if (c !== "all") p.set("country", c);
+    Object.entries(filters).forEach(([k, v]) => { if (v) p.set(k, v); });
+    router.replace(`/catalog${p.toString() ? "?" + p.toString() : ""}`, { scroll: false });
+  }
+
   function applyFilters() {
+    const priceMinRub = toRub(pPriceMin, priceCurrency, rates);
+    const priceMaxRub = toRub(pPriceMax, priceCurrency, rates);
     setBrand(pBrand); setModel(pModel); setBody(pBody); setFuel(pFuel);
     setTransmission(pTransmission); setColor(pColor);
     setYearMin(pYearMin); setYearMax(pYearMax);
-    setPriceMin(toRub(pPriceMin, priceCurrency, rates));
-    setPriceMax(toRub(pPriceMax, priceCurrency, rates));
+    setPriceMin(priceMinRub); setPriceMax(priceMaxRub);
     setMileageMin(pMileageMin); setMileageMax(pMileageMax);
     setEngineCcMin(pEngineCcMin); setEngineCcMax(pEngineCcMax);
     setLotId(pLotId); setSort(pSort);
+    pushUrl(country, {
+      brand: pBrand, model: pModel, body: pBody, fuel: pFuel,
+      transmission: pTransmission, color: pColor,
+      year_min: pYearMin, year_max: pYearMax,
+      price_min: priceMinRub, price_max: priceMaxRub,
+      mileage_min: pMileageMin, mileage_max: pMileageMax,
+      engine_cc_min: pEngineCcMin, engine_cc_max: pEngineCcMax,
+      lot_id: pLotId, sort: pSort !== "popular" ? pSort : "",
+    });
   }
 
   function resetFilters() {
@@ -201,6 +219,7 @@ function CatalogInner() {
     setMileageMin(""); setMileageMax("");
     setEngineCcMin(""); setEngineCcMax("");
     setLotId(""); setSort("popular");
+    pushUrl(country, {});
   }
 
   function goTo(p: number) {
@@ -248,7 +267,7 @@ function CatalogInner() {
               {COUNTRIES.map(k => (
                 <button
                   key={k}
-                  onClick={() => setCountry(k)}
+                  onClick={() => { setCountry(k); pushUrl(k, {}); }}
                   style={{
                     padding: "4px 12px", borderRadius: 20, fontSize: 13, cursor: "pointer",
                     border: `1px solid ${country === k ? "var(--accent)" : "var(--border-soft)"}`,
