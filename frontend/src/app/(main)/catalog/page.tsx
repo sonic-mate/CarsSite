@@ -44,15 +44,16 @@ function CatalogInner() {
 
   const [cars, setCars]       = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage]       = useState(1);
+  const [page, setPage]       = useState<number>(+(sp.get("page") ?? "1") || 1);
   const [counts, setCounts]   = useState<Counts | null>(null);
   const [brands, setBrands]   = useState<BrandItem[]>([]);
   const [models, setModels]   = useState<ModelItem[]>([]);
   const [colors, setColors]   = useState<ColorItem[]>([]);
 
   const router = useRouter();
-  const mountedCountry = useRef(false);
-  const mountedBrand   = useRef(false);
+  const mountedCountry  = useRef(false);
+  const mountedBrand    = useRef(false);
+  const mountedFilters  = useRef(false);
   const sp = searchParams;
   const [country,      setCountry]      = useState<string>(sp.get("country") ?? "all");
   const [brand,        setBrand]        = useState<string>(sp.get("brand") ?? "");
@@ -133,7 +134,15 @@ function CatalogInner() {
     if (c !== country) setCountry(c);
   }, [searchParams]);
 
-  useEffect(() => { setPage(1); load(1); }, FILTER_DEPS);
+  useEffect(() => {
+    if (!mountedFilters.current) {
+      mountedFilters.current = true;
+      load(page);
+      return;
+    }
+    setPage(1);
+    load(1);
+  }, FILTER_DEPS);
 
   useEffect(() => {
     const p = new URLSearchParams();
@@ -185,10 +194,11 @@ function CatalogInner() {
     }).catch(() => {});
   }, []);
 
-  function pushUrl(c: string, filters: Record<string, string>) {
+  function pushUrl(c: string, filters: Record<string, string>, pg?: number) {
     const p = new URLSearchParams();
     if (c !== "all") p.set("country", c);
     Object.entries(filters).forEach(([k, v]) => { if (v) p.set(k, v); });
+    if (pg && pg > 1) p.set("page", String(pg));
     router.replace(`/catalog${p.toString() ? "?" + p.toString() : ""}`, { scroll: false });
   }
 
@@ -235,6 +245,14 @@ function CatalogInner() {
     if (p < 1 || p > totalPages) return;
     setPage(p);
     load(p);
+    pushUrl(country, {
+      brand, model, body, fuel, transmission, color,
+      year_min: yearMin, year_max: yearMax,
+      price_min: priceMin, price_max: priceMax,
+      mileage_min: mileageMin, mileage_max: mileageMax,
+      engine_cc_min: engineCcMin, engine_cc_max: engineCcMax,
+      lot_id: lotId, sort: sort !== "popular" ? sort : "",
+    }, p);
   }
 
   function renderPagination() {
