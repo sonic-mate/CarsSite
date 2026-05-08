@@ -13,8 +13,8 @@ class TariffSnapshot:
     eur_to_rub: float = 95.0
     customs_rate: float = 0.18
     customs_coef_new: float = 1.0
-    customs_coef_mid: float = 1.1
-    customs_coef_old: float = 1.25
+    customs_coef_mid: float = 1.4
+    customs_coef_old: float = 1.15
     delivery_japan: int = 180_000
     delivery_korea: int = 160_000
     delivery_china: int = 200_000

@@ -17,8 +17,11 @@ interface Tariffs {
 interface Stats { total_cars: number; delivered: number; cheaper_percent: number; avg_days: number; }
 interface User { id: number; username: string; created_at: string; }
 interface CityItem { id: number; city_name: string; cost_rub: number; }
-interface CustomsRates {
-  rates_new: number[][];
+interface CustomsPreview {
+  jpy_to_rub?: number | null;
+  eur_to_rub?: number | null;
+  customs_coef_mid?: number | null;
+  customs_coef_old?: number | null;
   rates_mid: number[][];
   rates_old: number[][];
 }
@@ -70,6 +73,26 @@ const s = {
 
 type Tab = "overview" | "calculator" | "cities" | "customs" | "users";
 
+interface FieldGroupProps {
+  fields: { key: keyof Tariffs; label: string; step: number; note?: string }[];
+  cols?: number;
+  tariffs: Tariffs;
+  onChange: (key: keyof Tariffs, val: string) => void;
+}
+
+function FieldGroup({ fields, cols = 2, tariffs, onChange }: FieldGroupProps) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 12, marginBottom: 8 }}>
+      {fields.map(({ key, label, step, note }) => (
+        <div key={key} style={s.card}>
+          <label style={s.label}>{label}{note && <span style={{ opacity: 0.5 }}> — {note}</span>}</label>
+          <input type="number" step={step} value={tariffs[key]} onChange={e => onChange(key, e.target.value)} style={s.input}/>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -86,10 +109,11 @@ export default function AdminPage() {
   const [citySaving, setCitySaving] = useState<Record<number, boolean>>({});
   const [citySaved, setCitySaved]   = useState<Record<number, boolean>>({});
 
-  const [customsRates, setCustomsRates] = useState<CustomsRates | null>(null);
-  const [customsUrls, setCustomsUrls]   = useState({ new: "", mid: "", old: "" });
-  const [customsImporting, setCustomsImporting] = useState<"new"|"mid"|"old"|null>(null);
+  const [customsPreview, setCustomsPreview] = useState<CustomsPreview | null>(null);
+  const [customsUrl, setCustomsUrl]         = useState("");
+  const [customsImporting, setCustomsImporting] = useState(false);
   const [customsSaveStatus, setCustomsSaveStatus] = useState<"idle"|"saving"|"saved"|"error">("idle");
+  const [customsImportErr, setCustomsImportErr] = useState("");
 
   const [saveStatus, setSaveStatus] = useState<"idle"|"saving"|"saved"|"error">("idle");
   const [saveError, setSaveError]   = useState("");
@@ -114,9 +138,6 @@ export default function AdminPage() {
       data.forEach(c => { edits[c.id] = c.cost_rub; });
       setCityEdits(edits);
     }).catch(() => {});
-    fetch(`${API}/api/admin/customs`, { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => {
-      if (d) setCustomsRates(d);
-    }).catch(() => {});
   }, [authed]);
 
   async function login(e: React.FormEvent) {
@@ -139,7 +160,7 @@ export default function AdminPage() {
   async function logout() {
     await fetch(`${API}/api/admin/logout`, { method: "POST", credentials: "include" }).catch(() => {});
     sessionStorage.removeItem("admin_me");
-    setAuthed(false); setMe(""); setTariffs(null); setStats(null); setUsers([]); setCities([]); setCustomsRates(null);
+    setAuthed(false); setMe(""); setTariffs(null); setStats(null); setUsers([]); setCities([]); setCustomsPreview(null);
   }
 
   function change(key: keyof Tariffs, val: string) {
@@ -205,71 +226,62 @@ export default function AdminPage() {
     else { const j = await r.json(); alert(j.detail); }
   }
 
-  async function importFromGsheet(bracket: "new" | "mid" | "old") {
-    const url = customsUrls[bracket];
-    if (!url.trim()) return;
-    setCustomsImporting(bracket);
+  async function importFromGsheet() {
+    if (!customsUrl.trim()) return;
+    setCustomsImporting(true);
+    setCustomsImportErr("");
+    setCustomsPreview(null);
     try {
       const r = await fetch(`${API}/api/admin/customs/preview-gsheet`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ url, bracket }),
+        body: JSON.stringify({ url: customsUrl }),
       });
       const j = await r.json();
-      if (!r.ok) { alert(j.detail || "Ошибка"); return; }
-      setCustomsRates(prev => {
-        if (!prev) return prev;
-        return { ...prev, [`rates_${bracket}`]: j.rows };
-      });
-    } catch { alert("Ошибка сети"); }
-    setCustomsImporting(null);
+      if (!r.ok) { setCustomsImportErr(j.detail || "Ошибка"); return; }
+      setCustomsPreview(j);
+    } catch { setCustomsImportErr("Ошибка сети"); }
+    setCustomsImporting(false);
   }
 
-  async function saveCustomsRates() {
-    if (!customsRates) return;
+  async function importFromExcel(file: File) {
+    setCustomsImporting(true);
+    setCustomsImportErr("");
+    setCustomsPreview(null);
+    try {
+      const buf = await file.arrayBuffer();
+      const r = await fetch(`${API}/api/admin/customs/preview-excel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        credentials: "include",
+        body: buf,
+      });
+      const j = await r.json();
+      if (!r.ok) { setCustomsImportErr(j.detail || "Ошибка"); return; }
+      setCustomsPreview(j);
+    } catch { setCustomsImportErr("Ошибка сети"); }
+    setCustomsImporting(false);
+  }
+
+  async function applyCustomsPreview() {
+    if (!customsPreview) return;
     setCustomsSaveStatus("saving");
     try {
       const r = await fetch(`${API}/api/admin/customs`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          rates_new: customsRates.rates_new,
-          rates_mid: customsRates.rates_mid,
-          rates_old: customsRates.rates_old,
-        }),
+        body: JSON.stringify(customsPreview),
       });
       if (!r.ok) throw new Error((await r.json()).detail);
       setCustomsSaveStatus("saved");
+      if (customsPreview.jpy_to_rub && tariffs) setTariffs(t => t ? { ...t, jpy_to_rub: customsPreview.jpy_to_rub! } : t);
+      if (customsPreview.eur_to_rub && tariffs) setTariffs(t => t ? { ...t, eur_to_rub: customsPreview.eur_to_rub! } : t);
       setTimeout(() => setCustomsSaveStatus("idle"), 3000);
     } catch { setCustomsSaveStatus("error"); }
   }
 
-  function updateCustomsRow(bracket: "new"|"mid"|"old", rowIdx: number, colIdx: number, val: string) {
-    setCustomsRates(prev => {
-      if (!prev) return prev;
-      const key = `rates_${bracket}` as keyof CustomsRates;
-      const table = prev[key].map((row, i) =>
-        i === rowIdx ? row.map((v, j) => j === colIdx ? (parseFloat(val) || 0) : v) : row
-      );
-      return { ...prev, [key]: table };
-    });
-  }
-
-  function FieldGroup({ fields, cols = 2 }: { fields: { key: keyof Tariffs; label: string; step: number; note?: string }[]; cols?: number }) {
-    if (!tariffs) return null;
-    return (
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 12, marginBottom: 8 }}>
-        {fields.map(({ key, label, step, note }) => (
-          <div key={key} style={s.card}>
-            <label style={s.label}>{label}{note && <span style={{ opacity: 0.5 }}> — {note}</span>}</label>
-            <input type="number" step={step} value={tariffs[key]} onChange={e => change(key, e.target.value)} style={s.input}/>
-          </div>
-        ))}
-      </div>
-    );
-  }
 
   if (!authed) {
     return (
@@ -365,19 +377,19 @@ export default function AdminPage() {
             {tariffs && (
               <form onSubmit={saveTariffs}>
                 <h3 style={s.sectionTitle as any}>Курсы валют</h3>
-                <FieldGroup fields={RATE_FIELDS}/>
+                <FieldGroup fields={RATE_FIELDS} tariffs={tariffs} onChange={change}/>
 
                 <h3 style={s.sectionTitle as any}>Логистика (фрахт и доставка)</h3>
-                <FieldGroup fields={FREIGHT_FIELDS}/>
+                <FieldGroup fields={FREIGHT_FIELDS} tariffs={tariffs} onChange={change}/>
 
                 <h3 style={s.sectionTitle as any}>Услуги и сборы</h3>
-                <FieldGroup fields={SERVICE_FIELDS}/>
+                <FieldGroup fields={SERVICE_FIELDS} tariffs={tariffs} onChange={change}/>
 
                 <h3 style={s.sectionTitle as any}>Таможенные коэффициенты (резервные)</h3>
                 <p style={{ fontSize: 12, color: "rgba(245,243,238,0.35)", marginBottom: 12 }}>
                   Применяются только если объём двигателя не указан. При наличии объёма используются таблицы ФТС.
                 </p>
-                <FieldGroup fields={CUSTOMS_FIELDS}/>
+                <FieldGroup fields={CUSTOMS_FIELDS} tariffs={tariffs} onChange={change}/>
 
                 <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 32 }}>
                   <button type="submit" className="btn btn-primary btn-lg" disabled={saveStatus === "saving"}>
@@ -448,80 +460,108 @@ export default function AdminPage() {
         {tab === "customs" && (
           <div>
             <h2 style={{ fontSize: 22, color: "#f5f3ee", marginBottom: 8 }}>Таможенные ставки ФТС</h2>
-            <p style={{ fontSize: 13, color: "rgba(245,243,238,0.4)", marginBottom: 32 }}>
-              Ставки таможни для физлиц (ЕАЭС). Можно редактировать вручную или импортировать из Google Sheets.
-              Формат CSV: для авто до 3 лет — (цена_макс_EUR, ставка_доли, мин_EUR/куб.см);
-              для 3–5 лет и 5+ лет — (объём_от_куб.см, объём_до_куб.см, EUR/куб.см).
+            <p style={{ fontSize: 13, color: "rgba(245,243,238,0.4)", marginBottom: 32, maxWidth: "64ch" }}>
+              Загрузите Google Sheets или Excel-файл с таблицей ставок. Формат ячеек — как в исходной таблице:
+              A2=JPY/RUB, B2=EUR/RUB, C2=коэф.&nbsp;3–5&nbsp;лет, E2=коэф.&nbsp;5+&nbsp;лет,
+              строки 5+: A=объём&nbsp;cc, B=ставка&nbsp;3–5&nbsp;лет, D=ставка&nbsp;5+&nbsp;лет.
             </p>
 
-            {customsRates && (
-              <>
-                {(["new", "mid", "old"] as const).map(bracket => {
-                  const labels = bracket === "new"
-                    ? ["Цена макс, EUR", "Ставка (доли)", "Мин EUR/куб.см"]
-                    : ["Объём от, куб.см", "Объём до, куб.см", "EUR/куб.см"];
-                  const title = bracket === "new" ? "До 3 лет (по цене)" : bracket === "mid" ? "3–5 лет (по объёму)" : "Более 5 лет (по объёму)";
-                  const rows = customsRates[`rates_${bracket}` as keyof CustomsRates];
-                  return (
-                    <div key={bracket} style={{ marginBottom: 32 }}>
-                      <h3 style={{ fontSize: 15, color: "#f5f3ee", marginBottom: 12 }}>{title}</h3>
-                      <div style={{ ...s.card, padding: "12px 16px", marginBottom: 10 }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                          <thead>
-                            <tr>
-                              {labels.map(l => (
-                                <th key={l} style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "rgba(245,243,238,0.4)", letterSpacing: "0.08em", textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{l}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {rows.map((row, ri) => (
-                              <tr key={ri}>
-                                {row.slice(0, 3).map((val, ci) => (
-                                  <td key={ci} style={{ padding: "4px 8px" }}>
-                                    <input
-                                      type="number"
-                                      step="any"
-                                      value={val}
-                                      onChange={e => updateCustomsRow(bracket, ri, ci, e.target.value)}
-                                      style={{ ...s.input, width: 140, padding: "6px 8px", fontSize: 13 }}
-                                    />
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                        <input
-                          type="text"
-                          placeholder="https://docs.google.com/spreadsheets/d/..."
-                          value={customsUrls[bracket]}
-                          onChange={e => setCustomsUrls(u => ({ ...u, [bracket]: e.target.value }))}
-                          style={{ ...s.input, flex: 1, fontSize: 13 }}
-                        />
-                        <button
-                          onClick={() => importFromGsheet(bracket)}
-                          disabled={customsImporting === bracket}
-                          className="btn btn-primary"
-                          style={{ flexShrink: 0, fontSize: 13 }}
-                        >
-                          {customsImporting === bracket ? "Загрузка…" : "Импорт из Sheets"}
-                        </button>
-                      </div>
+            {/* Import controls */}
+            <div style={{ ...s.card, marginBottom: 24 }}>
+              <h3 style={{ fontSize: 14, color: "#c8a45c", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>
+                Источник данных
+              </h3>
+
+              <label style={s.label}>Ссылка на Google Sheets</label>
+              <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                <input
+                  type="text"
+                  placeholder="https://docs.google.com/spreadsheets/d/…"
+                  value={customsUrl}
+                  onChange={e => setCustomsUrl(e.target.value)}
+                  style={{ ...s.input, flex: 1 }}
+                />
+                <button
+                  onClick={importFromGsheet}
+                  disabled={customsImporting}
+                  className="btn btn-primary"
+                  style={{ flexShrink: 0 }}
+                >
+                  {customsImporting ? "Загрузка…" : "Загрузить"}
+                </button>
+              </div>
+
+              <label style={s.label}>Или загрузить Excel-файл (.xlsx)</label>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={e => { const f = e.target.files?.[0]; if (f) importFromExcel(f); }}
+                style={{ fontSize: 13, color: "rgba(245,243,238,0.6)" }}
+              />
+
+              {customsImportErr && (
+                <p style={{ color: "#ff6b6b", fontSize: 13, marginTop: 12 }}>{customsImportErr}</p>
+              )}
+            </div>
+
+            {/* Preview */}
+            {customsPreview && (
+              <div>
+                <h3 style={{ fontSize: 16, color: "#f5f3ee", marginBottom: 16 }}>Предпросмотр</h3>
+
+                {/* Parsed meta values */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10, marginBottom: 20 }}>
+                  {[
+                    { label: "JPY/RUB", val: customsPreview.jpy_to_rub },
+                    { label: "EUR/RUB", val: customsPreview.eur_to_rub },
+                    { label: "Коэф. 3–5 лет", val: customsPreview.customs_coef_mid },
+                    { label: "Коэф. 5+ лет", val: customsPreview.customs_coef_old },
+                  ].filter(x => x.val != null).map(({ label, val }) => (
+                    <div key={label} style={{ ...s.card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 12, color: "rgba(245,243,238,0.5)" }}>{label}</span>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: "#f5f3ee" }}>{val}</span>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+
+                {/* Rate tables */}
+                {([
+                  { key: "rates_mid", title: "3–5 лет (EUR/куб.см)" },
+                  { key: "rates_old", title: "Старше 5 лет (EUR/куб.см)" },
+                ] as const).map(({ key, title }) => (
+                  <div key={key} style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 13, color: "#c8a45c", fontWeight: 600, marginBottom: 8 }}>{title}</div>
+                    <div style={s.card}>
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr>
+                            {["Объём от, куб.см", "Объём до, куб.см", "Ставка EUR/куб.см"].map(h => (
+                              <th key={h} style={{ textAlign: "left", padding: "6px 12px", fontSize: 11, color: "rgba(245,243,238,0.4)", letterSpacing: "0.08em", textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {customsPreview[key].map((row, i) => (
+                            <tr key={i}>
+                              <td style={{ padding: "7px 12px", color: "rgba(245,243,238,0.6)", fontSize: 13 }}>{row[0]}</td>
+                              <td style={{ padding: "7px 12px", color: "rgba(245,243,238,0.6)", fontSize: 13 }}>{row[1] >= 99999 ? "∞" : row[1]}</td>
+                              <td style={{ padding: "7px 12px", color: "#f5f3ee", fontWeight: 600, fontSize: 13 }}>{row[2]}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
 
                 <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 8 }}>
-                  <button onClick={saveCustomsRates} disabled={customsSaveStatus === "saving"} className="btn btn-primary btn-lg">
-                    {customsSaveStatus === "saving" ? "Сохранение…" : "Сохранить все ставки"}
+                  <button onClick={applyCustomsPreview} disabled={customsSaveStatus === "saving"} className="btn btn-primary btn-lg">
+                    {customsSaveStatus === "saving" ? "Сохранение…" : "Применить и сохранить"}
                   </button>
                   {customsSaveStatus === "saved" && <span style={{ color: "#4caf50", fontSize: 14 }}>✓ Сохранено</span>}
-                  {customsSaveStatus === "error"  && <span style={{ color: "#ff6b6b", fontSize: 14 }}>Ошибка сохранения</span>}
+                  {customsSaveStatus === "error"  && <span style={{ color: "#ff6b6b", fontSize: 14 }}>Ошибка</span>}
                 </div>
-              </>
+              </div>
             )}
           </div>
         )}

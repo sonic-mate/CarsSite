@@ -780,15 +780,85 @@ def calculate(request: Request, data: CalculatorIn, db: Session = Depends(get_db
 
 # ─── Customs rate tables ─────────────────────────────────────────────────────
 
-class _CustomsImportIn(_BaseModel):
+# ФТС bracket boundaries (official EAEU, do not change)
+_CC_BRACKETS = [(0, 1000), (1000, 1500), (1500, 1800), (1800, 2300), (2300, 3000), (3000, 99999)]
+
+
+def _cell_float(val, default=None):
+    try:
+        s = str(val).strip().replace("\xa0", "").replace(" ", "").replace(",", ".").replace("₽", "").replace("¥", "").replace("₩", "")
+        return float(s) if s else default
+    except (ValueError, TypeError):
+        return default
+
+
+def _parse_customs_rows(raw_rows: list) -> dict:
+    """
+    Parse the fixed spreadsheet layout (as shown in the admin UI):
+      Row 1  (index 0): headers — skip
+      Row 2  (index 1): A=JPY/RUB, B=EUR/RUB, C=coef_mid(3–5), D=empty, E=coef_old(5+)
+      Row 3  (index 2): empty — skip
+      Row 4  (index 3): column headers — skip
+      Row 5+ (index 4+): A=cc, B=mid_rate, C=mid_rub(skip), D=old_rate, E=old_rub(skip)
+    """
+    jpy_rate = eur_rate = coef_mid = coef_old = None
+    data_rows = []  # list of (cc, mid_rate, old_rate)
+
+    for row in raw_rows:
+        if len(row) < 2:
+            continue
+        a = _cell_float(row[0])
+        b = _cell_float(row[1] if len(row) > 1 else None)
+        c = _cell_float(row[2] if len(row) > 2 else None)
+        e = _cell_float(row[4] if len(row) > 4 else None)
+        d = _cell_float(row[3] if len(row) > 3 else None)
+
+        # Rates row: A < 2 (JPY ~0.5), B > 50 (EUR ~87)
+        if a and 0 < a < 2 and b and b > 50:
+            jpy_rate = a
+            eur_rate = b
+            if c: coef_mid = c
+            if e: coef_old = e
+            continue
+
+        # Data row: A = cc integer 100–9999, B and D = EUR/cc rates (small floats)
+        if a and 100 <= a <= 9999 and b and 0 < b < 30:
+            old_rate = d if (d and 0 < d < 30) else None
+            if old_rate:
+                data_rows.append((int(round(a)), b, old_rate))
+
+    if not data_rows:
+        return {"error": "Строки с объёмом двигателя не найдены. Проверьте формат таблицы."}
+
+    def build_brackets(col: int) -> list:
+        result = []
+        last_rate = None
+        for lo, hi in _CC_BRACKETS:
+            rate = None
+            for cc, mid, old in data_rows:
+                r = mid if col == 0 else old
+                if lo < cc <= hi:
+                    rate = r
+                    break
+            if rate is None:
+                rate = last_rate  # inherit last known
+            if rate is not None:
+                result.append([lo, hi, rate])
+                last_rate = rate
+        return result
+
+    return {
+        "jpy_to_rub": jpy_rate,
+        "eur_to_rub": eur_rate,
+        "customs_coef_mid": coef_mid,
+        "customs_coef_old": coef_old,
+        "rates_mid": build_brackets(0),
+        "rates_old": build_brackets(1),
+    }
+
+
+class _GsheetImportIn(_BaseModel):
     url: str
-    bracket: str  # "new" | "mid" | "old"
-
-
-class _CustomsRatesIn(_BaseModel):
-    rates_new: Optional[List] = None
-    rates_mid: Optional[List] = None
-    rates_old: Optional[List] = None
 
 
 def _gsheet_to_csv_url(url: str) -> str:
@@ -804,7 +874,7 @@ def _gsheet_to_csv_url(url: str) -> str:
 
 @app.post("/api/admin/customs/preview-gsheet")
 @limiter.limit("10/minute")
-async def preview_customs_gsheet(request: Request, data: _CustomsImportIn,
+async def preview_customs_gsheet(request: Request, data: _GsheetImportIn,
                                   _: str = Depends(_require_admin)):
     import csv as _csv, io as _io
     csv_url = _gsheet_to_csv_url(data.url)
@@ -813,41 +883,69 @@ async def preview_customs_gsheet(request: Request, data: _CustomsImportIn,
         async with httpx.AsyncClient(timeout=15) as c:
             r = await c.get(csv_url)
             if r.status_code != 200:
-                raise HTTPException(status_code=400, detail=f"Ошибка загрузки: HTTP {r.status_code}")
+                raise HTTPException(status_code=400, detail=f"Ошибка загрузки листа: HTTP {r.status_code}")
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Ошибка сети: {e}")
 
-    numeric_rows = []
-    for row in _csv.reader(_io.StringIO(r.text)):
-        cells = [c.strip().replace(",", ".").replace(" ", "").replace("%", "") for c in row if c.strip()]
-        if len(cells) < 3:
-            continue
-        try:
-            numeric_rows.append([float(cells[0]), float(cells[1]), float(cells[2])])
-        except ValueError:
-            continue  # skip header/non-numeric rows
+    raw_rows = list(_csv.reader(_io.StringIO(r.text)))
+    result = _parse_customs_rows(raw_rows)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
 
-    if not numeric_rows:
-        raise HTTPException(status_code=400, detail="Не найдено числовых данных. Ожидается 3 числовых столбца.")
 
-    return {"rows": numeric_rows, "count": len(numeric_rows), "bracket": data.bracket}
+@app.post("/api/admin/customs/preview-excel")
+@limiter.limit("10/minute")
+async def preview_customs_excel(request: Request, _: str = Depends(_require_admin)):
+    from fastapi import UploadFile, File
+    import io as _io
+    body = await request.body()
+    if not body:
+        raise HTTPException(status_code=400, detail="Файл не получен")
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(_io.BytesIO(body), read_only=True, data_only=True)
+        ws = wb.active
+        raw_rows = [[cell.value for cell in row] for row in ws.iter_rows()]
+        wb.close()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Ошибка чтения Excel: {e}")
+    result = _parse_customs_rows(raw_rows)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+class _CustomsApplyIn(_BaseModel):
+    jpy_to_rub: Optional[float] = None
+    eur_to_rub: Optional[float] = None
+    customs_coef_mid: Optional[float] = None
+    customs_coef_old: Optional[float] = None
+    rates_mid: Optional[List] = None
+    rates_old: Optional[List] = None
 
 
 @app.put("/api/admin/customs")
-def update_customs_rates(data: _CustomsRatesIn, db: Session = Depends(get_db),
+def update_customs_rates(data: _CustomsApplyIn, db: Session = Depends(get_db),
                          _: str = Depends(_require_admin)):
     import json as _json
     t = db.query(Tariffs).filter(Tariffs.id == 1).first()
     if not t:
         raise HTTPException(status_code=404, detail="Tariffs not found")
-    if data.rates_new is not None:
-        t.customs_rates_new_json = _json.dumps(data.rates_new)
     if data.rates_mid is not None:
         t.customs_rates_mid_json = _json.dumps(data.rates_mid)
     if data.rates_old is not None:
         t.customs_rates_old_json = _json.dumps(data.rates_old)
+    if data.jpy_to_rub:
+        t.jpy_to_rub = data.jpy_to_rub
+    if data.eur_to_rub:
+        t.eur_to_rub = data.eur_to_rub
+    if data.customs_coef_mid:
+        t.customs_coef_mid = data.customs_coef_mid
+    if data.customs_coef_old:
+        t.customs_coef_old = data.customs_coef_old
     db.commit()
     db.refresh(t)
     tariff_cache.update(t)
@@ -865,9 +963,8 @@ def get_customs_rates(db: Session = Depends(get_db), _: str = Depends(_require_a
             except Exception:
                 pass
         return [list(row) for row in fallback]
-    from calc import _RATES_NEW_BY_PRICE, _RATES_MID, _RATES_OLD
+    from calc import _RATES_MID, _RATES_OLD
     return {
-        "rates_new": _parse(t.customs_rates_new_json if t else None, _RATES_NEW_BY_PRICE),
         "rates_mid": _parse(t.customs_rates_mid_json if t else None, _RATES_MID),
         "rates_old": _parse(t.customs_rates_old_json if t else None, _RATES_OLD),
     }

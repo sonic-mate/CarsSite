@@ -17,9 +17,9 @@ const CURRENCIES = [
 ] as const;
 
 const COUNTRY_DEFAULT_CURRENCY: Record<string, string> = {
-  japan: "JPY",
-  korea: "KRW",
-  china: "CNY",
+  japan: "RUB",
+  korea: "RUB",
+  china: "RUB",
 };
 
 interface Rates { jpy_to_rub: number; krw_to_rub: number; cny_to_rub: number; }
@@ -41,7 +41,7 @@ function formatLocalAmount(amount: number, currency: string): string {
 export default function CalculatorPage() {
   const [country, setCountry] = useState<"japan" | "korea" | "china">("japan");
   const [priceInput, setPriceInput] = useState("");
-  const [currency, setCurrency] = useState("JPY");
+  const [currency, setCurrency] = useState("RUB");
   const [engineCC, setEngineCC] = useState("");
   const [power, setPower] = useState("");
   const [year, setYear] = useState("");

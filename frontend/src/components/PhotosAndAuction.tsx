@@ -64,7 +64,8 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
 
   return (
     <div style={{
-      background: "rgba(255,255,255,0.02)",
+      background: "#13151c",
+      color: "#f5f3ee",
       border: "1px solid rgba(255,255,255,0.07)",
       borderRadius: "var(--r)",
       padding: 24,
