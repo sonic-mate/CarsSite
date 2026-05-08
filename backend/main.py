@@ -132,21 +132,36 @@ def _init_cities():
         db.close()
 
 
-CBR_URL = "https://www.cbr-xml-daily.ru/daily_json.js"
+CBR_URL = "https://www.cbr.ru/scripts/XML_daily.asp"
 
 
 async def _fetch_rates() -> dict | None:
     try:
         import httpx
+        import xml.etree.ElementTree as ET
         async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(CBR_URL)
-            v = r.json()["Valute"]
-            return {
-                "eur_to_rub": round(v["EUR"]["Value"] / v["EUR"]["Nominal"], 4),
-                "jpy_to_rub": round(v["JPY"]["Value"] / v["JPY"]["Nominal"], 4),
-                "cny_to_rub": round(v["CNY"]["Value"] / v["CNY"]["Nominal"], 4),
-                "krw_to_rub": round(v["KRW"]["Value"] / v["KRW"]["Nominal"], 6),
-            }
+            r = await c.get(CBR_URL, headers={"Accept": "application/xml"})
+            if r.status_code != 200:
+                print(f"CBR HTTP {r.status_code}")
+                return None
+        root = ET.fromstring(r.text)
+        raw: dict[str, float] = {}
+        for v in root.findall("Valute"):
+            code = v.findtext("CharCode")
+            nominal = int(v.findtext("Nominal") or 1)
+            value = float((v.findtext("Value") or "0").replace(",", "."))
+            if code:
+                raw[code] = value / nominal
+        needed = {"EUR", "JPY", "CNY", "KRW"}
+        if not needed.issubset(raw):
+            print(f"CBR missing codes: {needed - raw.keys()}")
+            return None
+        return {
+            "eur_to_rub": round(raw["EUR"], 4),
+            "jpy_to_rub": round(raw["JPY"], 4),
+            "cny_to_rub": round(raw["CNY"], 4),
+            "krw_to_rub": round(raw["KRW"], 6),
+        }
     except Exception as e:
         print(f"Rate fetch error: {e}")
         return None
@@ -744,12 +759,24 @@ def update_city(city_id: int, cost_rub: int, db: Session = Depends(get_db),
 
 # ─── Calculator ───────────────────────────────────────────────────────────────
 
+def _to_rub(amount: float, currency: str, t) -> int:
+    if currency == "JPY":
+        return round(amount * t.jpy_to_rub)
+    if currency == "KRW":
+        return round(amount * t.krw_to_rub)
+    if currency == "CNY":
+        return round(amount * t.cny_to_rub)
+    return round(amount)
+
+
 @app.post("/api/calculator", response_model=CalculatorOut)
 @limiter.limit("30/minute")
 def calculate(request: Request, data: CalculatorIn, db: Session = Depends(get_db)):
     t = db.query(Tariffs).filter(Tariffs.id == 1).first()
     if not t:
         t = Tariffs()
+
+    auction_price_rub = _to_rub(data.auction_price, data.currency, t)
 
     city_delivery = 0
     city_name = "Омск"
@@ -759,14 +786,14 @@ def calculate(request: Request, data: CalculatorIn, db: Session = Depends(get_db
             city_delivery = city_row.cost_rub
             city_name = city_row.city_name
 
-    detail = _calc.calc_customs_detail(data.auction_price, data.engine_cc, data.year, data.fuel_type, t)
+    detail = _calc.calc_customs_detail(auction_price_rub, data.engine_cc, data.year, data.fuel_type, t)
     customs = detail["customs"]
     delivery = _calc.get_delivery(data.country, t)
     services = _calc.get_services_total(t, data.year, city_delivery)
-    items = _calc.get_items(data.auction_price, customs, data.country, t, city_delivery, city_name, data.year)
+    items = _calc.get_items(auction_price_rub, customs, data.country, t, city_delivery, city_name, data.year)
     total = sum(i["value"] for i in items)
     return CalculatorOut(
-        auction_price=data.auction_price,
+        auction_price=auction_price_rub,
         delivery=delivery,
         customs=customs,
         services=services,

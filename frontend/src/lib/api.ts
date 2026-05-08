@@ -28,6 +28,7 @@ export async function getLiveCars(params: Record<string, string> = {}): Promise<
 export async function calculate(data: {
   country: string;
   auction_price: number;
+  currency?: string;
   engine_cc: number;
   year: number;
   fuel_type?: string;

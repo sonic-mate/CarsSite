@@ -178,7 +178,7 @@ export default function PhotosAndAuction({ photoUrls, alt, car }: Props) {
   return (
     <div>
       {hasAuctionData && (
-        <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.07)", marginBottom: 0 }}>
+        <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.07)", marginBottom: 0, background: "#13151c" }}>
           {(["photos", "auction"] as const).map((id) => (
             <button
               key={id}

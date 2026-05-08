@@ -7,12 +7,11 @@ const API = "";
 interface Tariffs {
   jpy_to_rub: number; krw_to_rub: number; cny_to_rub: number; eur_to_rub: number;
   customs_rate: number; customs_coef_new: number; customs_coef_mid: number; customs_coef_old: number;
-  delivery_japan: number; delivery_korea: number; delivery_china: number; services: number;
-  freight_japan_jpy: number;
+  freight_japan_jpy: number; freight_vlad_korea: number; freight_vlad_china: number;
   recycling_fee_new: number; recycling_fee_old: number;
   broker_fee: number; bank_commission: number; lab_docs: number;
   storage_fee: number; local_delivery: number; registration_fee: number;
-  delivery_omsk: number; company_commission: number;
+  company_commission: number;
 }
 interface Stats { total_cars: number; delivered: number; cheaper_percent: number; avg_days: number; }
 interface User { id: number; username: string; created_at: string; }
@@ -34,10 +33,9 @@ const RATE_FIELDS: { key: keyof Tariffs; label: string; step: number; note: stri
 ];
 
 const FREIGHT_FIELDS: { key: keyof Tariffs; label: string; step: number; note?: string }[] = [
-  { key: "freight_japan_jpy", label: "Фрахт из Японии, ¥",              step: 1000, note: "В иенах, конвертируется по курсу" },
-  { key: "delivery_korea",    label: "Доставка Корея → Владивосток, ₽", step: 1000 },
-  { key: "delivery_china",    label: "Доставка Китай → Владивосток, ₽", step: 1000 },
-  { key: "delivery_omsk",     label: "Доставка до Омска (умолч.), ₽",   step: 1000, note: "Используется в карточках каталога" },
+  { key: "freight_japan_jpy",  label: "Фрахт из Японии, ¥",              step: 1000, note: "В иенах, конвертируется по курсу" },
+  { key: "freight_vlad_korea", label: "Доставка Корея → Владивосток, ₽", step: 1000 },
+  { key: "freight_vlad_china", label: "Доставка Китай → Владивосток, ₽", step: 1000 },
 ];
 
 const SERVICE_FIELDS: { key: keyof Tariffs; label: string; step: number; note?: string }[] = [
@@ -114,6 +112,7 @@ export default function AdminPage() {
   const [customsImporting, setCustomsImporting] = useState(false);
   const [customsSaveStatus, setCustomsSaveStatus] = useState<"idle"|"saving"|"saved"|"error">("idle");
   const [customsImportErr, setCustomsImportErr] = useState("");
+  const [currentRates, setCurrentRates] = useState<{ rates_mid: number[][]; rates_old: number[][] } | null>(null);
 
   const [saveStatus, setSaveStatus] = useState<"idle"|"saving"|"saved"|"error">("idle");
   const [saveError, setSaveError]   = useState("");
@@ -138,6 +137,7 @@ export default function AdminPage() {
       data.forEach(c => { edits[c.id] = c.cost_rub; });
       setCityEdits(edits);
     }).catch(() => {});
+    fetch(`${API}/api/admin/customs`, { credentials: "include" }).then(r => r.ok ? r.json() : null).then(d => { if (d) setCurrentRates(d); }).catch(() => {});
   }, [authed]);
 
   async function login(e: React.FormEvent) {
@@ -278,6 +278,7 @@ export default function AdminPage() {
       setCustomsSaveStatus("saved");
       if (customsPreview.jpy_to_rub && tariffs) setTariffs(t => t ? { ...t, jpy_to_rub: customsPreview.jpy_to_rub! } : t);
       if (customsPreview.eur_to_rub && tariffs) setTariffs(t => t ? { ...t, eur_to_rub: customsPreview.eur_to_rub! } : t);
+      setCurrentRates({ rates_mid: customsPreview.rates_mid, rates_old: customsPreview.rates_old });
       setTimeout(() => setCustomsSaveStatus("idle"), 3000);
     } catch { setCustomsSaveStatus("error"); }
   }
@@ -503,6 +504,44 @@ export default function AdminPage() {
                 <p style={{ color: "#ff6b6b", fontSize: 13, marginTop: 12 }}>{customsImportErr}</p>
               )}
             </div>
+
+            {/* Currently applied rates */}
+            {currentRates && (
+              <div style={{ marginBottom: 32 }}>
+                <h3 style={{ fontSize: 16, color: "#f5f3ee", marginBottom: 4 }}>Применённые ставки</h3>
+                <p style={{ fontSize: 12, color: "rgba(245,243,238,0.35)", marginBottom: 16 }}>
+                  Эти ставки сейчас используются в калькуляторе и карточках автомобилей.
+                </p>
+                {([
+                  { key: "rates_mid" as const, title: "3–5 лет (EUR/куб.см)" },
+                  { key: "rates_old" as const, title: "Старше 5 лет (EUR/куб.см)" },
+                ]).map(({ key, title }) => (
+                  <div key={key} style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, color: "#c8a45c", fontWeight: 600, marginBottom: 8 }}>{title}</div>
+                    <div style={s.card}>
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr>
+                            {["Объём от, куб.см", "Объём до, куб.см", "Ставка EUR/куб.см"].map(h => (
+                              <th key={h} style={{ textAlign: "left", padding: "6px 12px", fontSize: 11, color: "rgba(245,243,238,0.4)", letterSpacing: "0.08em", textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentRates[key].map((row, i) => (
+                            <tr key={i}>
+                              <td style={{ padding: "7px 12px", color: "rgba(245,243,238,0.6)", fontSize: 13 }}>{row[0]}</td>
+                              <td style={{ padding: "7px 12px", color: "rgba(245,243,238,0.6)", fontSize: 13 }}>{row[1] >= 99999 ? "∞" : row[1]}</td>
+                              <td style={{ padding: "7px 12px", color: "#f5f3ee", fontWeight: 600, fontSize: 13 }}>{row[2]}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Preview */}
             {customsPreview && (

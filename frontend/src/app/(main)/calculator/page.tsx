@@ -75,11 +75,10 @@ export default function CalculatorPage() {
     const y = overrides.year ?? year;
     const f = overrides.fuel ?? fuel;
     const ct = overrides.city ?? city;
-    const auctionPriceRub = toRub(pi, cur, rates);
-    if (auctionPriceRub <= 0 || !y || !f) return;
+    if (pi <= 0 || !y || !f) return;
     setLoading(true);
     try {
-      const r = await calculate({ country: c, auction_price: auctionPriceRub, engine_cc: cc, year: +y, fuel_type: f, city: ct || undefined });
+      const r = await calculate({ country: c, auction_price: pi, currency: cur, engine_cc: cc, year: +y, fuel_type: f, city: ct || undefined });
       setResult(r);
     } catch {}
     setLoading(false);
