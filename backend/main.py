@@ -388,10 +388,11 @@ def list_cars(request: Request,
     if engine_cc_min: q = q.filter(Car.engine_cc >= engine_cc_min)
     if engine_cc_max: q = q.filter(Car.engine_cc <= engine_cc_max)
     if lot_id:        q = q.filter(Car.id.ilike(f"%{lot_id}%"))
-    if sort == "price-asc":   q = q.order_by(Car.price.asc())
-    elif sort == "price-desc": q = q.order_by(Car.price.desc())
-    elif sort == "year":       q = q.order_by(Car.year.desc())
-    elif sort == "mileage":    q = q.order_by(Car.mileage.asc())
+    if sort == "price-asc":    q = q.order_by(Car.price.asc(),   Car.id.desc())
+    elif sort == "price-desc": q = q.order_by(Car.price.desc(),  Car.id.desc())
+    elif sort == "year":       q = q.order_by(Car.year.desc(),   Car.id.desc())
+    elif sort == "mileage":    q = q.order_by(Car.mileage.asc(), Car.id.desc())
+    else:                      q = q.order_by(Car.id.desc())
     return q.offset(offset).limit(min(limit, 200)).all()
 
 
@@ -548,8 +549,18 @@ def get_similar_cars(car_id: str, db: Session = Depends(get_db)):
 
 ALLOWED_IMG_HOSTS = {"ajes.com", "7.ajes.com", "img.ajes.com"}
 
+_IMG_CACHE_DIR = os.path.join(os.path.dirname(__file__), ".img_cache")
+os.makedirs(_IMG_CACHE_DIR, exist_ok=True)
+
+
+def _img_cache_path(url: str, webp: bool) -> str:
+    import hashlib
+    key = hashlib.sha256(url.encode()).hexdigest()[:24]
+    ext = "webp" if webp else "jpg"
+    return os.path.join(_IMG_CACHE_DIR, f"{key}.{ext}")
+
+
 def _compress_image(data: bytes, accept: str) -> tuple[bytes, str]:
-    """Convert image to WebP if supported, else optimize in-place. Perceptually lossless."""
     try:
         from PIL import Image, ImageFilter
         import io
@@ -568,23 +579,41 @@ def _compress_image(data: bytes, accept: str) -> tuple[bytes, str]:
 
 
 @app.get("/api/img-proxy")
-@limiter.limit("120/minute")
+@limiter.limit("240/minute")
 async def img_proxy(request: Request, url: str):
+    import asyncio
     from urllib.parse import urlparse
     parsed = urlparse(url)
     host = parsed.netloc.lstrip("www.")
     if not any(host == h or host.endswith("." + h) for h in ALLOWED_IMG_HOSTS):
         raise HTTPException(status_code=403, detail="Host not allowed")
+
+    accept = request.headers.get("accept", "")
+    webp = "image/webp" in accept
+    cache_path = _img_cache_path(url, webp)
+
+    if os.path.exists(cache_path):
+        with open(cache_path, "rb") as f:
+            cached = f.read()
+        ct = "image/webp" if webp else "image/jpeg"
+        return Response(content=cached, media_type=ct,
+            headers={"Cache-Control": "public, max-age=604800", "X-Cache": "HIT"})
+
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as c:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as c:
             r = await c.get(url, headers={"Referer": "https://ajes.com/"})
             if r.status_code != 200:
                 raise HTTPException(status_code=502, detail="Upstream error")
-        accept = request.headers.get("accept", "")
-        content, content_type = _compress_image(r.content, accept)
+        loop = asyncio.get_event_loop()
+        content, content_type = await loop.run_in_executor(None, _compress_image, r.content, accept)
+        try:
+            with open(cache_path, "wb") as f:
+                f.write(content)
+        except Exception:
+            pass
         return Response(content=content, media_type=content_type,
-            headers={"Cache-Control": "public, max-age=86400"})
+            headers={"Cache-Control": "public, max-age=604800", "X-Cache": "MISS"})
     except HTTPException:
         raise
     except Exception:

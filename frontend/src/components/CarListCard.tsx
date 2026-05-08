@@ -1,10 +1,15 @@
+"use client";
 import Link from "next/link";
 import { Car, COUNTRY_LABEL, formatPrice, formatKm, formatLocalPrice } from "@/lib/types";
 import PriceBreakdownTooltip from "./PriceBreakdownTooltip";
 
 export default function CarListCard({ car }: { car: Car }) {
   return (
-    <Link href={`/cars/${car.id}`} className="car-list-card">
+    <Link
+      href={`/cars/${car.id}`}
+      className="car-list-card"
+      onClick={() => sessionStorage.setItem("catalog_scroll", String(window.scrollY))}
+    >
       <div className="car-list-photo">
         {car.photo_url ? (
           <img src={car.photo_url} alt={`${car.brand} ${car.model}`}/>

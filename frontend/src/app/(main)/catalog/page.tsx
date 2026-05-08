@@ -53,6 +53,7 @@ function CatalogInner() {
   const mountedCountry  = useRef(false);
   const mountedBrand    = useRef(false);
   const mountedFilters  = useRef(false);
+  const restoredScroll  = useRef(false);
   const sp = searchParams;
   const [page, setPage]       = useState<number>(+(sp.get("page") ?? "1") || 1);
   const [country,      setCountry]      = useState<string>(sp.get("country") ?? "all");
@@ -122,9 +123,9 @@ function CatalogInner() {
   const FILTER_DEPS = [country, brand, model, body, fuel, transmission, color,
     yearMin, yearMax, priceMin, priceMax, mileageMin, mileageMax, engineCcMin, engineCcMax, lotId, sort];
 
-  const load = useCallback(async (p: number) => {
+  const load = useCallback(async (p: number, scrollTop = true) => {
     setLoading(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (scrollTop) window.scrollTo({ top: 0, behavior: "smooth" });
     try { setCars(await getCars(buildParams(p))); }
     finally { setLoading(false); }
   }, FILTER_DEPS);
@@ -137,7 +138,7 @@ function CatalogInner() {
   useEffect(() => {
     if (!mountedFilters.current) {
       mountedFilters.current = true;
-      load(page);
+      load(page, false);
       return;
     }
     setPage(1);
@@ -187,6 +188,16 @@ function CatalogInner() {
       mountedBrand.current = true;
     }
   }, [pBrand]);
+
+  useEffect(() => {
+    if (restoredScroll.current || loading || cars.length === 0) return;
+    restoredScroll.current = true;
+    const saved = sessionStorage.getItem("catalog_scroll");
+    if (saved) {
+      sessionStorage.removeItem("catalog_scroll");
+      requestAnimationFrame(() => window.scrollTo({ top: +saved, behavior: "instant" }));
+    }
+  }, [loading, cars]);
 
   useEffect(() => {
     fetch("/api/tariffs").then(r => r.ok ? r.json() : null).then(d => {
