@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import CarListCard from "@/components/CarListCard";
 import CallbackModal from "@/components/CallbackModal";
@@ -51,6 +51,8 @@ function CatalogInner() {
   const [colors, setColors]   = useState<ColorItem[]>([]);
 
   const router = useRouter();
+  const mountedCountry = useRef(false);
+  const mountedBrand   = useRef(false);
   const sp = searchParams;
   const [country,      setCountry]      = useState<string>(sp.get("country") ?? "all");
   const [brand,        setBrand]        = useState<string>(sp.get("brand") ?? "");
@@ -157,9 +159,12 @@ function CatalogInner() {
   useEffect(() => {
     const p = country !== "all" ? `?country=${country}` : "";
     fetch(`/api/cars-brands${p}`).then(r => r.json()).then(setBrands).catch(() => {});
-    const cp = country !== "all" ? `?country=${country}` : "";
-    fetch(`/api/cars-colors${cp}`).then(r => r.json()).then(setColors).catch(() => {});
-    setBrand(""); setPBrand(""); setModel(""); setPModel("");
+    fetch(`/api/cars-colors${p}`).then(r => r.json()).then(setColors).catch(() => {});
+    if (mountedCountry.current) {
+      setBrand(""); setPBrand(""); setModel(""); setPModel("");
+    } else {
+      mountedCountry.current = true;
+    }
   }, [country]);
 
   useEffect(() => {
@@ -167,7 +172,11 @@ function CatalogInner() {
     const p = country !== "all" ? `&country=${country}` : "";
     fetch(`/api/cars-models?brand=${encodeURIComponent(pBrand)}${p}`)
       .then(r => r.json()).then(setModels).catch(() => {});
-    setPModel("");
+    if (mountedBrand.current) {
+      setPModel("");
+    } else {
+      mountedBrand.current = true;
+    }
   }, [pBrand]);
 
   useEffect(() => {
