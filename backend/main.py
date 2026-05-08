@@ -551,11 +551,12 @@ ALLOWED_IMG_HOSTS = {"ajes.com", "7.ajes.com", "img.ajes.com"}
 def _compress_image(data: bytes, accept: str) -> tuple[bytes, str]:
     """Convert image to WebP if supported, else optimize in-place. Perceptually lossless."""
     try:
-        from PIL import Image
+        from PIL import Image, ImageFilter
         import io
         img = Image.open(io.BytesIO(data))
         if img.mode not in ("RGB", "RGBA"):
             img = img.convert("RGB")
+        img = img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=60, threshold=3))
         out = io.BytesIO()
         if "image/webp" in accept:
             img.save(out, format="WEBP", quality=95, method=4)
