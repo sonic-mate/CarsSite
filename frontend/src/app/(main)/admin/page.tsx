@@ -17,8 +17,6 @@ interface Stats { total_cars: number; delivered: number; cheaper_percent: number
 interface User { id: number; username: string; created_at: string; }
 interface CityItem { id: number; city_name: string; cost_rub: number; }
 interface CustomsPreview {
-  jpy_to_rub?: number | null;
-  eur_to_rub?: number | null;
   customs_coef_mid?: number | null;
   customs_coef_old?: number | null;
   rates_mid: number[][];
@@ -276,8 +274,6 @@ export default function AdminPage() {
       });
       if (!r.ok) throw new Error((await r.json()).detail);
       setCustomsSaveStatus("saved");
-      if (customsPreview.jpy_to_rub && tariffs) setTariffs(t => t ? { ...t, jpy_to_rub: customsPreview.jpy_to_rub! } : t);
-      if (customsPreview.eur_to_rub && tariffs) setTariffs(t => t ? { ...t, eur_to_rub: customsPreview.eur_to_rub! } : t);
       setCurrentRates({ rates_mid: customsPreview.rates_mid, rates_old: customsPreview.rates_old });
       setTimeout(() => setCustomsSaveStatus("idle"), 3000);
     } catch { setCustomsSaveStatus("error"); }
@@ -551,8 +547,6 @@ export default function AdminPage() {
                 {/* Parsed meta values */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10, marginBottom: 20 }}>
                   {[
-                    { label: "JPY/RUB", val: customsPreview.jpy_to_rub },
-                    { label: "EUR/RUB", val: customsPreview.eur_to_rub },
                     { label: "Коэф. 3–5 лет", val: customsPreview.customs_coef_mid },
                     { label: "Коэф. 5+ лет", val: customsPreview.customs_coef_old },
                   ].filter(x => x.val != null).map(({ label, val }) => (

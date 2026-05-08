@@ -505,13 +505,13 @@ def get_car_breakdown(car_id: str, db: Session = Depends(get_db)):
         return None
     detail = _calc.calc_customs_detail(ap, cc, db_car.year, db_car.engine or "Бензин", t)
     delivery = _calc.get_delivery(db_car.country, t)
-    services = _calc.get_services_total(t)
-    items = _calc.get_items(ap, detail["customs"], detail["fee"], db_car.country, t)
+    services = _calc.get_services_total(t, db_car.year)
+    items = _calc.get_items(ap, detail["customs"], db_car.country, t, 0, "Омск", db_car.year)
     total = sum(i["value"] for i in items)
     return {
         "auction_price": ap,
         "customs": detail["customs"],
-        "customs_fee": detail["fee"],
+        "customs_fee": 0,
         "delivery": delivery,
         "services": services,
         "total": total,
@@ -907,7 +907,7 @@ async def preview_customs_gsheet(request: Request, data: _GsheetImportIn,
     csv_url = _gsheet_to_csv_url(data.url)
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=15) as c:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as c:
             r = await c.get(csv_url)
             if r.status_code != 200:
                 raise HTTPException(status_code=400, detail=f"Ошибка загрузки листа: HTTP {r.status_code}")
@@ -946,8 +946,6 @@ async def preview_customs_excel(request: Request, _: str = Depends(_require_admi
 
 
 class _CustomsApplyIn(_BaseModel):
-    jpy_to_rub: Optional[float] = None
-    eur_to_rub: Optional[float] = None
     customs_coef_mid: Optional[float] = None
     customs_coef_old: Optional[float] = None
     rates_mid: Optional[List] = None
@@ -965,10 +963,6 @@ def update_customs_rates(data: _CustomsApplyIn, db: Session = Depends(get_db),
         t.customs_rates_mid_json = _json.dumps(data.rates_mid)
     if data.rates_old is not None:
         t.customs_rates_old_json = _json.dumps(data.rates_old)
-    if data.jpy_to_rub:
-        t.jpy_to_rub = data.jpy_to_rub
-    if data.eur_to_rub:
-        t.eur_to_rub = data.eur_to_rub
     if data.customs_coef_mid:
         t.customs_coef_mid = data.customs_coef_mid
     if data.customs_coef_old:
