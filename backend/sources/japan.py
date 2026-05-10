@@ -62,14 +62,20 @@ async def _call(sql: str) -> list | None:
         async with httpx.AsyncClient(timeout=15) as c:
             r = await c.get(url)
             if r.status_code != 200:
+                print(f"[ajes] HTTP {r.status_code}: {r.text[:200]}")
                 return None
             data = r.json()
             if isinstance(data, list):
                 return data
             if isinstance(data, dict) and "error" in data:
+                print(f"[ajes] API error: {data}")
+                return None
+            if isinstance(data, dict) and len(data) == 0:
+                print(f"[ajes] Empty dict response")
                 return None
             return data.get("data", data.get("result", []))
-    except Exception:
+    except Exception as e:
+        print(f"[ajes] Exception: {e}, url={url[:80]}")
         return None
 
 
