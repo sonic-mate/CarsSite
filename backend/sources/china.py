@@ -70,7 +70,7 @@ async def _call(sql: str) -> list | None:
     import json as _json
     from urllib.parse import quote
     ip_part = f"&ip={API_IP}" if API_IP else ""
-    url = f"http://{API_HOST}/api/?json{ip_part}&code={API_KEY}&sql={quote(sql)}"
+    url = f"http://{API_HOST}/api/?gzip{ip_part}&code={API_KEY}&sql={quote(sql)}"
     try:
         async with httpx.AsyncClient(timeout=15) as c:
             r = await c.get(url)
