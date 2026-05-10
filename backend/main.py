@@ -292,10 +292,11 @@ async def _sync_incremental():
                     db.rollback()
 
             max_raw = max(_raw_id(d["id"]) for d in good_lots)
-            state = db.query(SyncState).filter(SyncState.country == country).first()
-            if state:
-                state.last_max_id = max(state.last_max_id, max_raw)
-            db.commit()
+            if max_raw > 0:
+                state = db.query(SyncState).filter(SyncState.country == country).first()
+                if state:
+                    state.last_max_id = max(state.last_max_id, max_raw)
+                db.commit()
             print(f"Sync {country}: +{inserted} new lots, new last_max_id={max_raw}")
         except Exception as e:
             print(f"Sync {country} error: {e}")
