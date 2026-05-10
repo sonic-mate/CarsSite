@@ -246,7 +246,7 @@ def _get_or_init_sync_state(db, country: str, prefix: str) -> SyncState:
     return state
 
 
-MAX_SYNC_PAGES = 20   # up to 4 000 lots per country per sync
+MAX_SYNC_PAGES = 50   # up to 10 000 lots per country per sync
 PAGE_SIZE      = 200
 
 

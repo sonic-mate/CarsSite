@@ -1,8 +1,8 @@
+"use client";
 import Link from "next/link";
+import { useState } from "react";
 import CarSilhouette from "./CarSilhouette";
 import { Car, COUNTRY_LABEL, formatPrice, formatKm } from "@/lib/types";
-
-const BADGE_CLASS: Record<string, string> = {
   "Хит":     "badge-hit",
   "Новинка": "badge-new",
   "Premium": "badge-prem",
@@ -15,6 +15,9 @@ interface CarCardProps {
 export default function CarCard({ car }: CarCardProps) {
   const isLabelBadge = car.badge && BADGE_CLASS[car.badge];
   const rating = car.badge && !isLabelBadge ? parseFloat(car.badge) : null;
+  const allPhotos = car.photo_urls?.length ? car.photo_urls : car.photo_url ? [car.photo_url] : [];
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const currentPhoto = allPhotos[photoIdx] ?? null;
 
   return (
     <Link href={`/cars/${car.id}`} className="car-card">
@@ -24,11 +27,12 @@ export default function CarCard({ car }: CarCardProps) {
           style={{ background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}
         >
           <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 90%, rgba(255,255,255,0.04) 0%, transparent 50%)" }}/>
-          {car.photo_url ? (
+          {currentPhoto ? (
             <img
-              src={car.photo_url}
+              src={currentPhoto}
               alt={`${car.brand} ${car.model}`}
               style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }}
+              onError={() => { if (photoIdx + 1 < allPhotos.length) setPhotoIdx(i => i + 1); }}
             />
           ) : (
             <div className="car-silhouette" style={{ width: "82%" }}>

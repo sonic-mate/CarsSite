@@ -1,9 +1,14 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
 import { Car, COUNTRY_LABEL, formatPrice, formatKm, formatLocalPrice } from "@/lib/types";
 import PriceBreakdownTooltip from "./PriceBreakdownTooltip";
 
 export default function CarListCard({ car }: { car: Car }) {
+  const allPhotos = car.photo_urls?.length ? car.photo_urls : car.photo_url ? [car.photo_url] : [];
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const currentPhoto = allPhotos[photoIdx] ?? null;
+
   return (
     <Link
       href={`/cars/${car.id}`}
@@ -11,8 +16,12 @@ export default function CarListCard({ car }: { car: Car }) {
       onClick={() => sessionStorage.setItem("catalog_scroll", String(window.scrollY))}
     >
       <div className="car-list-photo">
-        {car.photo_url ? (
-          <img src={car.photo_url} alt={`${car.brand} ${car.model}`}/>
+        {currentPhoto ? (
+          <img
+            src={currentPhoto}
+            alt={`${car.brand} ${car.model}`}
+            onError={() => { if (photoIdx + 1 < allPhotos.length) setPhotoIdx(i => i + 1); }}
+          />
         ) : (
           <div className="car-list-photo-placeholder">
             <img src={`/flags/${car.country}.svg`} alt={car.country} width={24} height={16}/>

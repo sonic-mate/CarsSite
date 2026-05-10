@@ -1,140 +1,202 @@
-#!/bin/bash
-set -e
-# Запускать на сервере: bash install.sh --domain vostokavtoimport.ru --token SECRET
+#!/usr/bin/env bash
+set -euo pipefail
 
-DOMAIN=""
-ADMIN_TOKEN=""
-DIR="$(cd "$(dirname "$0")" && pwd)"
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --domain) DOMAIN="$2";      shift 2 ;;
-    --token)  ADMIN_TOKEN="$2"; shift 2 ;;
-    *) echo "Unknown arg: $1"; exit 1 ;;
-  esac
-done
+info()    { echo -e "${CYAN}[INFO]${NC}  $*"; }
+success() { echo -e "${GREEN}[OK]${NC}    $*"; }
+warn()    { echo -e "${YELLOW}[WARN]${NC}  $*"; }
+error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 
-if [[ -z "$DOMAIN" || -z "$ADMIN_TOKEN" ]]; then
-  echo "Usage: bash install.sh --domain vostokavtoimport.ru --token SECRET"
-  exit 1
+PROJECT_NAME="VostokAvtoImport"
+API_PORT=8000
+WEB_PORT=3000
+DOMAIN="vostokavtoimport.ru"
+NGINX_CONF="carssite.conf"
+ENV_OVERRIDES=("AJES_IP=SERVER_IP")
+
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# ── 1. root check ─────────────────────────────────────────────────────────────
+
+if [[ $EUID -ne 0 ]]; then
+  error "Запусти от root: sudo bash install.sh"
 fi
 
-# ── System ────────────────────────────────────────────────────────────────────
-echo "==> Установка зависимостей..."
+# ── 2. OS check ───────────────────────────────────────────────────────────────
+
+if ! command -v apt-get &>/dev/null; then
+  error "Поддерживается только Debian/Ubuntu (apt-get не найден)"
+fi
+
+echo
+echo -e "${BOLD}========================================"
+echo -e "  $PROJECT_NAME — установка сервера"
+echo -e "========================================${NC}"
+echo -e "  Директория проекта: $PROJECT_DIR"
+echo
+
+# ── 3. system packages ────────────────────────────────────────────────────────
+
+info "Обновление пакетов..."
 apt-get update -qq
-apt-get install -y -qq curl nginx certbot python3-certbot-nginx
 
-# ── Docker ────────────────────────────────────────────────────────────────────
-if ! command -v docker &>/dev/null; then
-  echo "==> Установка Docker..."
-  curl -fsSL https://get.docker.com | sh
-fi
-apt-get install -y -qq docker-compose-plugin 2>/dev/null || true
+info "Установка базовых пакетов..."
+apt-get install -y -qq \
+  ca-certificates curl gnupg lsb-release \
+  git nginx ufw openssl certbot python3-certbot-nginx
 
-# ── Загрузка образов ──────────────────────────────────────────────────────────
-if [[ -f "$DIR/images.tar.gz" ]]; then
-  echo "==> Загрузка Docker образов..."
-  docker load < "$DIR/images.tar.gz"
+# ── 4. Docker CE ──────────────────────────────────────────────────────────────
+
+if command -v docker &>/dev/null; then
+  success "Docker уже установлен: $(docker --version)"
 else
-  echo "ERROR: images.tar.gz не найден рядом со скриптом"
-  exit 1
+  info "Установка Docker CE..."
+  install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg \
+    | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  chmod a+r /etc/apt/keyrings/docker.gpg
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
+$(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+  apt-get update -qq
+  apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  systemctl enable --now docker
+  success "Docker установлен"
 fi
 
-# ── Docker Compose конфиг ─────────────────────────────────────────────────────
-mkdir -p /opt/carssite
-cat > /opt/carssite/docker-compose.yml <<EOF
-version: "3.9"
+if ! docker compose version &>/dev/null; then
+  error "docker compose plugin не найден — установи вручную"
+fi
 
-services:
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: carssite
-      POSTGRES_USER: carssite
-      POSTGRES_PASSWORD: carssite
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U carssite -d carssite"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
+# ── 5. add deploy user to docker group ────────────────────────────────────────
 
-  backend:
-    image: carssite-backend
-    ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://carssite:carssite@db:5432/carssite
-      AJES_API_KEY: "VAInBvFrU76d"
-      ADMIN_TOKEN: "${ADMIN_TOKEN}"
-    depends_on:
-      db:
-        condition: service_healthy
-    command: uvicorn main:app --host 0.0.0.0 --port 8000
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 15s
-    restart: unless-stopped
+DEPLOY_USER="${SUDO_USER:-$(logname 2>/dev/null || echo '')}"
+if [[ -n "$DEPLOY_USER" && "$DEPLOY_USER" != "root" ]]; then
+  usermod -aG docker "$DEPLOY_USER"
+  info "Пользователь $DEPLOY_USER добавлен в группу docker (перелогинься после установки)"
+fi
 
-  frontend:
-    image: carssite-frontend
-    ports:
-      - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: https://${DOMAIN}
-      INTERNAL_API_URL: http://backend:8000
-    depends_on:
-      backend:
-        condition: service_healthy
-    restart: unless-stopped
+# ── 6. .env check ─────────────────────────────────────────────────────────────
 
-volumes:
-  pgdata:
-EOF
+if [[ ! -f "$PROJECT_DIR/.env" ]]; then
+  error ".env не найден в $PROJECT_DIR — загрузи его на сервер и запусти install.sh снова"
+fi
+success ".env найден"
 
-# ── Запуск ────────────────────────────────────────────────────────────────────
-echo "==> Запуск контейнеров..."
-docker compose -f /opt/carssite/docker-compose.yml up -d
+# ── 7. get server IP ──────────────────────────────────────────────────────────
 
-# ── Nginx ─────────────────────────────────────────────────────────────────────
-echo "==> Настройка Nginx..."
-cat > /etc/nginx/sites-available/carssite <<EOF
+SERVER_IP="$(curl -fsSL https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')"
+info "IP сервера: $SERVER_IP"
+
+# ── 8. firewall ───────────────────────────────────────────────────────────────
+
+info "Настройка UFW..."
+ufw --force reset > /dev/null
+ufw default deny incoming > /dev/null
+ufw default allow outgoing > /dev/null
+ufw allow 22/tcp                    comment 'SSH'           > /dev/null
+ufw allow 80/tcp                    comment 'HTTP (nginx)'  > /dev/null
+ufw allow 443/tcp                   comment 'HTTPS (nginx)' > /dev/null
+ufw allow "${API_PORT}/tcp"         comment 'API (direct)'  > /dev/null
+ufw allow "${WEB_PORT}/tcp"         comment 'Web (direct)'  > /dev/null
+ufw --force enable > /dev/null
+success "UFW: SSH(22), HTTP(80), HTTPS(443), API($API_PORT), Web($WEB_PORT)"
+
+# ── 9. nginx ──────────────────────────────────────────────────────────────────
+
+info "Настройка Nginx..."
+cat > /etc/nginx/sites-available/$NGINX_CONF <<NGINX
 server {
     listen 80;
     server_name ${DOMAIN} www.${DOMAIN};
 
+    client_max_body_size 20m;
+
     location /api/ {
-        proxy_pass http://localhost:8000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_pass         http://127.0.0.1:${API_PORT}/api/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              \$host;
+        proxy_set_header   X-Real-IP         \$remote_addr;
+        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_read_timeout 120s;
     }
 
     location / {
-        proxy_pass http://localhost:3000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_pass         http://127.0.0.1:${WEB_PORT}/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              \$host;
+        proxy_set_header   X-Real-IP         \$remote_addr;
+        proxy_set_header   Upgrade           \$http_upgrade;
+        proxy_set_header   Connection        "upgrade";
     }
 }
-EOF
+NGINX
 
-ln -sf /etc/nginx/sites-available/carssite /etc/nginx/sites-enabled/carssite
+ln -sf /etc/nginx/sites-available/$NGINX_CONF /etc/nginx/sites-enabled/$NGINX_CONF
 rm -f /etc/nginx/sites-enabled/default
-nginx -t && systemctl reload nginx
+nginx -t
+systemctl enable --now nginx
+systemctl reload nginx
+success "Nginx настроен"
 
-# ── SSL ───────────────────────────────────────────────────────────────────────
-echo "==> SSL сертификат..."
-certbot --nginx -d "$DOMAIN" -d "www.${DOMAIN}" --non-interactive --agree-tos -m "admin@${DOMAIN}" || \
-  echo "WARN: SSL не удался. Запусти вручную: certbot --nginx -d ${DOMAIN}"
+# ── 10. SSL ───────────────────────────────────────────────────────────────────
 
-echo ""
-echo "✓ Готово!"
-echo "  Сайт:    https://${DOMAIN}"
-echo "  Админка: https://${DOMAIN}/admin  (пароль: ${ADMIN_TOKEN})"
-echo "  Логи:    docker compose -f /opt/carssite/docker-compose.yml logs -f"
+info "SSL сертификат (certbot)..."
+certbot --nginx -d "$DOMAIN" -d "www.${DOMAIN}" \
+  --non-interactive --agree-tos -m "admin@${DOMAIN}" \
+  || warn "SSL не удался. Запусти вручную: certbot --nginx -d ${DOMAIN}"
+
+# ── 11. update .env ───────────────────────────────────────────────────────────
+
+info "Обновление .env..."
+for pair in "${ENV_OVERRIDES[@]}"; do
+  key="${pair%%=*}"
+  value="${pair#*=}"
+  value="${value//SERVER_IP/$SERVER_IP}"
+
+  if grep -q "^${key}=" "$PROJECT_DIR/.env"; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "$PROJECT_DIR/.env"
+  else
+    echo "${key}=${value}" >> "$PROJECT_DIR/.env"
+  fi
+done
+success ".env обновлён (AJES_IP=${SERVER_IP})"
+
+# ── 12. permissions ───────────────────────────────────────────────────────────
+
+chmod +x "$PROJECT_DIR/start.sh"
+success "start.sh — права выданы"
+
+# ── 13. build ─────────────────────────────────────────────────────────────────
+
+echo
+read -rp "  Собрать Docker-образы сейчас? (займёт 5-15 мин) [Y/n]: " BUILD_NOW
+BUILD_NOW="${BUILD_NOW:-Y}"
+if [[ "$BUILD_NOW" =~ ^[Yy]$ ]]; then
+  info "Сборка образов..."
+  cd "$PROJECT_DIR"
+  DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml build
+  success "Образы собраны"
+fi
+
+# ── 14. summary ───────────────────────────────────────────────────────────────
+
+echo
+echo -e "${GREEN}${BOLD}========================================"
+echo -e "  Установка завершена!"
+echo -e "========================================${NC}"
+echo
+echo -e "  Проект:    ${BOLD}$PROJECT_DIR${NC}"
+echo -e "  Сервер:    ${BOLD}https://${DOMAIN}${NC}"
+echo
+echo -e "  Web:  https://${DOMAIN}"
+echo -e "  API:  https://${DOMAIN}/api/"
+echo
+echo -e "  ${YELLOW}Следующий шаг:${NC}"
+echo -e "  cd $PROJECT_DIR && bash start.sh  → выбери 1) Запуск"
+echo
+if [[ -n "$DEPLOY_USER" && "$DEPLOY_USER" != "root" ]]; then
+  echo -e "  ${YELLOW}Важно:${NC} перелогинься как $DEPLOY_USER перед запуском start.sh"
+  echo
+fi

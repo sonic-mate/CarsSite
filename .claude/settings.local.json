@@ -1,9 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "Bash(rtk ls *)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Bash(git *)",
+      "Bash(docker *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(pnpm *)",
+      "Bash(python *)",
+      "Bash(rtk *)",
+      "Bash(Get-Item *)",
       "WebFetch(domain:vostokavtoimport.ru)",
       "WebSearch"
-    ]
+    ],
+    "deny": []
   }
 }
