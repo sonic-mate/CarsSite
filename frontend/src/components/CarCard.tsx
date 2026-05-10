@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useState } from "react";
 import CarSilhouette from "./CarSilhouette";
 import { Car, COUNTRY_LABEL, formatPrice, formatKm } from "@/lib/types";
+
+const BADGE_CLASS: Record<string, string> = {
   "Хит":     "badge-hit",
   "Новинка": "badge-new",
   "Premium": "badge-prem",
