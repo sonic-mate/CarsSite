@@ -246,8 +246,12 @@ def _get_or_init_sync_state(db, country: str, prefix: str) -> SyncState:
     return state
 
 
+MAX_SYNC_PAGES = 20   # up to 4 000 lots per country per sync
+PAGE_SIZE      = 200
+
+
 async def _sync_incremental():
-    """Fetch only new lots (ID > last_max_id) per country. ~3 API calls total."""
+    """Fetch lots per country. String-ID countries (japan) paginate up to MAX_SYNC_PAGES."""
     from sources import japan, korea, china
 
     sources = [
@@ -260,44 +264,56 @@ async def _sync_incremental():
         db = SessionLocal()
         try:
             state = _get_or_init_sync_state(db, country, prefix)
-            db.commit()  # commit SyncState immediately so it persists even if fetch fails
+            db.commit()
 
-            try:
-                raw_lots = await src.fetch(min_id=state.last_max_id, limit=200, page=1)
-            except Exception as e:
-                print(f"Sync {country} fetch error: {e}")
-                continue
+            total_inserted = 0
+            total_api = 0
 
-            print(f"Sync {country}: API returned {len(raw_lots)} lots, last_max_id={state.last_max_id}")
-            good_lots = [d for d in raw_lots if d.get("price", 0) > 0 and d.get("brand")]
-            print(f"Sync {country}: {len(good_lots)} lots pass price/brand filter")
+            # For integer-ID countries use incremental (1 page). For string-ID (japan) paginate.
+            incremental = state.last_max_id > 0
+            max_pages = 1 if incremental else MAX_SYNC_PAGES
 
-            if not good_lots:
-                continue
-
-            inserted = 0
-            for d in good_lots:
+            for page in range(1, max_pages + 1):
                 try:
-                    if not db.query(Car.id).filter(Car.id == d["id"]).first():
-                        db.add(_car_from_dict(d))
-                        inserted += 1
-                    else:
-                        db.query(Car).filter(Car.id == d["id"]).update(
-                            {"price": d["price"], "auction_price": d.get("auction_price", 0),
-                             "is_active": True},
-                            synchronize_session=False,
-                        )
+                    raw_lots = await src.fetch(
+                        min_id=state.last_max_id, limit=PAGE_SIZE, page=page
+                    )
                 except Exception as e:
-                    print(f"Sync {country} insert error {d.get('id')}: {e}")
-                    db.rollback()
+                    print(f"Sync {country} page={page} fetch error: {e}")
+                    break
 
-            max_raw = max(_raw_id(d["id"]) for d in good_lots)
-            if max_raw > 0:
-                state = db.query(SyncState).filter(SyncState.country == country).first()
-                if state:
-                    state.last_max_id = max(state.last_max_id, max_raw)
+                total_api += len(raw_lots)
+                if not raw_lots:
+                    break
+
+                good_lots = [d for d in raw_lots if d.get("price", 0) > 0 and d.get("brand")]
+
+                for d in good_lots:
+                    try:
+                        if not db.query(Car.id).filter(Car.id == d["id"]).first():
+                            db.add(_car_from_dict(d))
+                            total_inserted += 1
+                        else:
+                            db.query(Car).filter(Car.id == d["id"]).update(
+                                {"price": d["price"], "auction_price": d.get("auction_price", 0),
+                                 "is_active": True},
+                                synchronize_session=False,
+                            )
+                    except Exception as e:
+                        print(f"Sync {country} insert error {d.get('id')}: {e}")
+                        db.rollback()
+
+                max_raw = max((_raw_id(d["id"]) for d in good_lots), default=0)
+                if max_raw > 0:
+                    state = db.query(SyncState).filter(SyncState.country == country).first()
+                    if state:
+                        state.last_max_id = max(state.last_max_id, max_raw)
                 db.commit()
-            print(f"Sync {country}: +{inserted} new lots, new last_max_id={max_raw}")
+
+                if len(raw_lots) < PAGE_SIZE:
+                    break  # last page
+
+            print(f"Sync {country}: API={total_api} lots, +{total_inserted} new")
         except Exception as e:
             print(f"Sync {country} error: {e}")
             try:
