@@ -65,7 +65,7 @@ def _migrate():
     ]:
         try:
             with engine.connect() as conn:
-                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {definition}"))
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {definition}"))
                 conn.commit()
         except Exception:
             pass
@@ -248,7 +248,6 @@ def _get_or_init_sync_state(db, country: str, prefix: str) -> SyncState:
 
 async def _sync_incremental():
     """Fetch only new lots (ID > last_max_id) per country. ~3 API calls total."""
-    import json as _json
     from sources import japan, korea, china
 
     sources = [
@@ -256,46 +255,56 @@ async def _sync_incremental():
         ("korea", "kr", korea),
         ("china", "cn", china),
     ]
-    db = SessionLocal()
-    try:
-        total_new = 0
-        for country, prefix, src in sources:
+
+    for country, prefix, src in sources:
+        db = SessionLocal()
+        try:
             state = _get_or_init_sync_state(db, country, prefix)
+            db.commit()  # commit SyncState immediately so it persists even if fetch fails
+
             try:
-                new_lots = await src.fetch(min_id=state.last_max_id, limit=200, page=1)
+                raw_lots = await src.fetch(min_id=state.last_max_id, limit=200, page=1)
             except Exception as e:
                 print(f"Sync {country} fetch error: {e}")
                 continue
 
-            new_lots = [d for d in new_lots if d.get("price", 0) > 0 and d.get("brand")]
-            if not new_lots:
+            print(f"Sync {country}: API returned {len(raw_lots)} lots, last_max_id={state.last_max_id}")
+            good_lots = [d for d in raw_lots if d.get("price", 0) > 0 and d.get("brand")]
+            print(f"Sync {country}: {len(good_lots)} lots pass price/brand filter")
+
+            if not good_lots:
                 continue
 
             inserted = 0
-            for d in new_lots:
-                if not db.query(Car.id).filter(Car.id == d["id"]).first():
-                    db.add(_car_from_dict(d))
-                    inserted += 1
-                else:
-                    # Update price only (auction prices fluctuate)
-                    db.query(Car).filter(Car.id == d["id"]).update(
-                        {"price": d["price"], "auction_price": d.get("auction_price", 0),
-                         "is_active": True},
-                        synchronize_session=False,
-                    )
+            for d in good_lots:
+                try:
+                    if not db.query(Car.id).filter(Car.id == d["id"]).first():
+                        db.add(_car_from_dict(d))
+                        inserted += 1
+                    else:
+                        db.query(Car).filter(Car.id == d["id"]).update(
+                            {"price": d["price"], "auction_price": d.get("auction_price", 0),
+                             "is_active": True},
+                            synchronize_session=False,
+                        )
+                except Exception as e:
+                    print(f"Sync {country} insert error {d.get('id')}: {e}")
+                    db.rollback()
 
-            max_raw = max(_raw_id(d["id"]) for d in new_lots)
-            state.last_max_id = max(state.last_max_id, max_raw)
-            total_new += inserted
-
-        db.commit()
-        if total_new:
-            print(f"Incremental sync: +{total_new} new lots")
-    except Exception as e:
-        print(f"Sync incremental error: {e}")
-        db.rollback()
-    finally:
-        db.close()
+            max_raw = max(_raw_id(d["id"]) for d in good_lots)
+            state = db.query(SyncState).filter(SyncState.country == country).first()
+            if state:
+                state.last_max_id = max(state.last_max_id, max_raw)
+            db.commit()
+            print(f"Sync {country}: +{inserted} new lots, new last_max_id={max_raw}")
+        except Exception as e:
+            print(f"Sync {country} error: {e}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
+        finally:
+            db.close()
 
 
 async def _sync_loop():
