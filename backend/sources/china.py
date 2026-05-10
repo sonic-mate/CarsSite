@@ -33,7 +33,7 @@ async def fetch(
     if min_id:
         where.append(f"ID>{int(min_id)}")
 
-    sql = f"SELECT * FROM che WHERE {' AND '.join(where)} ORDER BY ID DESC LIMIT {offset},{limit}"
+    sql = f"SELECT * FROM china WHERE {' AND '.join(where)} ORDER BY ID DESC LIMIT {offset},{limit}"
     data = await _call(sql)
     if not data:
         return []
@@ -45,7 +45,7 @@ async def fetch(
 
 
 async def fetch_one(lot_id: str) -> list[dict]:
-    sql = f"SELECT * FROM che WHERE ID={lot_id} LIMIT 1"
+    sql = f"SELECT * FROM china WHERE ID={lot_id} LIMIT 1"
     data = await _call(sql)
     if not data:
         return []

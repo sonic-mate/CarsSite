@@ -27,7 +27,7 @@ async def fetch(
     **_,
 ) -> list[dict]:
     offset = (page - 1) * limit
-    where = ["1=1"]
+    where = ["AUCTION_TYPE!=1"]
     if brand:
         brand_safe = brand.replace("\\", "\\\\").replace("'", "''").replace("%", "\\%").replace("_", "\\_")
         where.append(f"MARKA_NAME LIKE '%{brand_safe}%'")

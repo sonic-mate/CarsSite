@@ -753,21 +753,19 @@ def _img_cache_path(url: str, webp: bool) -> str:
 
 
 def _compress_image(data: bytes, accept: str) -> tuple[bytes, str]:
-    try:
-        from PIL import Image, ImageFilter
-        import io
-        img = Image.open(io.BytesIO(data))
-        if img.mode not in ("RGB", "RGBA"):
-            img = img.convert("RGB")
-        img = img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=60, threshold=3))
-        out = io.BytesIO()
-        if "image/webp" in accept:
-            img.save(out, format="WEBP", quality=95, method=4)
-            return out.getvalue(), "image/webp"
-        img.save(out, format="JPEG", quality=92, optimize=True, progressive=True)
-        return out.getvalue(), "image/jpeg"
-    except Exception:
-        return data, "image/jpeg"
+    from PIL import Image, ImageFilter
+    import io
+    img = Image.open(io.BytesIO(data))
+    img.load()
+    if img.mode not in ("RGB", "RGBA"):
+        img = img.convert("RGB")
+    img = img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=60, threshold=3))
+    out = io.BytesIO()
+    if "image/webp" in accept:
+        img.save(out, format="WEBP", quality=95, method=4)
+        return out.getvalue(), "image/webp"
+    img.save(out, format="JPEG", quality=92, optimize=True, progressive=True)
+    return out.getvalue(), "image/jpeg"
 
 
 @app.get("/api/img-proxy")
