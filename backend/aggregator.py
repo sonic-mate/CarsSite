@@ -5,10 +5,14 @@ Cache: 5 min per unique query combination.
 import asyncio
 import time
 from typing import Optional
-from sources import japan, korea, china
+
+import ajes_client
 
 CACHE_TTL = 300
 _cache: dict[str, tuple[float, list]] = {}
+
+_TABLE = {"japan": "main", "korea": "korea", "china": "china"}
+_COUNTRY = {v: k for k, v in _TABLE.items()}  # reverse map
 
 
 def _key(**kw) -> str:
@@ -39,26 +43,22 @@ async def search(
     if cached is not None:
         return cached
 
-    kw = dict(brand=brand, body=body, price_max=price_max,
-              year_min=year_min, page=page, limit=limit)
+    offset = (page - 1) * limit
+    kw = dict(brand=brand, price_max=price_max, year_min=year_min,
+               limit=limit, offset=offset)
 
-    if country == "japan":
-        tasks = [japan.fetch(**kw)]
-    elif country == "korea":
-        tasks = [korea.fetch(**kw)]
-    elif country == "china":
-        tasks = [china.fetch(**kw)]
-    else:
-        tasks = [japan.fetch(**kw), korea.fetch(**kw), china.fetch(**kw)]
+    tables = [_TABLE[country]] if country in _TABLE else list(_TABLE.values())
+    results = await asyncio.gather(
+        *[ajes_client.search(table=t, **kw) for t in tables],
+        return_exceptions=True,
+    )
 
-    results = await asyncio.gather(*tasks, return_exceptions=True)
     cars: list[dict] = []
     for r in results:
         if isinstance(r, list):
             cars.extend(r)
 
     cars = [c for c in cars if c.get("price", 0) > 0 and c.get("brand")]
-
     _set(ck, cars)
     return cars
 
@@ -69,30 +69,30 @@ async def count(
     year_min: Optional[int] = None,
 ) -> dict:
     kw = dict(brand=brand, year_min=year_min)
-    if country == "japan":
-        tasks = [japan.count(**kw), asyncio.sleep(0, result=0), asyncio.sleep(0, result=0)]
-    elif country == "korea":
-        tasks = [asyncio.sleep(0, result=0), korea.count(**kw), asyncio.sleep(0, result=0)]
-    elif country == "china":
-        tasks = [asyncio.sleep(0, result=0), asyncio.sleep(0, result=0), china.count(**kw)]
-    else:
-        tasks = [japan.count(**kw), korea.count(**kw), china.count(**kw)]
-    jp, kr, cn = await asyncio.gather(*tasks, return_exceptions=True)
-    jp = jp if isinstance(jp, int) else 0
-    kr = kr if isinstance(kr, int) else 0
-    cn = cn if isinstance(cn, int) else 0
-    return {"total": jp + kr + cn, "by_country": {"japan": jp, "korea": kr, "china": cn}}
+    tables = [_TABLE[country]] if country in _TABLE else list(_TABLE.values())
+
+    counts = await asyncio.gather(
+        *[ajes_client.count_table(table=t, **kw) for t in tables],
+        return_exceptions=True,
+    )
+
+    by_country: dict[str, int] = {}
+    total = 0
+    for table, cnt in zip(tables, counts):
+        n = cnt if isinstance(cnt, int) else 0
+        by_country[_COUNTRY[table]] = n
+        total += n
+
+    return {"total": total, "by_country": by_country}
 
 
 async def get_by_id(car_id: str) -> dict | None:
-    if car_id.startswith("jp-"):
-        cars = await japan.fetch_one(car_id[3:])
-    elif car_id.startswith("kr-"):
-        cars = await korea.fetch_one(car_id[3:])
-    elif car_id.startswith("cn-"):
-        cars = await china.fetch_one(car_id[3:])
-    else:
+    prefix_table = {"jp": "main", "kr": "korea", "cn": "china"}
+    parts = car_id.split("-", 1)
+    if len(parts) != 2 or parts[0] not in prefix_table:
         return None
+    table = prefix_table[parts[0]]
+    cars = await ajes_client.fetch_one(table=table, lot_id=parts[1])
     return cars[0] if cars else None
 
 

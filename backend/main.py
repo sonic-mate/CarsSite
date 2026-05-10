@@ -15,9 +15,10 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from database import engine, get_db, Base, SessionLocal
-from models import Car, Tariffs, AdminUser, CityDelivery, AjBid
-from schemas import CarOut, CalculatorIn, CalculatorOut, TariffsSchema, CityDeliveryOut
+from models import Tariffs, AdminUser, CityDelivery, AjBid
+from schemas import CalculatorIn, CalculatorOut, TariffsSchema, CityDeliveryOut
 import aggregator
+import ajes_client
 import tariff_cache
 import calc as _calc
 import auth
@@ -26,43 +27,27 @@ from geoip_middleware import GeoIPBlockMiddleware
 
 def _migrate():
     for table, col, definition in [
-        ("cars",    "photo_url",    "VARCHAR"),
-        ("cars",    "source",       "VARCHAR DEFAULT 'manual'"),
-        ("tariffs", "eur_to_rub",   "FLOAT DEFAULT 95.0"),
-        ("cars",    "color",    "VARCHAR"),
-        ("cars",    "drive",    "VARCHAR"),
-        ("cars",    "grade",    "VARCHAR"),
-        ("cars",    "power",    "VARCHAR"),
-        ("cars",    "steering", "VARCHAR"),
-        ("cars",    "town",     "VARCHAR"),
-        ("cars",    "equip",       "VARCHAR"),
-        ("cars",    "kuzov",       "VARCHAR"),
-        ("cars",    "auction_price",       "INTEGER DEFAULT 0"),
-        ("cars",    "auction_price_local", "INTEGER DEFAULT 0"),
-        ("cars",    "engine_cc",           "INTEGER DEFAULT 0"),
-        ("cars",    "photo_urls_json",     "VARCHAR"),
-        ("cars",    "auction_date",        "VARCHAR"),
-        ("cars",    "auction_name",        "VARCHAR"),
-        ("tariffs", "delivery_port",        "INTEGER DEFAULT 30606"),
-        ("tariffs", "export_docs",          "INTEGER DEFAULT 11477"),
-        ("tariffs", "freight_vlad_japan",   "INTEGER DEFAULT 33250"),
-        ("tariffs", "freight_vlad_korea",   "INTEGER DEFAULT 28000"),
-        ("tariffs", "freight_vlad_china",   "INTEGER DEFAULT 40000"),
-        ("tariffs", "recycling_fee",        "INTEGER DEFAULT 3366"),
-        ("tariffs", "freight_japan_jpy",    "INTEGER DEFAULT 175000"),
-        ("tariffs", "recycling_fee_new",    "INTEGER DEFAULT 3400"),
-        ("tariffs", "recycling_fee_old",    "INTEGER DEFAULT 5200"),
-        ("tariffs", "broker_fee",           "INTEGER DEFAULT 25000"),
-        ("tariffs", "bank_commission",      "INTEGER DEFAULT 7300"),
-        ("tariffs", "lab_docs",             "INTEGER DEFAULT 25000"),
-        ("tariffs", "storage_fee",          "INTEGER DEFAULT 35000"),
-        ("tariffs", "local_delivery",       "INTEGER DEFAULT 7000"),
-        ("tariffs", "registration_fee",     "INTEGER DEFAULT 10000"),
-        ("tariffs", "delivery_omsk",            "INTEGER DEFAULT 135000"),
-        ("tariffs", "company_commission",       "INTEGER DEFAULT 60000"),
-        ("tariffs", "customs_rates_new_json",   "VARCHAR"),
-        ("tariffs", "customs_rates_mid_json",   "VARCHAR"),
-        ("tariffs", "customs_rates_old_json",   "VARCHAR"),
+        ("tariffs", "eur_to_rub",               "FLOAT DEFAULT 95.0"),
+        ("tariffs", "delivery_port",             "INTEGER DEFAULT 30606"),
+        ("tariffs", "export_docs",               "INTEGER DEFAULT 11477"),
+        ("tariffs", "freight_vlad_japan",        "INTEGER DEFAULT 33250"),
+        ("tariffs", "freight_vlad_korea",        "INTEGER DEFAULT 28000"),
+        ("tariffs", "freight_vlad_china",        "INTEGER DEFAULT 40000"),
+        ("tariffs", "recycling_fee",             "INTEGER DEFAULT 3366"),
+        ("tariffs", "freight_japan_jpy",         "INTEGER DEFAULT 175000"),
+        ("tariffs", "recycling_fee_new",         "INTEGER DEFAULT 3400"),
+        ("tariffs", "recycling_fee_old",         "INTEGER DEFAULT 5200"),
+        ("tariffs", "broker_fee",                "INTEGER DEFAULT 25000"),
+        ("tariffs", "bank_commission",           "INTEGER DEFAULT 7300"),
+        ("tariffs", "lab_docs",                  "INTEGER DEFAULT 25000"),
+        ("tariffs", "storage_fee",               "INTEGER DEFAULT 35000"),
+        ("tariffs", "local_delivery",            "INTEGER DEFAULT 7000"),
+        ("tariffs", "registration_fee",          "INTEGER DEFAULT 10000"),
+        ("tariffs", "delivery_omsk",             "INTEGER DEFAULT 135000"),
+        ("tariffs", "company_commission",        "INTEGER DEFAULT 60000"),
+        ("tariffs", "customs_rates_new_json",    "VARCHAR"),
+        ("tariffs", "customs_rates_mid_json",    "VARCHAR"),
+        ("tariffs", "customs_rates_old_json",    "VARCHAR"),
     ]:
         try:
             with engine.connect() as conn:
@@ -73,7 +58,6 @@ def _migrate():
 
 
 def _init_admin():
-    """Seed default admin user from env if no users exist."""
     username = os.getenv("ADMIN_USER")
     password = os.getenv("ADMIN_PASS")
     if not username or not password:
@@ -104,22 +88,22 @@ def _init_tariffs():
 
 
 _CITY_DEFAULTS = [
-    ("Владивосток",    0),
-    ("Хабаровск",      15_000),
-    ("Чита",           45_000),
-    ("Улан-Удэ",       60_000),
-    ("Иркутск",        75_000),
-    ("Красноярск",     95_000),
-    ("Новосибирск",    115_000),
-    ("Омск",           135_000),
-    ("Екатеринбург",   155_000),
-    ("Уфа",            165_000),
-    ("Казань",         180_000),
+    ("Владивосток",     0),
+    ("Хабаровск",       15_000),
+    ("Чита",            45_000),
+    ("Улан-Удэ",        60_000),
+    ("Иркутск",         75_000),
+    ("Красноярск",      95_000),
+    ("Новосибирск",     115_000),
+    ("Омск",            135_000),
+    ("Екатеринбург",    155_000),
+    ("Уфа",             165_000),
+    ("Казань",          180_000),
     ("Нижний Новгород", 190_000),
-    ("Москва",         210_000),
+    ("Москва",          210_000),
     ("Санкт-Петербург", 215_000),
-    ("Ростов-на-Дону", 210_000),
-    ("Краснодар",      215_000),
+    ("Ростов-на-Дону",  210_000),
+    ("Краснодар",       215_000),
 ]
 
 
@@ -183,40 +167,39 @@ async def _rates_loop():
                     db.commit()
                     db.refresh(t)
                     tariff_cache.update(t)
-                    print(f"Rates: EUR={rates['eur_to_rub']} JPY={rates['jpy_to_rub']} CNY={rates['cny_to_rub']} KRW={rates['krw_to_rub']}")
+                    print(f"Rates: EUR={rates['eur_to_rub']} JPY={rates['jpy_to_rub']} "
+                          f"CNY={rates['cny_to_rub']} KRW={rates['krw_to_rub']}")
             finally:
                 db.close()
         await asyncio.sleep(60)
+
+
+async def _daily_limit_reset_loop():
+    """Reset ajes daily-limit flag at midnight UTC."""
+    while True:
+        now = datetime.datetime.utcnow()
+        next_midnight = (now + datetime.timedelta(days=1)).replace(
+            hour=0, minute=0, second=5, microsecond=0
+        )
+        await asyncio.sleep((next_midnight - now).total_seconds())
+        ajes_client.reset_daily_limit()
+        aggregator.invalidate()
+        print("[ajes] Daily limit flag reset at midnight")
 
 
 def _proxy_url(url: str | None) -> str | None:
     if not url:
         return None
     if url.startswith("/api/img-proxy"):
-        return url  # already proxied (old aj_bids record)
+        return url  # already proxied
     from urllib.parse import quote
     return f"/api/img-proxy?url={quote(url, safe='')}"
 
 
-
-
-
-# ─── AjBids — permanent lot archive for SEO ──────────────────────────────────
-
-def _extract_orig_url(proxy_url: str) -> str | None:
-    """Decode /api/img-proxy?url=... back to original upstream URL."""
-    from urllib.parse import urlparse, parse_qs, unquote
-    try:
-        parsed = urlparse(proxy_url)
-        params = parse_qs(parsed.query)
-        urls = params.get("url", [])
-        return unquote(urls[0]) if urls else None
-    except Exception:
-        return None
-
+# ─── AjBids — lot archive for SEO ────────────────────────────────────────────
 
 def _save_to_aj_bids(lot_id: str, car_data: dict) -> None:
-    """Save lot to aj_bids archive with original (non-proxied) URLs."""
+    """Save lot to aj_bids with original (non-proxied) URLs."""
     import json as _json
     db = SessionLocal()
     try:
@@ -249,14 +232,14 @@ async def _download_photos_for_bid(bid: AjBid) -> bool:
     try:
         orig_urls = _json.loads(bid.photo_urls_orig or "[]")
         if not orig_urls:
-            return True  # nothing to download, mark processed
+            return True
 
         lot_dir = os.path.join(PHOTOS_DIR, bid.lot_id)
         os.makedirs(lot_dir, exist_ok=True)
         local_urls = []
 
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-            for idx, url in enumerate(orig_urls[:10]):  # max 10 photos per lot
+            for idx, url in enumerate(orig_urls[:10]):
                 ext = "jpg"
                 local_path = os.path.join(lot_dir, f"{idx}.{ext}")
                 if os.path.exists(local_path):
@@ -267,9 +250,7 @@ async def _download_photos_for_bid(bid: AjBid) -> bool:
                     if r.status_code != 200:
                         continue
                     loop = asyncio.get_event_loop()
-                    content, _ = await loop.run_in_executor(
-                        None, _compress_image, r.content, ""
-                    )
+                    content, _ = await loop.run_in_executor(None, _compress_image, r.content, "")
                     with open(local_path, "wb") as f:
                         f.write(content)
                     local_urls.append(f"/api/photos/{bid.lot_id}/{idx}.{ext}")
@@ -277,7 +258,6 @@ async def _download_photos_for_bid(bid: AjBid) -> bool:
                     continue
 
         if local_urls:
-            # Patch data_json photo_urls with local paths
             db = SessionLocal()
             try:
                 data = _json.loads(bid.data_json or "{}")
@@ -297,8 +277,8 @@ async def _download_photos_for_bid(bid: AjBid) -> bool:
 
 
 async def _photo_download_loop():
-    """Hourly job: download photos for unprocessed bids. Max 400 lots/day."""
-    await asyncio.sleep(60)  # wait for startup
+    """Download photos for user-viewed lots (max 400 lots/day = ~2000 images)."""
+    await asyncio.sleep(60)
     while True:
         db = SessionLocal()
         try:
@@ -309,23 +289,22 @@ async def _photo_download_loop():
                 AjBid.created_at >= today_start,
             ).count()
             remaining = max(0, 400 - done_today)
-            per_run = min(remaining, 17)  # spread ~400/day over 24 runs
+            per_run = min(remaining, 17)  # ~400/day spread over 24 hourly runs
 
+            pending = []
             if per_run > 0:
                 pending = db.query(AjBid).filter(
                     AjBid.processed == False,
                     AjBid.photo_urls_orig.isnot(None),
                 ).order_by(AjBid.created_at.asc()).limit(per_run).all()
-            else:
-                pending = []
         finally:
             db.close()
 
         for bid in pending:
             await _download_photos_for_bid(bid)
-            await asyncio.sleep(2)  # gentle rate on ajes.com
+            await asyncio.sleep(2)
 
-        await asyncio.sleep(3600)  # run hourly
+        await asyncio.sleep(3600)
 
 
 @asynccontextmanager
@@ -339,6 +318,7 @@ async def lifespan(app: FastAPI):
     tasks = [
         asyncio.create_task(_rates_loop()),
         asyncio.create_task(_photo_download_loop()),
+        asyncio.create_task(_daily_limit_reset_loop()),
     ]
     yield
     for t in tasks:
@@ -349,20 +329,16 @@ async def lifespan(app: FastAPI):
             pass
 
 
-# ─── Rate limiter ─────────────────────────────────────────────────────────────
-
 PHOTOS_DIR = os.path.join(os.path.dirname(__file__), "static", "photos")
 
 limiter = Limiter(key_func=get_remote_address)
 
-app = FastAPI(title="Восток Авто Импорт API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Восток Авто Импорт API", version="2.0.0", lifespan=lifespan)
 os.makedirs(PHOTOS_DIR, exist_ok=True)
 app.mount("/api/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-
-# ─── Security headers ─────────────────────────────────────────────────────────
 
 class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -375,9 +351,6 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(_SecurityHeadersMiddleware)
 app.add_middleware(GeoIPBlockMiddleware)
-
-
-# ─── CORS ─────────────────────────────────────────────────────────────────────
 
 _ALLOWED_ORIGINS = [
     o.strip()
@@ -394,7 +367,7 @@ app.add_middleware(
 )
 
 
-# ─── Catalog (real-time ajes API, 5-min cache in aggregator) ──────────────────
+# ─── Catalog ──────────────────────────────────────────────────────────────────
 
 @app.get("/api/cars")
 @limiter.limit("60/minute")
@@ -417,6 +390,7 @@ async def list_cars(request: Request,
     for c in cars:
         c["photo_url"] = _proxy_url(c.get("photo_url"))
         c["photo_urls"] = [_proxy_url(u) for u in (c.get("photo_urls") or []) if u]
+        c.pop("auction_date", None)  # hide from public catalog
     return cars
 
 
@@ -457,8 +431,7 @@ async def count_cars(request: Request,
     brand: Optional[str] = None,
     year_min: Optional[int] = None,
 ):
-    result = await aggregator.count(country=country, brand=brand, year_min=year_min)
-    return result
+    return await aggregator.count(country=country, brand=brand, year_min=year_min)
 
 
 # ─── Car detail ───────────────────────────────────────────────────────────────
@@ -467,37 +440,27 @@ async def count_cars(request: Request,
 async def get_car(car_id: str, db: Session = Depends(get_db),
                   background_tasks: BackgroundTasks = None):
     import json as _json
-    # 1. Check aj_bids (real user previously viewed this lot)
     bid = db.query(AjBid).filter(AjBid.lot_id == car_id).first()
     if bid and bid.data_json:
         result = _json.loads(bid.data_json)
         result.setdefault("photo_urls", [])
+        result.pop("auction_date", None)
         if not bid.processed:
             result["photo_url"] = _proxy_url(result.get("photo_url"))
             result["photo_urls"] = [_proxy_url(u) for u in result.get("photo_urls", []) if u]
         return result
 
-    # 2. Fetch live from ajes
     car = await aggregator.get_by_id(car_id)
     if not car:
         raise HTTPException(status_code=404, detail="Автомобиль не найден")
 
-    # Save original URLs to aj_bids before proxying
     if background_tasks is not None:
         background_tasks.add_task(_save_to_aj_bids, car_id, dict(car))
 
+    car.pop("auction_date", None)
     car["photo_url"] = _proxy_url(car.get("photo_url"))
     car["photo_urls"] = [_proxy_url(u) for u in (car.get("photo_urls") or []) if u]
     return car
-
-
-@app.get("/api/seo/cars")
-def seo_cars_list(limit: int = 1000, offset: int = 0, db: Session = Depends(get_db)):
-    """List of lot_ids saved in aj_bids — for sitemap generation."""
-    rows = db.query(AjBid.lot_id, AjBid.created_at).order_by(
-        AjBid.created_at.desc()
-    ).offset(offset).limit(min(limit, 5000)).all()
-    return [{"lot_id": r.lot_id, "updated_at": r.created_at.isoformat()} for r in rows]
 
 
 @app.get("/api/cars/{car_id}/breakdown")
@@ -541,17 +504,42 @@ async def get_similar_cars(car_id: str, db: Session = Depends(get_db)):
         d = await aggregator.get_by_id(car_id)
     if not d:
         return []
-    brand = d.get("brand", "")
-    country = d.get("country", "japan")
-    similar = await aggregator.search(brand=brand, country=country, limit=7)
+    similar = await aggregator.search(brand=d.get("brand", ""), country=d.get("country", "japan"), limit=7)
     result = [c for c in similar if c.get("id") != car_id][:6]
     for c in result:
         c["photo_url"] = _proxy_url(c.get("photo_url"))
         c["photo_urls"] = [_proxy_url(u) for u in (c.get("photo_urls") or []) if u]
+        c.pop("auction_date", None)
     return result
 
 
-# ─── Image proxy ─────────────────────────────────────────────────────────────
+# ─── SEO /cars archive ────────────────────────────────────────────────────────
+
+@app.get("/api/seo/cars")
+def seo_cars_list(limit: int = 1000, offset: int = 0, db: Session = Depends(get_db)):
+    """List lot_ids from aj_bids for sitemap generation."""
+    rows = db.query(AjBid.lot_id, AjBid.created_at).order_by(
+        AjBid.created_at.desc()
+    ).offset(offset).limit(min(limit, 5000)).all()
+    return [{"lot_id": r.lot_id, "updated_at": r.created_at.isoformat()} for r in rows]
+
+
+@app.get("/api/seo/cars/{lot_id}")
+def seo_car_detail(lot_id: str, db: Session = Depends(get_db)):
+    """Return lot data from aj_bids for /cars/[lot_id] SEO page."""
+    import json as _json
+    bid = db.query(AjBid).filter(AjBid.lot_id == lot_id).first()
+    if not bid or not bid.data_json:
+        raise HTTPException(status_code=404, detail="Лот не найден")
+    result = _json.loads(bid.data_json)
+    result.pop("auction_date", None)
+    if not bid.processed:
+        result["photo_url"] = _proxy_url(result.get("photo_url"))
+        result["photo_urls"] = [_proxy_url(u) for u in result.get("photo_urls", []) if u]
+    return result
+
+
+# ─── Image proxy ──────────────────────────────────────────────────────────────
 
 ALLOWED_IMG_HOSTS = {"ajes.com", "7.ajes.com", "img.ajes.com"}
 
@@ -624,101 +612,7 @@ async def img_proxy(request: Request, url: str):
         raise HTTPException(status_code=502, detail="Fetch failed")
 
 
-# ─── Debug (gated behind DEBUG_ENDPOINTS env var) ────────────────────────────
-
-def _require_debug():
-    if not os.getenv("DEBUG_ENDPOINTS"):
-        raise HTTPException(status_code=404, detail="Not found")
-
-
-@app.get("/api/debug/images")
-async def debug_images(_: None = Depends(_require_debug)):
-    from sources.japan import _call, _photo_url
-    data = await _call("SELECT ID, MARKA_NAME, MODEL_NAME, IMAGES FROM main WHERE IMAGES IS NOT NULL AND IMAGES != '' ORDER BY ID DESC LIMIT 5")
-    if not data:
-        return {"error": "no data"}
-    return [
-        {
-            "id": r.get("ID"),
-            "car": f"{r.get('MARKA_NAME')} {r.get('MODEL_NAME')}",
-            "raw_images": r.get("IMAGES", "")[:200],
-            "resolved_url": _photo_url(r.get("IMAGES", "")),
-        }
-        for r in data
-    ]
-
-
-@app.get("/api/debug/bodies")
-def debug_bodies(db: Session = Depends(get_db), _: None = Depends(_require_debug)):
-    from sqlalchemy import func
-    rows = db.query(Car.body, func.count(Car.id).label("cnt")).group_by(Car.body).order_by(func.count(Car.id).desc()).all()
-    return [{"body": r.body, "count": r.cnt} for r in rows]
-
-
-@app.get("/api/debug/unknown-bodies")
-def debug_unknown_bodies(db: Session = Depends(get_db), _: None = Depends(_require_debug)):
-    from sqlalchemy import func
-    rows = (db.query(Car.brand, Car.model, func.count(Car.id).label("cnt"))
-            .filter(Car.body == "Другой")
-            .group_by(Car.brand, Car.model)
-            .order_by(func.count(Car.id).desc())
-            .all())
-    return [{"brand": r.brand, "model": r.model, "count": r.cnt} for r in rows]
-
-
-@app.get("/api/debug/ajes")
-async def debug_ajes(_: None = Depends(_require_debug)):
-    import httpx
-    key = os.getenv("AJES_API_KEY", "")
-    host = os.getenv("AJES_HOST", "78.46.90.228")
-    results = {}
-    for table, label in [("main", "japan"), ("kr", "korea"), ("che", "china")]:
-        sql = f"SELECT * FROM {table} LIMIT 3"
-        url = f"http://{host}/api/?json&code={key}&sql={sql}"
-        try:
-            async with httpx.AsyncClient(timeout=15) as c:
-                r = await c.get(url)
-                raw_text = r.text[:600]
-                try:
-                    j = r.json()
-                    if isinstance(j, list):
-                        results[label] = {"status": r.status_code, "returned": len(j), "first_keys": list(j[0].keys()) if j else [], "sample": {k: j[0].get(k) for k in ["ID","LOT","STATUS","MARKA_NAME","MODEL_NAME","YEAR","START","FINISH","AVG_PRICE","IMAGES","TIME","RATE","COLOR","PRIV","EQUIP"]} if j else {}}
-                    else:
-                        results[label] = {"status": r.status_code, "raw": str(j)[:300]}
-                except Exception:
-                    results[label] = {"status": r.status_code, "raw": raw_text}
-        except Exception as e:
-            results[label] = {"error": str(e)[:150]}
-    return results
-
-
-@app.get("/api/debug/lot/{lot_id}")
-async def debug_lot(lot_id: str, _: None = Depends(_require_debug)):
-    if not lot_id.isdigit():
-        raise HTTPException(status_code=400, detail="Invalid lot ID")
-    from sources.japan import _call
-    data = await _call(f"SELECT * FROM main WHERE ID={lot_id} LIMIT 1")
-    return {"raw": data}
-
-
-@app.get("/api/debug/sources")
-async def debug_sources(_: None = Depends(_require_debug)):
-    from sources import korea, china
-    try:
-        kr_cars = await korea.fetch(limit=3)
-    except Exception as e:
-        kr_cars = f"ERROR: {e}"
-    try:
-        cn_cars = await china.fetch(limit=3)
-    except Exception as e:
-        cn_cars = f"ERROR: {e}"
-    return {
-        "korea": kr_cars if isinstance(kr_cars, str) else {"count": len(kr_cars), "sample": kr_cars[:1]},
-        "china": cn_cars if isinstance(cn_cars, str) else {"count": len(cn_cars), "sample": cn_cars[:1]},
-    }
-
-
-# ─── Admin auth dependency ────────────────────────────────────────────────────
+# ─── Admin auth ───────────────────────────────────────────────────────────────
 
 from pydantic import BaseModel as _BaseModel
 
@@ -730,11 +624,11 @@ class _UserIn(_BaseModel):
     username: str
     password: str
 
+
 def _require_admin(
     authorization: Optional[str] = Header(default=None),
     admin_token: Optional[str] = Cookie(default=None),
 ) -> str:
-    # Accept token from httpOnly cookie (preferred) or Authorization header (fallback)
     token = admin_token or (authorization or "").removeprefix("Bearer ").strip()
     username = auth.check_session(token)
     if not username:
@@ -742,7 +636,14 @@ def _require_admin(
     return username
 
 
-# ─── Tariffs ─────────────────────────────────────────────────────────────────
+# ─── API rate-limit status (admin only) ──────────────────────────────────────
+
+@app.get("/api/api-status")
+def api_status_endpoint(_: str = Depends(_require_admin)):
+    return ajes_client.api_status()
+
+
+# ─── Tariffs ──────────────────────────────────────────────────────────────────
 
 @app.get("/api/tariffs", response_model=TariffsSchema)
 def get_tariffs(db: Session = Depends(get_db)):
@@ -762,17 +663,15 @@ def update_tariffs(
     if not t:
         t = Tariffs(id=1)
         db.add(t)
-
     for field, value in data.model_dump().items():
         setattr(t, field, value)
-
     db.commit()
     db.refresh(t)
     tariff_cache.update(t)
     return t
 
 
-# ─── Cities ──────────────────────────────────────────────────────────────────
+# ─── Cities ───────────────────────────────────────────────────────────────────
 
 @app.get("/api/cities", response_model=List[CityDeliveryOut])
 def get_cities(db: Session = Depends(get_db)):
@@ -794,12 +693,9 @@ def update_city(city_id: int, cost_rub: int, db: Session = Depends(get_db),
 # ─── Calculator ───────────────────────────────────────────────────────────────
 
 def _to_rub(amount: float, currency: str, t) -> int:
-    if currency == "JPY":
-        return round(amount * t.jpy_to_rub)
-    if currency == "KRW":
-        return round(amount * t.krw_to_rub)
-    if currency == "CNY":
-        return round(amount * t.cny_to_rub)
+    if currency == "JPY": return round(amount * t.jpy_to_rub)
+    if currency == "KRW": return round(amount * t.krw_to_rub)
+    if currency == "CNY": return round(amount * t.cny_to_rub)
     return round(amount)
 
 
@@ -839,9 +735,8 @@ def calculate(request: Request, data: CalculatorIn, db: Session = Depends(get_db
     )
 
 
-# ─── Customs rate tables ─────────────────────────────────────────────────────
+# ─── Customs rate tables ──────────────────────────────────────────────────────
 
-# ФТС bracket boundaries (official EAEU, do not change)
 _CC_BRACKETS = [(0, 1000), (1000, 1500), (1500, 1800), (1800, 2300), (2300, 3000), (3000, 99999)]
 
 
@@ -854,16 +749,8 @@ def _cell_float(val, default=None):
 
 
 def _parse_customs_rows(raw_rows: list) -> dict:
-    """
-    Parse the fixed spreadsheet layout (as shown in the admin UI):
-      Row 1  (index 0): headers — skip
-      Row 2  (index 1): A=JPY/RUB, B=EUR/RUB, C=coef_mid(3–5), D=empty, E=coef_old(5+)
-      Row 3  (index 2): empty — skip
-      Row 4  (index 3): column headers — skip
-      Row 5+ (index 4+): A=cc, B=mid_rate, C=mid_rub(skip), D=old_rate, E=old_rub(skip)
-    """
     jpy_rate = eur_rate = coef_mid = coef_old = None
-    data_rows = []  # list of (cc, mid_rate, old_rate)
+    data_rows = []
 
     for row in raw_rows:
         if len(row) < 2:
@@ -874,7 +761,6 @@ def _parse_customs_rows(raw_rows: list) -> dict:
         e = _cell_float(row[4] if len(row) > 4 else None)
         d = _cell_float(row[3] if len(row) > 3 else None)
 
-        # Rates row: A < 2 (JPY ~0.5), B > 50 (EUR ~87)
         if a and 0 < a < 2 and b and b > 50:
             jpy_rate = a
             eur_rate = b
@@ -882,7 +768,6 @@ def _parse_customs_rows(raw_rows: list) -> dict:
             if e: coef_old = e
             continue
 
-        # Data row: A = cc integer 100–9999, B and D = EUR/cc rates (small floats)
         if a and 100 <= a <= 9999 and b and 0 < b < 30:
             old_rate = d if (d and 0 < d < 30) else None
             if old_rate:
@@ -902,7 +787,7 @@ def _parse_customs_rows(raw_rows: list) -> dict:
                     rate = r
                     break
             if rate is None:
-                rate = last_rate  # inherit last known
+                rate = last_rate
             if rate is not None:
                 result.append([lo, hi, rate])
                 last_rate = rate
@@ -949,7 +834,6 @@ async def preview_customs_gsheet(request: Request, data: _GsheetImportIn,
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Ошибка сети: {e}")
-
     raw_rows = list(_csv.reader(_io.StringIO(r.text)))
     result = _parse_customs_rows(raw_rows)
     if "error" in result:
@@ -960,7 +844,6 @@ async def preview_customs_gsheet(request: Request, data: _GsheetImportIn,
 @app.post("/api/admin/customs/preview-excel")
 @limiter.limit("10/minute")
 async def preview_customs_excel(request: Request, _: str = Depends(_require_admin)):
-    from fastapi import UploadFile, File
     import io as _io
     body = await request.body()
     if not body:
@@ -1025,13 +908,14 @@ def get_customs_rates(db: Session = Depends(get_db), _: str = Depends(_require_a
     }
 
 
-# ─── Callback requests ────────────────────────────────────────────────────────
+# ─── Callback ─────────────────────────────────────────────────────────────────
 
 class CallbackIn(_BaseModel):
     name: str
     phone: str
 
     from pydantic import field_validator
+
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
@@ -1049,6 +933,7 @@ class CallbackIn(_BaseModel):
             raise ValueError("invalid phone")
         return v
 
+
 @app.post("/api/callback", status_code=201)
 @limiter.limit("5/minute")
 def create_callback(request: Request, data: CallbackIn):
@@ -1060,8 +945,9 @@ def create_callback(request: Request, data: CallbackIn):
 
 @app.get("/api/stats")
 def stats(db: Session = Depends(get_db)):
+    total = db.query(AjBid).count()
     return {
-        "total_cars": db.query(Car).filter(Car.is_active == True).count(),
+        "total_cars": total,
         "delivered": 458,
         "cheaper_percent": 30,
         "countries": 3,
@@ -1069,7 +955,7 @@ def stats(db: Session = Depends(get_db)):
     }
 
 
-# ─── Admin Auth ───────────────────────────────────────────────────────────────
+# ─── Admin auth endpoints ─────────────────────────────────────────────────────
 
 _IS_PRODUCTION = os.getenv("NODE_ENV") == "production" or os.getenv("PRODUCTION") == "1"
 
@@ -1082,15 +968,12 @@ def admin_login(request: Request, response: Response, data: _LoginIn, db: Sessio
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
     token = auth.create_session(user.username)
     response.set_cookie(
-        key="admin_token",
-        value=token,
-        httponly=True,
-        secure=_IS_PRODUCTION,
-        samesite="lax",
-        max_age=60 * 60 * 8,
-        path="/",
+        key="admin_token", value=token,
+        httponly=True, secure=_IS_PRODUCTION, samesite="lax",
+        max_age=60 * 60 * 8, path="/",
     )
     return {"username": user.username}
+
 
 @app.post("/api/admin/logout")
 def admin_logout(
@@ -1103,10 +986,12 @@ def admin_logout(
     response.delete_cookie(key="admin_token", path="/")
     return {"ok": True}
 
+
 @app.get("/api/admin/users")
 def list_users(db: Session = Depends(get_db), _: str = Depends(_require_admin)):
     users = db.query(AdminUser).order_by(AdminUser.created_at).all()
     return [{"id": u.id, "username": u.username, "created_at": u.created_at} for u in users]
+
 
 @app.post("/api/admin/users", status_code=201)
 def create_user(data: _UserIn, db: Session = Depends(get_db), _: str = Depends(_require_admin)):
@@ -1117,6 +1002,7 @@ def create_user(data: _UserIn, db: Session = Depends(get_db), _: str = Depends(_
     u = AdminUser(username=data.username, password_hash=auth.hash_password(data.password))
     db.add(u); db.commit(); db.refresh(u)
     return {"id": u.id, "username": u.username}
+
 
 @app.delete("/api/admin/users/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db), me: str = Depends(_require_admin)):
