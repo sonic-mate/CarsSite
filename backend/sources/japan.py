@@ -72,29 +72,34 @@ async def count(brand: Optional[str] = None, year_min: Optional[int] = None, **_
 
 async def _call(sql: str) -> list | None:
     import json as _json
+    import gzip as _gzip
     from urllib.parse import quote
     if API_IP:
-        url = f"http://{API_HOST}/api/?ip={API_IP}&code={API_KEY}&sql={quote(sql)}"
+        url = f"http://{API_HOST}/api/?gzip&ip={API_IP}&code={API_KEY}&sql={quote(sql)}"
     else:
-        url = f"http://{API_HOST}/api/?code={API_KEY}&sql={quote(sql)}"
+        url = f"http://{API_HOST}/api/?gzip&code={API_KEY}&sql={quote(sql)}"
     try:
         async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.get(url)
+            async with c.stream("GET", url) as r:
+                raw_bytes = b"".join([chunk async for chunk in r.aiter_raw()])
             if r.status_code != 200:
-                print(f"[ajes] HTTP {r.status_code}: {r.text[:200]}")
+                print(f"[ajes] HTTP {r.status_code}: {raw_bytes[:200]}")
                 return None
-            raw = r.text
-            if not raw:
-                print(f"[ajes] Empty response, status={r.status_code}")
-                return None
-            print(f"[ajes] Response ({r.status_code}): {raw[:300]}")
-            data = _json.loads(raw)
-            if isinstance(data, list):
-                return data
-            if isinstance(data, dict) and "error" in data:
-                print(f"[ajes] API error: {data}")
-                return None
-            return data.get("data", data.get("result", []))
+        if not raw_bytes:
+            print(f"[ajes] Empty response")
+            return None
+        try:
+            raw = _gzip.decompress(raw_bytes).decode("utf-8")
+        except Exception:
+            raw = raw_bytes.decode("utf-8", errors="replace")
+        print(f"[ajes] Response: {raw[:300]}")
+        data = _json.loads(raw)
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict) and "error" in data:
+            print(f"[ajes] API error: {data}")
+            return None
+        return data.get("data", data.get("result", []))
     except Exception as e:
         print(f"[ajes] Exception: {e}, url={url[:80]}")
         return None
