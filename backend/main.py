@@ -15,7 +15,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from database import engine, get_db, Base, SessionLocal
-from models import Car, Tariffs, AdminUser, CityDelivery, AjBid, SyncState
+from models import Car, Tariffs, AdminUser, CityDelivery, AjBid
 from schemas import CarOut, CalculatorIn, CalculatorOut, TariffsSchema, CityDeliveryOut
 import aggregator
 import tariff_cache
@@ -196,141 +196,7 @@ def _proxy_url(url: str | None) -> str | None:
     return f"/api/img-proxy?url={quote(url, safe='')}"
 
 
-def _car_from_dict(d: dict) -> Car:
-    import json as _json
-    return Car(
-        id=d["id"], brand=d["brand"], model=d["model"],
-        year=d["year"], country=d["country"], body=d["body"],
-        mileage=d["mileage"], engine=d["engine"], price=d["price"],
-        badge=str(d["badge"]) if d.get("badge") else None,
-        photo_tint=d.get("photo_tint", "#1a1d24"),
-        silhouette=d.get("silhouette", "sedan"),
-        photo_url=_proxy_url(d.get("photo_url")),
-        source="live", is_active=True,
-        color=d.get("color"), drive=d.get("drive"),
-        grade=d.get("grade"), power=d.get("power"),
-        steering=d.get("steering"), town=d.get("town"),
-        equip=d.get("equip"), kuzov=d.get("kuzov"),
-        auction_price=d.get("auction_price", 0),
-        auction_price_local=d.get("auction_price_local", 0),
-        engine_cc=d.get("engine_cc", 0),
-        photo_urls_json=_json.dumps(
-            [_proxy_url(u) for u in (d.get("photo_urls") or []) if u]
-        ) if d.get("photo_urls") else None,
-        auction_date=d.get("auction_date"),
-        auction_name=d.get("auction_name"),
-    )
 
-
-def _raw_id(car_id: str) -> int:
-    """Extract numeric ID from 'jp-12345' → 12345."""
-    try:
-        return int(car_id.split("-", 1)[1])
-    except Exception:
-        return 0
-
-
-def _get_or_init_sync_state(db, country: str, prefix: str) -> SyncState:
-    """Get SyncState; if missing, initialize from max ID already in DB."""
-    state = db.query(SyncState).filter(SyncState.country == country).first()
-    if not state:
-        # Bootstrap from existing cars
-        from sqlalchemy import func
-        row = db.query(Car.id).filter(
-            Car.country == country, Car.source == "live"
-        ).all()
-        max_id = max((_raw_id(r.id) for r in row), default=0)
-        state = SyncState(country=country, last_max_id=max_id)
-        db.add(state)
-        db.flush()
-        print(f"Sync bootstrap {country}: last_max_id={max_id}")
-    return state
-
-
-MAX_SYNC_PAGES = 50   # up to 10 000 lots per country per sync
-PAGE_SIZE      = 200
-
-
-async def _sync_incremental():
-    """Fetch lots per country. String-ID countries (japan) paginate up to MAX_SYNC_PAGES."""
-    from sources import japan, korea, china
-
-    sources = [
-        ("japan", "jp", japan),
-        ("korea", "kr", korea),
-        ("china", "cn", china),
-    ]
-
-    for country, prefix, src in sources:
-        db = SessionLocal()
-        try:
-            state = _get_or_init_sync_state(db, country, prefix)
-            db.commit()
-
-            total_inserted = 0
-            total_api = 0
-
-            # For integer-ID countries use incremental (1 page). For string-ID (japan) paginate.
-            incremental = state.last_max_id > 0
-            max_pages = 1 if incremental else MAX_SYNC_PAGES
-
-            for page in range(1, max_pages + 1):
-                try:
-                    raw_lots = await src.fetch(
-                        min_id=state.last_max_id, limit=PAGE_SIZE, page=page
-                    )
-                except Exception as e:
-                    print(f"Sync {country} page={page} fetch error: {e}")
-                    break
-
-                total_api += len(raw_lots)
-                if not raw_lots:
-                    break
-
-                good_lots = [d for d in raw_lots if d.get("price", 0) > 0 and d.get("brand")]
-
-                for d in good_lots:
-                    try:
-                        if not db.query(Car.id).filter(Car.id == d["id"]).first():
-                            db.add(_car_from_dict(d))
-                            total_inserted += 1
-                        else:
-                            db.query(Car).filter(Car.id == d["id"]).update(
-                                {"price": d["price"], "auction_price": d.get("auction_price", 0),
-                                 "is_active": True},
-                                synchronize_session=False,
-                            )
-                    except Exception as e:
-                        print(f"Sync {country} insert error {d.get('id')}: {e}")
-                        db.rollback()
-
-                max_raw = max((_raw_id(d["id"]) for d in good_lots), default=0)
-                if max_raw > 0:
-                    state = db.query(SyncState).filter(SyncState.country == country).first()
-                    if state:
-                        state.last_max_id = max(state.last_max_id, max_raw)
-                db.commit()
-
-                if len(raw_lots) < PAGE_SIZE:
-                    break  # last page
-
-            print(f"Sync {country}: API={total_api} lots, +{total_inserted} new")
-        except Exception as e:
-            print(f"Sync {country} error: {e}")
-            try:
-                db.rollback()
-            except Exception:
-                pass
-        finally:
-            db.close()
-
-
-async def _sync_loop():
-    # Give DB time to init on startup
-    await asyncio.sleep(15)
-    while True:
-        await _sync_incremental()
-        await asyncio.sleep(14400)  # every 4 hours
 
 
 # ─── AjBids — permanent lot archive for SEO ──────────────────────────────────
@@ -348,15 +214,15 @@ def _extract_orig_url(proxy_url: str) -> str | None:
 
 
 def _save_to_aj_bids(lot_id: str, car_data: dict) -> None:
-    """Save lot to aj_bids archive. Called as background task on first view."""
+    """Save lot to aj_bids archive with original (non-proxied) URLs."""
     import json as _json
     db = SessionLocal()
     try:
         if db.query(AjBid).filter(AjBid.lot_id == lot_id).first():
             return
-        # Extract original (upstream) photo URLs from proxied URLs
-        proxied = car_data.get("photo_urls") or []
-        orig_urls = [u for u in (_extract_orig_url(p) for p in proxied) if u]
+        orig_urls = car_data.get("photo_urls") or []
+        if not orig_urls and car_data.get("photo_url"):
+            orig_urls = [car_data["photo_url"]]
         db.add(AjBid(
             lot_id=lot_id,
             country=car_data.get("country", ""),
@@ -470,7 +336,6 @@ async def lifespan(app: FastAPI):
     os.makedirs(PHOTOS_DIR, exist_ok=True)
     tasks = [
         asyncio.create_task(_rates_loop()),
-        asyncio.create_task(_sync_loop()),
         asyncio.create_task(_photo_download_loop()),
     ]
     yield
@@ -527,156 +392,101 @@ app.add_middleware(
 )
 
 
-# ─── Catalog (from DB, synced hourly) ─────────────────────────────────────────
+# ─── Catalog (real-time ajes API, 5-min cache in aggregator) ──────────────────
 
-@app.get("/api/cars", response_model=List[CarOut])
+@app.get("/api/cars")
 @limiter.limit("60/minute")
-def list_cars(request: Request,
+async def list_cars(request: Request,
     country: Optional[str] = None,
     body: Optional[str] = None,
-    price_min: Optional[int] = None,
     price_max: Optional[int] = None,
     year_min: Optional[int] = None,
-    year_max: Optional[int] = None,
-    mileage_min: Optional[int] = None,
-    mileage_max: Optional[int] = None,
-    fuel: Optional[str] = None,
     brand: Optional[str] = None,
-    model: Optional[str] = None,
-    color: Optional[str] = None,
-    transmission: Optional[str] = None,
-    engine_cc_min: Optional[int] = None,
-    engine_cc_max: Optional[int] = None,
-    lot_id: Optional[str] = None,
     sort: str = "popular",
     limit: int = 20,
     offset: int = 0,
-    db: Session = Depends(get_db),
 ):
-    q = db.query(Car).filter(Car.is_active == True)
-    if country:       q = q.filter(Car.country == country)
-    if body:          q = q.filter(Car.body == body)
-    if brand:         q = q.filter(Car.brand.ilike(f"%{brand}%"))
-    if model:         q = q.filter(Car.model.ilike(f"%{model}%"))
-    if fuel:          q = q.filter(Car.engine.ilike(f"%{fuel}%"))
-    if transmission:  q = q.filter(Car.engine.ilike(f"%{transmission}%"))
-    if color:         q = q.filter(Car.color.ilike(f"%{color}%"))
-    if price_min:     q = q.filter(Car.price >= price_min)
-    if price_max:     q = q.filter(Car.price <= price_max)
-    if year_min:      q = q.filter(Car.year >= year_min)
-    if year_max:      q = q.filter(Car.year <= year_max)
-    if mileage_min:   q = q.filter(Car.mileage >= mileage_min)
-    if mileage_max:   q = q.filter(Car.mileage <= mileage_max)
-    if engine_cc_min: q = q.filter(Car.engine_cc >= engine_cc_min)
-    if engine_cc_max: q = q.filter(Car.engine_cc <= engine_cc_max)
-    if lot_id:        q = q.filter(Car.id.ilike(f"%{lot_id}%"))
-    if sort == "price-asc":    q = q.order_by(Car.price.asc(),   Car.id.desc())
-    elif sort == "price-desc": q = q.order_by(Car.price.desc(),  Car.id.desc())
-    elif sort == "year":       q = q.order_by(Car.year.desc(),   Car.id.desc())
-    elif sort == "mileage":    q = q.order_by(Car.mileage.asc(), Car.id.desc())
-    else:                      q = q.order_by(Car.id.desc())
-    return q.offset(offset).limit(min(limit, 200)).all()
+    page = offset // max(limit, 1) + 1
+    cars = await aggregator.search(
+        country=country, brand=brand, body=body,
+        price_max=price_max, year_min=year_min,
+        page=page, limit=min(limit, 60),
+    )
+    for c in cars:
+        c["photo_url"] = _proxy_url(c.get("photo_url"))
+        c["photo_urls"] = [_proxy_url(u) for u in (c.get("photo_urls") or []) if u]
+    return cars
 
 
 @app.get("/api/cars-brands")
 @limiter.limit("30/minute")
 def cars_brands(request: Request, country: Optional[str] = None, db: Session = Depends(get_db)):
     from sqlalchemy import func
-    q = db.query(Car.brand, func.count(Car.id).label("cnt")).filter(Car.is_active == True)
+    q = db.query(AjBid.brand, func.count(AjBid.id).label("cnt")).filter(AjBid.brand.isnot(None))
     if country:
-        q = q.filter(Car.country == country)
-    rows = q.group_by(Car.brand).order_by(func.count(Car.id).desc()).all()
-    return [{"brand": r.brand, "count": r.cnt} for r in rows]
+        q = q.filter(AjBid.country == country)
+    rows = q.group_by(AjBid.brand).order_by(func.count(AjBid.id).desc()).limit(100).all()
+    return [{"brand": r.brand, "count": r.cnt} for r in rows if r.brand]
 
 
 @app.get("/api/cars-models")
 @limiter.limit("30/minute")
 def cars_models(request: Request, brand: str, country: Optional[str] = None, db: Session = Depends(get_db)):
     from sqlalchemy import func
-    q = db.query(Car.model, func.count(Car.id).label("cnt")).filter(Car.is_active == True, Car.brand.ilike(f"%{brand}%"))
+    q = db.query(AjBid.model, func.count(AjBid.id).label("cnt")).filter(
+        AjBid.brand.ilike(f"%{brand}%"), AjBid.model.isnot(None)
+    )
     if country:
-        q = q.filter(Car.country == country)
-    rows = q.group_by(Car.model).order_by(func.count(Car.id).desc()).limit(60).all()
-    return [{"model": r.model, "count": r.cnt} for r in rows]
+        q = q.filter(AjBid.country == country)
+    rows = q.group_by(AjBid.model).order_by(func.count(AjBid.id).desc()).limit(60).all()
+    return [{"model": r.model, "count": r.cnt} for r in rows if r.model]
 
 
 @app.get("/api/cars-colors")
 @limiter.limit("30/minute")
 def cars_colors(request: Request, country: Optional[str] = None, db: Session = Depends(get_db)):
-    from sqlalchemy import func
-    q = db.query(Car.color, func.count(Car.id).label("cnt")).filter(Car.is_active == True, Car.color.isnot(None), Car.color != "")
-    if country:
-        q = q.filter(Car.country == country)
-    rows = q.group_by(Car.color).order_by(func.count(Car.id).desc()).limit(40).all()
-    return [{"color": r.color, "count": r.cnt} for r in rows]
+    return []
 
 
 @app.get("/api/cars-count")
-@limiter.limit("60/minute")
-def count_cars(request: Request,
+@limiter.limit("30/minute")
+async def count_cars(request: Request,
     country: Optional[str] = None,
-    body: Optional[str] = None,
-    fuel: Optional[str] = None,
     brand: Optional[str] = None,
-    model: Optional[str] = None,
-    price_min: Optional[int] = None,
-    price_max: Optional[int] = None,
     year_min: Optional[int] = None,
-    year_max: Optional[int] = None,
-    mileage_min: Optional[int] = None,
-    mileage_max: Optional[int] = None,
-    color: Optional[str] = None,
-    transmission: Optional[str] = None,
-    engine_cc_min: Optional[int] = None,
-    engine_cc_max: Optional[int] = None,
-    lot_id: Optional[str] = None,
-    db: Session = Depends(get_db),
 ):
-    def _apply(q):
-        if body:          q = q.filter(Car.body == body)
-        if fuel:          q = q.filter(Car.engine.ilike(f"%{fuel}%"))
-        if brand:         q = q.filter(Car.brand.ilike(f"%{brand}%"))
-        if model:         q = q.filter(Car.model.ilike(f"%{model}%"))
-        if transmission:  q = q.filter(Car.engine.ilike(f"%{transmission}%"))
-        if color:         q = q.filter(Car.color.ilike(f"%{color}%"))
-        if price_min:     q = q.filter(Car.price >= price_min)
-        if price_max:     q = q.filter(Car.price <= price_max)
-        if year_min:      q = q.filter(Car.year >= year_min)
-        if year_max:      q = q.filter(Car.year <= year_max)
-        if mileage_min:   q = q.filter(Car.mileage >= mileage_min)
-        if mileage_max:   q = q.filter(Car.mileage <= mileage_max)
-        if engine_cc_min: q = q.filter(Car.engine_cc >= engine_cc_min)
-        if engine_cc_max: q = q.filter(Car.engine_cc <= engine_cc_max)
-        if lot_id:        q = q.filter(Car.id.ilike(f"%{lot_id}%"))
-        return q
-    base = db.query(Car).filter(Car.is_active == True)
-    if country:
-        base = base.filter(Car.country == country)
-    total = _apply(base).count()
-    by_country = {
-        c: _apply(db.query(Car).filter(Car.is_active == True, Car.country == c)).count()
-        for c in ["japan", "korea", "china"]
-    }
-    return {"total": total, "by_country": by_country}
+    result = await aggregator.count(country=country, brand=brand, year_min=year_min)
+    return result
 
 
 # ─── Car detail ───────────────────────────────────────────────────────────────
 
 @app.get("/api/cars/{car_id}")
-def get_car(car_id: str, db: Session = Depends(get_db),
-            background_tasks: BackgroundTasks = None):
+async def get_car(car_id: str, db: Session = Depends(get_db),
+                  background_tasks: BackgroundTasks = None):
     import json as _json
-    db_car = db.query(Car).filter(Car.id == car_id, Car.is_active == True).first()
-    if not db_car:
+    # 1. Check aj_bids (real user previously viewed this lot)
+    bid = db.query(AjBid).filter(AjBid.lot_id == car_id).first()
+    if bid and bid.data_json:
+        result = _json.loads(bid.data_json)
+        result.setdefault("photo_urls", [])
+        if not bid.processed:
+            result["photo_url"] = _proxy_url(result.get("photo_url"))
+            result["photo_urls"] = [_proxy_url(u) for u in result.get("photo_urls", []) if u]
+        return result
+
+    # 2. Fetch live from ajes
+    car = await aggregator.get_by_id(car_id)
+    if not car:
         raise HTTPException(status_code=404, detail="Автомобиль не найден")
-    result = {c.name: getattr(db_car, c.name) for c in db_car.__table__.columns}
-    try:
-        result["photo_urls"] = _json.loads(result.get("photo_urls_json") or "[]")
-    except Exception:
-        result["photo_urls"] = []
+
+    # Save original URLs to aj_bids before proxying
     if background_tasks is not None:
-        background_tasks.add_task(_save_to_aj_bids, car_id, result)
-    return result
+        background_tasks.add_task(_save_to_aj_bids, car_id, dict(car))
+
+    car["photo_url"] = _proxy_url(car.get("photo_url"))
+    car["photo_urls"] = [_proxy_url(u) for u in (car.get("photo_urls") or []) if u]
+    return car
 
 
 @app.get("/api/seo/cars")
@@ -689,19 +499,24 @@ def seo_cars_list(limit: int = 1000, offset: int = 0, db: Session = Depends(get_
 
 
 @app.get("/api/cars/{car_id}/breakdown")
-def get_car_breakdown(car_id: str, db: Session = Depends(get_db)):
-    db_car = db.query(Car).filter(Car.id == car_id, Car.is_active == True).first()
-    if not db_car:
+async def get_car_breakdown(car_id: str, db: Session = Depends(get_db)):
+    import json as _json
+    bid = db.query(AjBid).filter(AjBid.lot_id == car_id).first()
+    if bid and bid.data_json:
+        d = _json.loads(bid.data_json)
+    else:
+        d = await aggregator.get_by_id(car_id)
+    if not d:
         raise HTTPException(status_code=404, detail="Автомобиль не найден")
     t = tariff_cache.get()
-    ap = getattr(db_car, "auction_price", 0) or 0
-    cc = getattr(db_car, "engine_cc", 0) or 0
+    ap = d.get("auction_price", 0) or 0
+    cc = d.get("engine_cc", 0) or 0
     if ap <= 0:
         return None
-    detail = _calc.calc_customs_detail(ap, cc, db_car.year, db_car.engine or "Бензин", t)
-    delivery = _calc.get_delivery(db_car.country, t)
-    services = _calc.get_services_total(t, db_car.year)
-    items = _calc.get_items(ap, detail["customs"], db_car.country, t, 0, "Омск", db_car.year)
+    detail = _calc.calc_customs_detail(ap, cc, d.get("year", 2020), d.get("engine") or "Бензин", t)
+    delivery = _calc.get_delivery(d.get("country", "japan"), t)
+    services = _calc.get_services_total(t, d.get("year", 2020))
+    items = _calc.get_items(ap, detail["customs"], d.get("country", "japan"), t, 0, "Омск", d.get("year", 2020))
     total = sum(i["value"] for i in items)
     return {
         "auction_price": ap,
@@ -714,29 +529,24 @@ def get_car_breakdown(car_id: str, db: Session = Depends(get_db)):
     }
 
 
-
-@app.get("/api/cars/{car_id}/similar", response_model=List[CarOut])
-def get_similar_cars(car_id: str, db: Session = Depends(get_db)):
-    db_car = db.query(Car).filter(Car.id == car_id, Car.is_active == True).first()
-    if not db_car:
-        raise HTTPException(status_code=404, detail="Автомобиль не найден")
-
-    base = db.query(Car).filter(Car.is_active == True, Car.id != car_id)
-
-    # same brand + country first
-    by_brand = base.filter(Car.brand == db_car.brand, Car.country == db_car.country).limit(6).all()
-    if len(by_brand) >= 6:
-        return by_brand
-
-    seen = {c.id for c in by_brand}
-    # fill with same body + country
-    by_body = base.filter(
-        Car.body == db_car.body,
-        Car.country == db_car.country,
-        ~Car.id.in_(seen),
-    ).limit(6 - len(by_brand)).all()
-
-    return by_brand + by_body
+@app.get("/api/cars/{car_id}/similar")
+async def get_similar_cars(car_id: str, db: Session = Depends(get_db)):
+    import json as _json
+    bid = db.query(AjBid).filter(AjBid.lot_id == car_id).first()
+    if bid and bid.data_json:
+        d = _json.loads(bid.data_json)
+    else:
+        d = await aggregator.get_by_id(car_id)
+    if not d:
+        return []
+    brand = d.get("brand", "")
+    country = d.get("country", "japan")
+    similar = await aggregator.search(brand=brand, country=country, limit=7)
+    result = [c for c in similar if c.get("id") != car_id][:6]
+    for c in result:
+        c["photo_url"] = _proxy_url(c.get("photo_url"))
+        c["photo_urls"] = [_proxy_url(u) for u in (c.get("photo_urls") or []) if u]
+    return result
 
 
 # ─── Image proxy ─────────────────────────────────────────────────────────────

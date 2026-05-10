@@ -52,6 +52,20 @@ async def fetch_one(lot_id: str) -> list[dict]:
     return [_norm(i) for i in data if i]
 
 
+async def count(brand: Optional[str] = None, year_min: Optional[int] = None, **_) -> int:
+    where = ["1=1"]
+    if brand:
+        brand_safe = brand.replace("\\", "\\\\").replace("'", "''").replace("%", "\\%").replace("_", "\\_")
+        where.append(f"MARKA_NAME LIKE '%{brand_safe}%'")
+    if year_min:
+        where.append(f"YEAR>={year_min}")
+    sql = f"SELECT COUNT(*) FROM china WHERE {' AND '.join(where)}"
+    data = await _call(sql)
+    if data and isinstance(data[0], dict):
+        return int(list(data[0].values())[0])
+    return 0
+
+
 async def _call(sql: str) -> list | None:
     import gzip as _gzip
     import json as _json

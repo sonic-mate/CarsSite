@@ -63,6 +63,27 @@ async def search(
     return cars
 
 
+async def count(
+    country: Optional[str] = None,
+    brand: Optional[str] = None,
+    year_min: Optional[int] = None,
+) -> dict:
+    kw = dict(brand=brand, year_min=year_min)
+    if country == "japan":
+        tasks = [japan.count(**kw), asyncio.sleep(0, result=0), asyncio.sleep(0, result=0)]
+    elif country == "korea":
+        tasks = [asyncio.sleep(0, result=0), korea.count(**kw), asyncio.sleep(0, result=0)]
+    elif country == "china":
+        tasks = [asyncio.sleep(0, result=0), asyncio.sleep(0, result=0), china.count(**kw)]
+    else:
+        tasks = [japan.count(**kw), korea.count(**kw), china.count(**kw)]
+    jp, kr, cn = await asyncio.gather(*tasks, return_exceptions=True)
+    jp = jp if isinstance(jp, int) else 0
+    kr = kr if isinstance(kr, int) else 0
+    cn = cn if isinstance(cn, int) else 0
+    return {"total": jp + kr + cn, "by_country": {"japan": jp, "korea": kr, "china": cn}}
+
+
 async def get_by_id(car_id: str) -> dict | None:
     if car_id.startswith("jp-"):
         cars = await japan.fetch_one(car_id[3:])
