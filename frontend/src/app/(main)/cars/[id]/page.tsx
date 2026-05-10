@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { getCar } from "@/lib/api";
-import { COUNTRY_LABEL, PHONE, formatPrice, formatKm } from "@/lib/types";
+import { COUNTRY_LABEL, PHONE, formatPrice, formatKm, formatLocalPrice } from "@/lib/types";
 
 export async function generateMetadata(
   { params }: { params: { id: string } }
@@ -169,15 +169,35 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                 {(car as any).equip && (
                   <div className="spec-row"><span className="k">Доп. оборудование</span><span className="v" style={{ textAlign: "right", maxWidth: "60%" }}>{(car as any).equip}</span></div>
                 )}
-                {(car as any).auction_name && (
-                  <div className="spec-row"><span className="k">Аукцион</span><span className="v" style={{ textAlign: "right" }}>{(car as any).auction_name}</span></div>
-                )}
-                {(car as any).auction_date && (
-                  <div className="spec-row"><span className="k">Дата аукциона</span><span className="v">{(car as any).auction_date}</span></div>
-                )}
                 {(car as any).badge && (
-                  <div className="spec-row" style={{ borderBottom: 0 }}><span className="k">Оценка аукциона</span><span className="v">★ {(car as any).badge}</span></div>
+                  <div className="spec-row"><span className="k">Оценка аукциона</span><span className="v">★ {(car as any).badge}</span></div>
                 )}
+                {(car as any).auction_name && (
+                  <div className="spec-row"><span className="k">Аукцион</span><span className="v">{(car as any).auction_name}</span></div>
+                )}
+                <div className="spec-row">
+                  <span className="k">Лот</span>
+                  <span className="v" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{car.id}</span>
+                </div>
+                {(() => {
+                  const c = car as any;
+                  const isStock = c.country === "korea" || c.country === "china";
+                  const hasFinish = (c.auction_price_local ?? 0) > 0;
+                  const status = isStock ? "В наличии" : hasFinish ? "Продан" : "Предстоит";
+                  const priceLabel = isStock ? "Стоимость" : hasFinish ? "Последняя ставка" : "Стартовая цена";
+                  const localPrice = formatLocalPrice(c.auction_price_local, c.country);
+                  return (
+                    <>
+                      <div className="spec-row"><span className="k">Статус</span><span className="v">{status}</span></div>
+                      {localPrice && (
+                        <div className="spec-row" style={{ borderBottom: 0 }}>
+                          <span className="k">{priceLabel}</span>
+                          <span className="v">{localPrice}</span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
 

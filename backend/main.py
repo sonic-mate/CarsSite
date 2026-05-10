@@ -21,6 +21,7 @@ import aggregator
 import tariff_cache
 import calc as _calc
 import auth
+from geoip_middleware import GeoIPBlockMiddleware
 
 
 def _migrate():
@@ -506,6 +507,7 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 app.add_middleware(_SecurityHeadersMiddleware)
+app.add_middleware(GeoIPBlockMiddleware)
 
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────

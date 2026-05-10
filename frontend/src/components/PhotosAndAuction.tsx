@@ -82,7 +82,6 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", fontSize: 12, color: "rgba(245,243,238,0.45)" }}>
           {car.auction_name && <span>{car.auction_name}</span>}
-          {car.auction_date && <span>{car.auction_date}</span>}
           <span style={{ fontFamily: "var(--font-mono)" }}>Лот: {car.id}</span>
         </div>
       </div>
@@ -170,7 +169,7 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
 export default function PhotosAndAuction({ photoUrls, alt, car }: Props) {
   const hasPhotos = photoUrls.length > 0;
   const hasAuctionData = !!(
-    car.auction_name || car.auction_date || car.grade || car.equip ||
+    car.auction_name || car.grade || car.equip ||
     car.kuzov || car.badge || car.auction_price_local
   );
   const [tab, setTab] = useState<"photos" | "auction">("photos");

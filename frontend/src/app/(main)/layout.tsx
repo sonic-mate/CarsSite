@@ -3,6 +3,7 @@ import Footer from "@/components/Footer";
 import MobileCta from "@/components/MobileCta";
 import CookieBanner from "@/components/CookieBanner";
 import ScrollToTop from "@/components/ScrollToTop";
+import PageViewTracker from "@/components/PageViewTracker";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -13,6 +14,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       <MobileCta/>
       <CookieBanner/>
       <ScrollToTop/>
+      <PageViewTracker/>
     </>
   );
 }

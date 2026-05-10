@@ -43,6 +43,8 @@ services:
     volumes:
       - photosdata:/app/static/photos
       - imgcachedata:/app/.img_cache
+      # GeoIP blocking: place GeoLite2-Country.mmdb in backend/ then uncomment:
+      # - ./backend/GeoLite2-Country.mmdb:/app/GeoLite2-Country.mmdb:ro
     depends_on:
       db:
         condition: service_healthy

@@ -53,21 +53,27 @@ async def fetch_one(lot_id: str) -> list[dict]:
 
 
 async def _call(sql: str) -> list | None:
+    import gzip as _gzip
+    import json as _json
     from urllib.parse import quote
     ip_part = f"&ip={API_IP}" if API_IP else ""
-    url = f"http://{API_HOST}/api/?json{ip_part}&code={API_KEY}&sql={quote(sql)}"
+    url = f"http://{API_HOST}/api/?gzip{ip_part}&code={API_KEY}&sql={quote(sql)}"
     try:
         async with httpx.AsyncClient(timeout=15) as c:
             r = await c.get(url)
             if r.status_code != 200:
                 print(f"[ajes/cn] HTTP {r.status_code}: {r.text[:200]}")
                 return None
-            raw = r.text
-            if not raw.strip():
+            raw_bytes = r.content
+            if not raw_bytes:
                 print(f"[ajes/cn] Empty response, status={r.status_code}")
                 return None
+            try:
+                raw = _gzip.decompress(raw_bytes).decode("utf-8")
+            except Exception:
+                raw = raw_bytes.decode("utf-8", errors="replace")
             print(f"[ajes/cn] Response ({r.status_code}): {raw[:300]}")
-            data = r.json()
+            data = _json.loads(raw)
             if isinstance(data, list):
                 return data
             if isinstance(data, dict) and "error" in data:
