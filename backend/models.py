@@ -83,6 +83,29 @@ class Silhouette(str, enum.Enum):
     suv = "suv"
 
 
+class SyncState(Base):
+    """Tracks last seen max ID per country for incremental sync."""
+    __tablename__ = "sync_state"
+    country = Column(String, primary_key=True)
+    last_max_id = Column(Integer, default=0)
+    last_full_sync = Column(DateTime, nullable=True)
+
+
+class AjBid(Base):
+    """Permanent archive of lots viewed by real users — for SEO /cars pages."""
+    __tablename__ = "aj_bids"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    lot_id = Column(String, unique=True, nullable=False, index=True)
+    country = Column(String, nullable=False)
+    brand = Column(String, nullable=True)
+    model = Column(String, nullable=True)
+    year = Column(Integer, nullable=True)
+    photo_urls_orig = Column(String, nullable=True)   # JSON list of original upstream URLs
+    data_json = Column(String, nullable=True)          # full car snapshot as JSON
+    processed = Column(Boolean, default=False, index=True)  # True = photos saved locally
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
 class Car(Base):
     __tablename__ = "cars"
 

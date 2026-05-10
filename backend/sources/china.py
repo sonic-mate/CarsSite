@@ -19,6 +19,7 @@ async def fetch(
     year_min: Optional[int] = None,
     page: int = 1,
     limit: int = 20,
+    min_id: int = 0,
     **_,
 ) -> list[dict]:
     offset = (page - 1) * limit
@@ -28,6 +29,8 @@ async def fetch(
         where.append(f"MARKA_NAME LIKE '%{brand_safe}%'")
     if year_min:
         where.append(f"YEAR>={year_min}")
+    if min_id:
+        where.append(f"ID>{int(min_id)}")
 
     sql = f"SELECT * FROM che WHERE {' AND '.join(where)} ORDER BY ID DESC LIMIT {offset},{limit}"
     data = await _call(sql)

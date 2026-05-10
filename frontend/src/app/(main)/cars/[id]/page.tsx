@@ -1,6 +1,44 @@
 export const dynamic = "force-dynamic";
+import type { Metadata } from "next";
 import { getCar } from "@/lib/api";
 import { COUNTRY_LABEL, PHONE, formatPrice, formatKm } from "@/lib/types";
+
+export async function generateMetadata(
+  { params }: { params: { id: string } }
+): Promise<Metadata> {
+  const car = await getCar(params.id).catch(() => null);
+  if (!car) return { title: "Автомобиль не найден" };
+
+  const c = car as any;
+  const country = COUNTRY_LABEL[c.country as keyof typeof COUNTRY_LABEL] ?? c.country;
+  const price = c.price ? formatPrice(c.price) : null;
+  const mileage = c.mileage ? formatKm(c.mileage) : null;
+  const title = `${c.brand} ${c.model} ${c.year} — купить из ${country}${price ? `, ${price}` : ""}`;
+  const desc = [
+    `${c.brand} ${c.model} ${c.year} года`,
+    c.engine ? `двигатель ${c.engine}` : null,
+    mileage ? `пробег ${mileage}` : null,
+    price ? `цена под ключ ${price}` : null,
+    `доставка из ${country} в Омск`,
+  ].filter(Boolean).join(", ") + ".";
+
+  const photoUrls: string[] = c.photo_urls?.length
+    ? c.photo_urls : c.photo_url ? [c.photo_url] : [];
+  const ogImage = photoUrls[0] ?? null;
+  const siteUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+  return {
+    title,
+    description: desc,
+    openGraph: {
+      title,
+      description: desc,
+      url: `${siteUrl}/cars/${params.id}`,
+      images: ogImage ? [{ url: `${siteUrl}${ogImage}` }] : [],
+    },
+    alternates: { canonical: `${siteUrl}/cars/${params.id}` },
+  };
+}
 
 interface BreakdownItem { label: string; value: number; }
 interface PriceBreakdown {

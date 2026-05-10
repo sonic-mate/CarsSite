@@ -39,6 +39,9 @@ services:
       SECRET_KEY: "${SECRET_KEY}"
       REDIS_URL: "redis://redis:6379/0"
       PRODUCTION: "1"
+    volumes:
+      - photosdata:/app/static/photos
+      - imgcachedata:/app/.img_cache
     depends_on:
       db:
         condition: service_healthy
@@ -70,3 +73,5 @@ services:
 volumes:
   pgdata:
   redisdata:
+  photosdata:
+  imgcachedata:

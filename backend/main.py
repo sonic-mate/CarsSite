@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException, Header, Request, Response, Cookie
+from fastapi import FastAPI, Depends, HTTPException, Header, Request, Response, Cookie, BackgroundTasks
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
@@ -14,7 +15,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from database import engine, get_db, Base, SessionLocal
-from models import Car, Tariffs, AdminUser, CityDelivery
+from models import Car, Tariffs, AdminUser, CityDelivery, AjBid, SyncState
 from schemas import CarOut, CalculatorIn, CalculatorOut, TariffsSchema, CityDeliveryOut
 import aggregator
 import tariff_cache
@@ -187,26 +188,6 @@ async def _rates_loop():
         await asyncio.sleep(60)
 
 
-async def _fetch_all_pages(source_fetch) -> list[dict]:
-    """Fetch all pages from a source until empty page returned."""
-    all_cars: list[dict] = []
-    page = 1
-    page_size = 200
-    while True:
-        try:
-            batch = await source_fetch(page=page, limit=page_size)
-        except Exception as e:
-            print(f"Source fetch error (page {page}): {e}")
-            break
-        if not batch:
-            break
-        all_cars.extend(batch)
-        if len(batch) < page_size:
-            break
-        page += 1
-    return all_cars
-
-
 def _proxy_url(url: str | None) -> str | None:
     if not url:
         return None
@@ -214,75 +195,242 @@ def _proxy_url(url: str | None) -> str | None:
     return f"/api/img-proxy?url={quote(url, safe='')}"
 
 
-async def _sync_live_cars():
-    from sources import japan, korea, china
+def _car_from_dict(d: dict) -> Car:
+    import json as _json
+    return Car(
+        id=d["id"], brand=d["brand"], model=d["model"],
+        year=d["year"], country=d["country"], body=d["body"],
+        mileage=d["mileage"], engine=d["engine"], price=d["price"],
+        badge=str(d["badge"]) if d.get("badge") else None,
+        photo_tint=d.get("photo_tint", "#1a1d24"),
+        silhouette=d.get("silhouette", "sedan"),
+        photo_url=_proxy_url(d.get("photo_url")),
+        source="live", is_active=True,
+        color=d.get("color"), drive=d.get("drive"),
+        grade=d.get("grade"), power=d.get("power"),
+        steering=d.get("steering"), town=d.get("town"),
+        equip=d.get("equip"), kuzov=d.get("kuzov"),
+        auction_price=d.get("auction_price", 0),
+        auction_price_local=d.get("auction_price_local", 0),
+        engine_cc=d.get("engine_cc", 0),
+        photo_urls_json=_json.dumps(
+            [_proxy_url(u) for u in (d.get("photo_urls") or []) if u]
+        ) if d.get("photo_urls") else None,
+        auction_date=d.get("auction_date"),
+        auction_name=d.get("auction_name"),
+    )
+
+
+def _raw_id(car_id: str) -> int:
+    """Extract numeric ID from 'jp-12345' → 12345."""
     try:
-        results = await asyncio.gather(
-            _fetch_all_pages(japan.fetch),
-            _fetch_all_pages(korea.fetch),
-            _fetch_all_pages(china.fetch),
-            return_exceptions=True,
-        )
-        cars: list[dict] = []
-        for r in results:
-            if isinstance(r, list):
-                cars.extend(r)
+        return int(car_id.split("-", 1)[1])
+    except Exception:
+        return 0
 
-        cars = [c for c in cars if c.get("price", 0) > 0 and c.get("brand")]
-        seen: set[str] = set()
-        unique_cars: list[dict] = []
-        for c in cars:
-            if c["id"] not in seen:
-                seen.add(c["id"])
-                unique_cars.append(c)
-        cars = unique_cars
 
-        if not cars:
-            print("Sync: no cars returned, keeping existing data")
-            return
+def _get_or_init_sync_state(db, country: str, prefix: str) -> SyncState:
+    """Get SyncState; if missing, initialize from max ID already in DB."""
+    state = db.query(SyncState).filter(SyncState.country == country).first()
+    if not state:
+        # Bootstrap from existing cars
+        from sqlalchemy import func
+        row = db.query(Car.id).filter(
+            Car.country == country, Car.source == "live"
+        ).all()
+        max_id = max((_raw_id(r.id) for r in row), default=0)
+        state = SyncState(country=country, last_max_id=max_id)
+        db.add(state)
+        db.flush()
+        print(f"Sync bootstrap {country}: last_max_id={max_id}")
+    return state
 
-        db = SessionLocal()
-        try:
-            db.query(Car).filter(Car.source == "live").delete()
-            for d in cars:
-                db.add(Car(
-                    id=d["id"], brand=d["brand"], model=d["model"],
-                    year=d["year"], country=d["country"], body=d["body"],
-                    mileage=d["mileage"], engine=d["engine"], price=d["price"],
-                    badge=str(d["badge"]) if d.get("badge") else None,
-                    photo_tint=d.get("photo_tint", "#1a1d24"),
-                    silhouette=d.get("silhouette", "sedan"),
-                    photo_url=_proxy_url(d.get("photo_url")),
-                    source="live", is_active=True,
-                    color=d.get("color"),
-                    drive=d.get("drive"),
-                    grade=d.get("grade"),
-                    power=d.get("power"),
-                    steering=d.get("steering"),
-                    town=d.get("town"),
-                    equip=d.get("equip"),
-                    kuzov=d.get("kuzov"),
-                    auction_price=d.get("auction_price", 0),
-                    auction_price_local=d.get("auction_price_local", 0),
-                    engine_cc=d.get("engine_cc", 0),
-                    photo_urls_json=__import__("json").dumps(
-                        [_proxy_url(u) for u in (d.get("photo_urls") or []) if u]
-                    ) if d.get("photo_urls") else None,
-                    auction_date=d.get("auction_date"),
-                    auction_name=d.get("auction_name"),
-                ))
-            db.commit()
-            print(f"Synced {len(cars)} live cars (jp+kr+cn).")
-        finally:
-            db.close()
+
+async def _sync_incremental():
+    """Fetch only new lots (ID > last_max_id) per country. ~3 API calls total."""
+    import json as _json
+    from sources import japan, korea, china
+
+    sources = [
+        ("japan", "jp", japan),
+        ("korea", "kr", korea),
+        ("china", "cn", china),
+    ]
+    db = SessionLocal()
+    try:
+        total_new = 0
+        for country, prefix, src in sources:
+            state = _get_or_init_sync_state(db, country, prefix)
+            try:
+                new_lots = await src.fetch(min_id=state.last_max_id, limit=200, page=1)
+            except Exception as e:
+                print(f"Sync {country} fetch error: {e}")
+                continue
+
+            new_lots = [d for d in new_lots if d.get("price", 0) > 0 and d.get("brand")]
+            if not new_lots:
+                continue
+
+            inserted = 0
+            for d in new_lots:
+                if not db.query(Car.id).filter(Car.id == d["id"]).first():
+                    db.add(_car_from_dict(d))
+                    inserted += 1
+                else:
+                    # Update price only (auction prices fluctuate)
+                    db.query(Car).filter(Car.id == d["id"]).update(
+                        {"price": d["price"], "auction_price": d.get("auction_price", 0),
+                         "is_active": True},
+                        synchronize_session=False,
+                    )
+
+            max_raw = max(_raw_id(d["id"]) for d in new_lots)
+            state.last_max_id = max(state.last_max_id, max_raw)
+            total_new += inserted
+
+        db.commit()
+        if total_new:
+            print(f"Incremental sync: +{total_new} new lots")
     except Exception as e:
-        print(f"Sync error: {e}")
+        print(f"Sync incremental error: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 
 async def _sync_loop():
+    # Give DB time to init on startup
+    await asyncio.sleep(15)
     while True:
-        await _sync_live_cars()
-        await asyncio.sleep(600)  # every 10 minutes
+        await _sync_incremental()
+        await asyncio.sleep(14400)  # every 4 hours
+
+
+# ─── AjBids — permanent lot archive for SEO ──────────────────────────────────
+
+def _extract_orig_url(proxy_url: str) -> str | None:
+    """Decode /api/img-proxy?url=... back to original upstream URL."""
+    from urllib.parse import urlparse, parse_qs, unquote
+    try:
+        parsed = urlparse(proxy_url)
+        params = parse_qs(parsed.query)
+        urls = params.get("url", [])
+        return unquote(urls[0]) if urls else None
+    except Exception:
+        return None
+
+
+def _save_to_aj_bids(lot_id: str, car_data: dict) -> None:
+    """Save lot to aj_bids archive. Called as background task on first view."""
+    import json as _json
+    db = SessionLocal()
+    try:
+        if db.query(AjBid).filter(AjBid.lot_id == lot_id).first():
+            return
+        # Extract original (upstream) photo URLs from proxied URLs
+        proxied = car_data.get("photo_urls") or []
+        orig_urls = [u for u in (_extract_orig_url(p) for p in proxied) if u]
+        db.add(AjBid(
+            lot_id=lot_id,
+            country=car_data.get("country", ""),
+            brand=car_data.get("brand"),
+            model=car_data.get("model"),
+            year=car_data.get("year"),
+            photo_urls_orig=_json.dumps(orig_urls) if orig_urls else None,
+            data_json=_json.dumps(car_data),
+            processed=False,
+        ))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"AjBid save error {lot_id}: {e}")
+    finally:
+        db.close()
+
+
+async def _download_photos_for_bid(bid: AjBid) -> bool:
+    """Download and cache photos for one bid. Returns True on success."""
+    import json as _json, httpx
+    try:
+        orig_urls = _json.loads(bid.photo_urls_orig or "[]")
+        if not orig_urls:
+            return True  # nothing to download, mark processed
+
+        lot_dir = os.path.join(PHOTOS_DIR, bid.lot_id)
+        os.makedirs(lot_dir, exist_ok=True)
+        local_urls = []
+
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            for idx, url in enumerate(orig_urls[:10]):  # max 10 photos per lot
+                ext = "jpg"
+                local_path = os.path.join(lot_dir, f"{idx}.{ext}")
+                if os.path.exists(local_path):
+                    local_urls.append(f"/api/photos/{bid.lot_id}/{idx}.{ext}")
+                    continue
+                try:
+                    r = await client.get(url, headers={"Referer": "https://ajes.com/"})
+                    if r.status_code != 200:
+                        continue
+                    loop = asyncio.get_event_loop()
+                    content, _ = await loop.run_in_executor(
+                        None, _compress_image, r.content, ""
+                    )
+                    with open(local_path, "wb") as f:
+                        f.write(content)
+                    local_urls.append(f"/api/photos/{bid.lot_id}/{idx}.{ext}")
+                except Exception:
+                    continue
+
+        if local_urls:
+            # Patch data_json photo_urls with local paths
+            db = SessionLocal()
+            try:
+                data = _json.loads(bid.data_json or "{}")
+                data["photo_urls"] = local_urls
+                data["photo_url"] = local_urls[0] if local_urls else data.get("photo_url")
+                db.query(AjBid).filter(AjBid.id == bid.id).update(
+                    {"processed": True, "data_json": _json.dumps(data)},
+                    synchronize_session=False,
+                )
+                db.commit()
+            finally:
+                db.close()
+        return True
+    except Exception as e:
+        print(f"Photo download error {bid.lot_id}: {e}")
+        return False
+
+
+async def _photo_download_loop():
+    """Hourly job: download photos for unprocessed bids. Max 400 lots/day."""
+    await asyncio.sleep(60)  # wait for startup
+    while True:
+        db = SessionLocal()
+        try:
+            today = datetime.datetime.utcnow().date()
+            today_start = datetime.datetime(today.year, today.month, today.day)
+            done_today = db.query(AjBid).filter(
+                AjBid.processed == True,
+                AjBid.created_at >= today_start,
+            ).count()
+            remaining = max(0, 400 - done_today)
+            per_run = min(remaining, 17)  # spread ~400/day over 24 runs
+
+            if per_run > 0:
+                pending = db.query(AjBid).filter(
+                    AjBid.processed == False,
+                    AjBid.photo_urls_orig.isnot(None),
+                ).order_by(AjBid.created_at.asc()).limit(per_run).all()
+            else:
+                pending = []
+        finally:
+            db.close()
+
+        for bid in pending:
+            await _download_photos_for_bid(bid)
+            await asyncio.sleep(2)  # gentle rate on ajes.com
+
+        await asyncio.sleep(3600)  # run hourly
 
 
 @asynccontextmanager
@@ -292,9 +440,11 @@ async def lifespan(app: FastAPI):
     _init_tariffs()
     _init_admin()
     _init_cities()
+    os.makedirs(PHOTOS_DIR, exist_ok=True)
     tasks = [
         asyncio.create_task(_rates_loop()),
         asyncio.create_task(_sync_loop()),
+        asyncio.create_task(_photo_download_loop()),
     ]
     yield
     for t in tasks:
@@ -307,9 +457,13 @@ async def lifespan(app: FastAPI):
 
 # ─── Rate limiter ─────────────────────────────────────────────────────────────
 
+PHOTOS_DIR = os.path.join(os.path.dirname(__file__), "static", "photos")
+
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(title="Восток Авто Импорт API", version="1.0.0", lifespan=lifespan)
+os.makedirs(PHOTOS_DIR, exist_ok=True)
+app.mount("/api/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -481,7 +635,8 @@ def count_cars(request: Request,
 # ─── Car detail ───────────────────────────────────────────────────────────────
 
 @app.get("/api/cars/{car_id}")
-def get_car(car_id: str, db: Session = Depends(get_db)):
+def get_car(car_id: str, db: Session = Depends(get_db),
+            background_tasks: BackgroundTasks = None):
     import json as _json
     db_car = db.query(Car).filter(Car.id == car_id, Car.is_active == True).first()
     if not db_car:
@@ -491,7 +646,18 @@ def get_car(car_id: str, db: Session = Depends(get_db)):
         result["photo_urls"] = _json.loads(result.get("photo_urls_json") or "[]")
     except Exception:
         result["photo_urls"] = []
+    if background_tasks is not None:
+        background_tasks.add_task(_save_to_aj_bids, car_id, result)
     return result
+
+
+@app.get("/api/seo/cars")
+def seo_cars_list(limit: int = 1000, offset: int = 0, db: Session = Depends(get_db)):
+    """List of lot_ids saved in aj_bids — for sitemap generation."""
+    rows = db.query(AjBid.lot_id, AjBid.created_at).order_by(
+        AjBid.created_at.desc()
+    ).offset(offset).limit(min(limit, 5000)).all()
+    return [{"lot_id": r.lot_id, "updated_at": r.created_at.isoformat()} for r in rows]
 
 
 @app.get("/api/cars/{car_id}/breakdown")
