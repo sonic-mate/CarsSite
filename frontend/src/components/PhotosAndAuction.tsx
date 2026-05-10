@@ -50,6 +50,11 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
   const localPrice = formatLocalPrice(car.auction_price_local, car.country);
   const isBadgeGrade = car.badge && /^[0-9]/.test(car.badge);
 
+  const isStock = car.country === "korea" || car.country === "china";
+  const hasFinish = (car.auction_price_local ?? 0) > 0;
+  const status = isStock ? "В наличии" : hasFinish ? "Продан" : "Предстоит";
+  const priceLabel = isStock ? "Стоимость" : hasFinish ? "Последняя ставка" : "Стартовая цена";
+
   const specs: { k: string; v: string }[] = [
     car.engine_cc && car.engine_cc > 0 ? { k: "Объём двигателя", v: `${car.engine_cc.toLocaleString("ru-RU")} куб.см` } : null,
     { k: "Двигатель", v: car.engine },
@@ -60,6 +65,8 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
     car.color ? { k: "Цвет", v: car.color } : null,
     car.kuzov ? { k: "Оценка кузова", v: car.kuzov } : null,
     car.town ? { k: "Город", v: car.town } : null,
+    { k: "Лот", v: car.id },
+    { k: "Статус", v: status },
   ].filter(Boolean) as { k: string; v: string }[];
 
   return (
@@ -148,7 +155,7 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
       {(localPrice || (car.auction_price && car.auction_price > 0)) && (
         <div style={{ padding: "14px 16px", background: "rgba(255,255,255,0.03)", borderRadius: "var(--r-sm)", border: "1px solid rgba(255,255,255,0.06)", marginTop: "auto" }}>
           <div style={{ fontSize: 10, color: "rgba(245,243,238,0.3)", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 8, textTransform: "uppercase" }}>
-            Цена на аукционе
+            {priceLabel}
           </div>
           {localPrice && (
             <div style={{ fontSize: 24, fontWeight: 700, color: "#f5f3ee", fontFamily: "var(--font-display)", marginBottom: 2 }}>
