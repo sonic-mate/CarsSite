@@ -10,6 +10,7 @@ import calc
 
 API_KEY  = os.getenv("AJES_API_KEY", "")
 API_HOST = os.getenv("AJES_HOST", "78.46.90.228")
+API_IP   = os.getenv("AJES_IP", "")
 
 
 async def fetch(
@@ -53,7 +54,8 @@ async def fetch_one(lot_id: str) -> list[dict]:
 
 async def _call(sql: str) -> list | None:
     from urllib.parse import quote
-    url = f"http://{API_HOST}/api/?json&code={API_KEY}&sql={quote(sql)}"
+    ip_part = f"&ip={API_IP}" if API_IP else ""
+    url = f"http://{API_HOST}/api/?json{ip_part}&code={API_KEY}&sql={quote(sql)}"
     try:
         async with httpx.AsyncClient(timeout=15) as c:
             r = await c.get(url)
