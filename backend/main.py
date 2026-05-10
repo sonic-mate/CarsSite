@@ -192,6 +192,8 @@ async def _rates_loop():
 def _proxy_url(url: str | None) -> str | None:
     if not url:
         return None
+    if url.startswith("/api/img-proxy"):
+        return url  # already proxied (old aj_bids record)
     from urllib.parse import quote
     return f"/api/img-proxy?url={quote(url, safe='')}"
 
