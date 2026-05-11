@@ -81,15 +81,24 @@ async def query(sql: str, label: str = "ajes") -> list | None:
             print(f"[{label}] Empty response")
             return None
 
-        # Decompress: try gzip, then zlib deflate, then raw UTF-8
-        try:
-            raw = _gzip.decompress(raw_bytes).decode("utf-8")
-        except Exception:
+        # Decompress: try all known formats, log exact error + hex if all fail
+        import zlib as _zlib
+        raw = None
+        _decomp_errors = []
+        for _fn, _kwargs in [
+            ("gzip",      lambda d: _gzip.decompress(d).decode("utf-8")),
+            ("zlib-auto", lambda d: _zlib.decompress(d, wbits=47).decode("utf-8")),
+            ("zlib",      lambda d: _zlib.decompress(d).decode("utf-8")),
+            ("deflate",   lambda d: _zlib.decompress(d, wbits=-15).decode("utf-8")),
+        ]:
             try:
-                import zlib as _zlib
-                raw = _zlib.decompress(raw_bytes).decode("utf-8")
-            except Exception:
-                raw = raw_bytes.decode("utf-8", errors="replace")
+                raw = _kwargs(raw_bytes)
+                break
+            except Exception as _e:
+                _decomp_errors.append(f"{_fn}={_e}")
+        if raw is None:
+            print(f"[{label}] All decompress failed: {'; '.join(_decomp_errors)} | hex={raw_bytes[:16].hex()}")
+            raw = raw_bytes.decode("utf-8", errors="replace")
 
         # Check for bot-protection daily limit response
         if "daily limit" in raw.lower():
