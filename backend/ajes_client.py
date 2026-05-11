@@ -82,11 +82,15 @@ async def query(sql: str, label: str = "ajes") -> list | None:
             print(f"[{label}] Empty response")
             return None
 
-        # Decompress (server may or may not gzip depending on response size)
+        # Decompress: try gzip, then zlib deflate, then raw UTF-8
         try:
             raw = _gzip.decompress(raw_bytes).decode("utf-8")
         except Exception:
-            raw = raw_bytes.decode("utf-8", errors="replace")
+            try:
+                import zlib as _zlib
+                raw = _zlib.decompress(raw_bytes).decode("utf-8")
+            except Exception:
+                raw = raw_bytes.decode("utf-8", errors="replace")
 
         # Check for bot-protection daily limit response
         if "daily limit" in raw.lower():
