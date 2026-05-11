@@ -81,23 +81,36 @@ async def query(sql: str, label: str = "ajes") -> list | None:
             print(f"[{label}] Empty response")
             return None
 
-        # Decompress: try all known formats, log exact error + hex if all fail
+        # Decompress response bytes.
+        # ajes sends gzip (1f8b magic) but CRC trailer is often wrong/truncated.
+        # Strategy: try standard gzip first, then bypass CRC by decompressing
+        # the raw deflate body starting at byte 10 (after fixed gzip header).
         import zlib as _zlib
         raw = None
-        _decomp_errors = []
-        for _fn, _kwargs in [
-            ("gzip",      lambda d: _gzip.decompress(d).decode("utf-8")),
-            ("zlib-auto", lambda d: _zlib.decompress(d, wbits=47).decode("utf-8")),
-            ("zlib",      lambda d: _zlib.decompress(d).decode("utf-8")),
-            ("deflate",   lambda d: _zlib.decompress(d, wbits=-15).decode("utf-8")),
-        ]:
+
+        # 1. Standard gzip (includes CRC check)
+        try:
+            raw = _gzip.decompress(raw_bytes).decode("utf-8")
+        except Exception:
+            pass
+
+        # 2. gzip detected but CRC bad — decompress deflate body, skip CRC
+        if raw is None and raw_bytes[:2] == b'\x1f\x8b':
             try:
-                raw = _kwargs(raw_bytes)
-                break
+                raw = _zlib.decompress(raw_bytes[10:], wbits=-15).decode("utf-8")
             except Exception as _e:
-                _decomp_errors.append(f"{_fn}={_e}")
+                print(f"[{label}] gzip-no-crc failed: {_e}")
+
+        # 3. zlib auto-detect (handles both gzip and zlib headers)
         if raw is None:
-            print(f"[{label}] All decompress failed: {'; '.join(_decomp_errors)} | hex={raw_bytes[:16].hex()}")
+            try:
+                raw = _zlib.decompress(raw_bytes, wbits=47).decode("utf-8")
+            except Exception:
+                pass
+
+        # 4. UTF-8 fallback (uncompressed response)
+        if raw is None:
+            print(f"[{label}] All decompress failed, hex={raw_bytes[:16].hex()}")
             raw = raw_bytes.decode("utf-8", errors="replace")
 
         # Check for bot-protection daily limit response
