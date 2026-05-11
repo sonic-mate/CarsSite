@@ -53,11 +53,10 @@ async def query(sql: str, label: str = "ajes") -> list | None:
         print(f"[{label}] Daily limit hit — skipping query")
         return None
 
-    # Use /gzip/ path for compressed responses (production recommendation from ajes ТЗ)
     if API_IP:
-        url = f"http://{API_HOST}/gzip/?ip={quote(API_IP)}&code={API_KEY}&sql={quote(sql)}"
+        url = f"http://{API_HOST}/api/?gzip&ip={quote(API_IP)}&code={API_KEY}&sql={quote(sql)}"
     else:
-        url = f"http://{API_HOST}/gzip/?code={API_KEY}&sql={quote(sql)}"
+        url = f"http://{API_HOST}/api/?gzip&code={API_KEY}&sql={quote(sql)}"
 
     try:
         async with httpx.AsyncClient(timeout=15) as c:
