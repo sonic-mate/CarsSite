@@ -1,0 +1,52 @@
+Domain:        vostokavtoimport.ru (http://vostokavtoimport.ru/)
+CODE (API password):  VAInBvFrU76d
+Documentation: https://avto.jp/api?enter
+Quick start:   https://ajes.com/api/search  and https://ajes.com/api/sql2json
+
+
+FAST CHECKING (must show some info)
+----------------------------------------------------------------
+Auctions
+http://78.46.90.228/api/?code=VAInBvFrU76d&sql=select%20*%20from%20main%20limit%205
+
+Statistics
+http://78.46.90.228/api/?code=VAInBvFrU76d&sql=select%20*%20from%20stats%20limit%205
+
+FULL INFO BY ID
+Note, "select * from main limit 20" not return ALL INFO.
+When user open lot, you need to request by ID, for example this request return ALL INFO:
+http://78.46.90.228/api/?code=VAInBvFrU76d&sql=select%20*%20from%20main%20where%20id='70NYIiCcF4S2xjD'& (http://78.46.90.228/api/?code=VAInBvFrU76d&sql=select%20*%20from%20main%20where%20id=%2770NYIiCcF4S2xjD%27&)
+----------------------------------------------------------------
+
+
+IMAGES
+----------------------------------------------------------------
+Each image have only 3 sizes:
+https://7.ajes.com/imgs/23FClskybXLJguJfjiqJSnFmW7cTA7dMNJy3UTIGKK
+use BIG size after user click "ZOOM" (for auction list BIG size is ok)
+
+https://7.ajes.com/imgs/23FClskybXLJguJfjiqJSnFmW7cTA7dMNJy3UTIGKK&h=50
+use for small preview-images
+
+https://7.ajes.com/imgs/23FClskybXLJguJfjiqJSnFmW7cTA7dMNJy3UTIGKK&w=320
+use MEDIUM SIZE as much as possible
+----------------------------------------------------------------
+
+
+RULES
+----------------------------------------------------------------
+1. !!Your program NO need (and not must) LOAD "ALL LOTs" to your site!!
+   Your program must make SQL-requests and get XML-answers each time.
+2. BUT SURE, you CAN cache data on your site for: 
+   1. requests like "list of model", "list of manufactures", "list of auctions".
+   2. counters and so on.
+   3. if user already open lot with ID, you can cache this lot.
+
+GOOD:
+1. If user open TOYOTA COROLLA, your site request TOYOTA COROLLA.
+2. If user open lot number 11, your site request lot number 11.
+   SQL allow request any kind of information, so you not limited for your imagine.
+
+BAD (not make it!):
+1. You load all lots to your site.
+   And then - show to users without requests to our servers.

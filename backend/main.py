@@ -239,7 +239,7 @@ async def _download_photos_for_bid(bid: AjBid) -> bool:
         local_urls = []
 
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-            for idx, url in enumerate(orig_urls[:10]):
+            for idx, url in enumerate(orig_urls[:5]):
                 ext = "jpg"
                 local_path = os.path.join(lot_dir, f"{idx}.{ext}")
                 if os.path.exists(local_path):

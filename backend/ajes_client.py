@@ -217,7 +217,7 @@ async def count_table(
     if year_min:
         where.append(f"YEAR>={year_min}")
 
-    sql = f"SELECT COUNT(*) FROM {table} WHERE {' AND '.join(where)}"
+    sql = f"SELECT COUNT(*) as cnt FROM {table} WHERE {' AND '.join(where)}"
     data = await query(sql, label=_TABLE_LABEL.get(table, "ajes"))
     if data and isinstance(data[0], dict):
         return int(list(data[0].values())[0])
@@ -238,7 +238,7 @@ def _photo_url(images_raw: str, size: str = "&w=320") -> str | None:
         return f"{img}{size}"
     if "ajes.com/" in img:
         return f"https://{img}{size}"
-    return f"https://7.ajes.com/img/{img}{size}"
+    return f"https://7.ajes.com/imgs/{img}{size}"
 
 
 def _fuel(time_flag) -> str:
