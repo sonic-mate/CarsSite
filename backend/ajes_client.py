@@ -9,6 +9,7 @@ import os
 import gzip as _gzip
 import json as _json
 import html
+import xml.etree.ElementTree as _ET
 from urllib.parse import quote
 from typing import Optional
 
@@ -82,44 +83,58 @@ async def query(sql: str, label: str = "ajes") -> list | None:
             return None
 
         # Decompress response bytes.
-        # ajes sends gzip (1f8b magic) but CRC trailer is often wrong/truncated.
-        # Strategy: try standard gzip first, then bypass CRC by decompressing
-        # the raw deflate body starting at byte 10 (after fixed gzip header).
+        # ajes sends gzip with windows-1251 XML inside.
+        # CRC trailer is often wrong — bypass it when needed.
         import zlib as _zlib
-        raw = None
+        body = None  # decompressed bytes
 
-        # 1. Standard gzip (includes CRC check)
         try:
-            raw = _gzip.decompress(raw_bytes).decode("utf-8")
+            body = _gzip.decompress(raw_bytes)
         except Exception:
             pass
 
-        # 2. gzip detected but CRC bad — decompress deflate body, skip CRC
-        if raw is None and raw_bytes[:2] == b'\x1f\x8b':
+        if body is None and raw_bytes[:2] == b'\x1f\x8b':
             try:
-                raw = _zlib.decompress(raw_bytes[10:], wbits=-15).decode("utf-8")
+                body = _zlib.decompress(raw_bytes[10:], wbits=-15)
             except Exception as _e:
                 print(f"[{label}] gzip-no-crc failed: {_e}")
 
-        # 3. zlib auto-detect (handles both gzip and zlib headers)
-        if raw is None:
+        if body is None:
             try:
-                raw = _zlib.decompress(raw_bytes, wbits=47).decode("utf-8")
+                body = _zlib.decompress(raw_bytes, wbits=47)
             except Exception:
                 pass
 
-        # 4. UTF-8 fallback (uncompressed response)
-        if raw is None:
-            print(f"[{label}] All decompress failed, hex={raw_bytes[:16].hex()}")
-            raw = raw_bytes.decode("utf-8", errors="replace")
+        if body is None:
+            body = raw_bytes
 
-        # Check for bot-protection daily limit response
+        # Decode: ajes returns windows-1251 XML
+        for enc in ("cp1251", "utf-8"):
+            try:
+                raw = body.decode(enc)
+                break
+            except UnicodeDecodeError:
+                pass
+        else:
+            raw = body.decode("utf-8", errors="replace")
+
         if "daily limit" in raw.lower():
             _daily_limit_hit = True
             print(f"[{label}] DAILY LIMIT HIT — counter={_api_counter}/{_api_limit}")
             return None
 
         print(f"[{label}] counter={_api_counter}/{_api_limit} rest={_api_rest} | {raw[:150]}")
+
+        # Parse: XML (avto.jp v3 format) or JSON fallback
+        stripped = raw.strip()
+        if stripped.startswith("<"):
+            try:
+                root = _ET.fromstring(body)  # pass bytes so ET reads encoding declaration
+                return [{child.tag: (child.text or "") for child in row}
+                        for row in root.findall("row")]
+            except _ET.ParseError as e:
+                print(f"[{label}] XML parse error: {e} | snippet={raw[:200]}")
+                return None
 
         data = _json.loads(raw)
         if isinstance(data, list):
