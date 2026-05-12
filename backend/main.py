@@ -380,17 +380,35 @@ async def list_cars(request: Request,
     sort: str = "popular",
     limit: int = 20,
     offset: int = 0,
+    db: Session = Depends(get_db),
 ):
+    import json as _json
     page = offset // max(limit, 1) + 1
     cars = await aggregator.search(
         country=country, brand=brand, body=body,
         price_max=price_max, year_min=year_min,
         page=page, limit=min(limit, 60),
     )
+
+    # Overlay locally-downloaded photos for cars already viewed by users
+    car_ids = [c["id"] for c in cars if c.get("id")]
+    bid_map: dict = {}
+    if car_ids:
+        bids = db.query(AjBid).filter(
+            AjBid.lot_id.in_(car_ids), AjBid.processed == True
+        ).all()
+        bid_map = {b.lot_id: b for b in bids}
+
     for c in cars:
-        c["photo_url"] = _proxy_url(c.get("photo_url"))
-        c["photo_urls"] = [_proxy_url(u) for u in (c.get("photo_urls") or []) if u]
-        c.pop("auction_date", None)  # hide from public catalog
+        bid = bid_map.get(c.get("id"))
+        if bid and bid.data_json:
+            bd = _json.loads(bid.data_json)
+            c["photo_url"] = bd.get("photo_url")
+            c["photo_urls"] = bd.get("photo_urls") or []
+        else:
+            c["photo_url"] = _proxy_url(c.get("photo_url"))
+            c["photo_urls"] = [_proxy_url(u) for u in (c.get("photo_urls") or []) if u]
+        c.pop("auction_date", None)
     return cars
 
 
