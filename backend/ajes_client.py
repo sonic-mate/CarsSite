@@ -76,11 +76,11 @@ async def query(sql: str, label: str = "ajes", gzip: bool = True) -> list | None
         print(f"[{label}] Daily limit hit — skipping query")
         return None
 
-    mode = "gzip" if gzip else "json"
-    if API_IP:
-        url = f"http://{API_HOST}/api/?{mode}&ip={quote(API_IP)}&code={API_KEY}&sql={quote(sql)}"
+    if gzip:
+        prefix = "gzip&" if not API_IP else f"gzip&ip={quote(API_IP)}&"
     else:
-        url = f"http://{API_HOST}/api/?{mode}&code={API_KEY}&sql={quote(sql)}"
+        prefix = "" if not API_IP else f"ip={quote(API_IP)}&"
+    url = f"http://{API_HOST}/api/?{prefix}code={API_KEY}&sql={quote(sql)}"
 
     try:
         async with httpx.AsyncClient(timeout=15) as c:
@@ -105,9 +105,9 @@ async def query(sql: str, label: str = "ajes", gzip: bool = True) -> list | None
             print(f"[{label}] Empty response")
             return None
 
-        # Decompress if gzip mode; plain responses need no decompression
+        # Always try gzip if magic bytes present; otherwise use raw
         import zlib as _zlib
-        if gzip and raw_bytes[:2] == b'\x1f\x8b':
+        if raw_bytes[:2] == b'\x1f\x8b':
             body = None
             try:
                 body = _gzip.decompress(raw_bytes)
