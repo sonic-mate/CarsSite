@@ -52,5 +52,4 @@ def normalize(raw: str | None) -> str | None:
                 if k.upper() in s:
                     return ru
 
-    # return original stripped if no match — better than None
-    return raw.strip()
+    return "Другие"

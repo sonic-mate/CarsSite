@@ -435,7 +435,7 @@ def _body_japan(model: str, brand: str) -> str:
               "PREMIO", "ALLION", "COROLLA AXIO", "MARK II",
               "CHASER", "CRESTA", "AVALON", "GRACE"]):
         return "Седан"
-    return "Другой"
+    return "Другие"
 
 
 def _body_korea(model: str, brand: str) -> str:
@@ -456,7 +456,7 @@ def _body_korea(model: str, brand: str) -> str:
         return "Седан"
     if _chk(["BONGO", "PORTER"]):
         return "Фургон"
-    return "Другой"
+    return "Другие"
 
 
 def _body_china(model: str, brand: str) -> str:
@@ -481,7 +481,7 @@ def _body_china(model: str, brand: str) -> str:
               "BYD HAN", "BYD SEAL", "NIO ET", "XPENG P", "ZEEKR 001",
               "TESLA MODEL 3", "TESLA MODEL S", "IM L7"]):
         return "Седан"
-    return "Другой"
+    return "Другие"
 
 
 _BODY_FN    = {"japan": _body_japan, "korea": _body_korea, "china": _body_china}

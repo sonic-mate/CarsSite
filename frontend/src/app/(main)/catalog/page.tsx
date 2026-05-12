@@ -335,13 +335,13 @@ function CatalogInner() {
               {/* Марка */}
               <select className="filter-select" value={pBrand} onChange={e => setPBrand(e.target.value)}>
                 <option value="">Марка</option>
-                {brands.map(b => <option key={b.brand} value={b.brand}>{b.brand} ({b.count})</option>)}
+                {brands.map(b => <option key={b.brand} value={b.brand}>{b.brand}</option>)}
               </select>
 
               {/* Модель — активна только если выбрана марка */}
               <select className="filter-select" value={pModel} onChange={e => setPModel(e.target.value)} disabled={!pBrand}>
                 <option value="">Модель</option>
-                {models.map(m => <option key={m.model} value={m.model}>{m.model} ({m.count})</option>)}
+                {models.map(m => <option key={m.model} value={m.model}>{m.model}</option>)}
               </select>
 
               {/* Кузов */}
@@ -408,7 +408,7 @@ function CatalogInner() {
               {/* Цвет */}
               <select className="filter-select" value={pColor} onChange={e => setPColor(e.target.value)}>
                 <option value="">Цвет</option>
-                {colors.map(c => <option key={c.color} value={c.color}>{c.color} ({c.count})</option>)}
+                {colors.map(c => <option key={c.color} value={c.color}>{c.color}</option>)}
               </select>
 
               {/* Топливо */}
