@@ -63,6 +63,52 @@ const BADGE_CLASS: Record<string, string> = {
   "Premium": "badge-prem",
 };
 
+const DAMAGE_LEGEND = [
+  { code: "A1", label: "Маленькая царапина" },
+  { code: "A2", label: "Царапина" },
+  { code: "A3", label: "Большая царапина" },
+  { code: "E1", label: "Небольшая вмятина" },
+  { code: "E2", label: "Несколько небольших вмятин" },
+  { code: "E3", label: "Много небольших вмятин" },
+  { code: "U1", label: "Маленькая вмятина" },
+  { code: "U2", label: "Вмятина" },
+  { code: "U3", label: "Большая вмятина" },
+  { code: "W1", label: "Ремонт/покраска (едва обнаружимые)" },
+  { code: "W2", label: "Ремонт/покраска (заметные)" },
+  { code: "W3", label: "Ремонт/покраска (очень заметные, должно быть перекрашено)" },
+  { code: "S1", label: "Малозаметная ржавчина" },
+  { code: "S2", label: "Ржавчина" },
+  { code: "C1", label: "Коррозия" },
+  { code: "C2", label: "Заметная коррозия" },
+];
+
+function AuctionSheetSection({ sheetUrl }: { sheetUrl: string }) {
+  return (
+    <div style={{ marginTop: 48 }}>
+      <h3 style={{ marginBottom: 24 }}>Аукционный лист</h3>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+        <div style={{ background: "#13151c", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "var(--r)", overflow: "hidden" }}>
+          <a href={sheetUrl} target="_blank" rel="noopener noreferrer">
+            <img src={sheetUrl} alt="Аукционный лист" style={{ width: "100%", height: "auto", display: "block" }}/>
+          </a>
+        </div>
+        <div style={{ background: "#13151c", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "var(--r)", padding: 24 }}>
+          <div style={{ fontSize: 10, letterSpacing: "0.2em", color: "#c8a45c", fontWeight: 700, textTransform: "uppercase", marginBottom: 20 }}>
+            Обозначения повреждений
+          </div>
+          {DAMAGE_LEGEND.map(({ code, label }) => (
+            <div key={code} style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: 13 }}>
+              <span style={{ minWidth: 28, fontWeight: 700, color: "#f5f3ee", fontFamily: "var(--font-mono)" }}>{code}</span>
+              <span style={{ flex: 1, borderBottom: "1px dotted rgba(255,255,255,0.15)", margin: "0 4px 2px" }}/>
+              <span style={{ color: "rgba(245,243,238,0.65)", textAlign: "right" }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default async function CarDetailPage({ params }: { params: { id: string } }) {
   const car = await getCar(params.id).catch(() => null);
   if (!car) notFound();
@@ -173,6 +219,10 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                   <div className="spec-row" style={{ borderBottom: 0 }}><span className="k">Оценка аукциона</span><span className="v">★ {(car as any).badge}</span></div>
                 )}
               </div>
+
+              {(car as any).auction_sheet_url && (
+                <AuctionSheetSection sheetUrl={(car as any).auction_sheet_url} />
+              )}
             </div>
 
             <div>

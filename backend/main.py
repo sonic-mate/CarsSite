@@ -245,6 +245,28 @@ async def _download_photos_for_bid(bid: AjBid) -> bool:
         orig_urls = _json.loads(bid.photo_urls_orig or "[]")
         # Un-proxy any URLs that were saved as /api/img-proxy?url=... (historic bug)
         orig_urls = [u for u in (_unproxy_url(u) for u in orig_urls) if u and u.startswith("http")]
+
+        # For japan AUCTION_TYPE=2 with only preview photos (≤2), fetch full list by ID
+        data_j = _json.loads(bid.data_json or "{}")
+        if data_j.get("auction_type") == 2 and data_j.get("country") == "japan" and len(orig_urls) <= 2:
+            raw_id = bid.lot_id.split("-", 1)[1] if "-" in bid.lot_id else bid.lot_id
+            full = await ajes_client.query(f"SELECT * FROM main WHERE id='{raw_id}'", label="photo-full")
+            if full and full[0].get("IMAGES"):
+                all_parts = [p.strip() for p in full[0]["IMAGES"].split("#") if p.strip()]
+                car_parts = all_parts[1:] if len(all_parts) > 1 else all_parts
+                new_urls = [u for p in car_parts if (u := ajes_client._photo_url(p, size="&w=320"))]
+                if new_urls:
+                    orig_urls = new_urls
+                    db2 = SessionLocal()
+                    try:
+                        db2.query(AjBid).filter(AjBid.id == bid.id).update(
+                            {"photo_urls_orig": _json.dumps(orig_urls)},
+                            synchronize_session=False,
+                        )
+                        db2.commit()
+                    finally:
+                        db2.close()
+
         if not orig_urls:
             return True
 
@@ -585,6 +607,12 @@ async def get_car(car_id: str, db: Session = Depends(get_db),
         if not bid.processed:
             result["photo_url"] = _proxy_url(result.get("photo_url"))
             result["photo_urls"] = [_proxy_url(u) for u in result.get("photo_urls", []) if u]
+        if result.get("auction_type") == 2 and result.get("country") == "japan" and not result.get("auction_sheet_url"):
+            photos = result.get("photo_urls") or []
+            if photos:
+                result["auction_sheet_url"] = photos[0]
+                result["photo_urls"] = photos[1:]
+                result["photo_url"] = photos[1] if len(photos) > 1 else None
         return result
 
     car = await aggregator.get_by_id(car_id)
