@@ -231,6 +231,23 @@ async def fetch_one(table: str, lot_id: str) -> list[dict]:
     return [norm(row, country) for row in data if row]
 
 
+# Limit concurrent ajes COUNT queries to prevent overwhelming the API
+_AJES_SEM = asyncio.Semaphore(6)
+
+
+def _parse_count(data: list | None) -> int:
+    """Extract COUNT(*) result — only trust TAG0 key to avoid parsing error responses."""
+    if not data or not isinstance(data[0], dict):
+        return 0
+    val = data[0].get("TAG0") or data[0].get("cnt")
+    if val is None:
+        return 0
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return 0
+
+
 async def fetch_brands(table: str) -> list[dict]:
     base_where = "AUCTION_TYPE!=1" if table == "main" else "1=1"
     # Step 1: get brand list (GROUP BY works without COUNT)
@@ -242,23 +259,16 @@ async def fetch_brands(table: str) -> list[dict]:
     brands = [(r.get("MARKA_ID", ""), (r.get("MARKA_NAME") or "").strip())
               for r in brands_data if r.get("MARKA_ID") and r.get("MARKA_NAME")]
 
-    # Step 2: parallel COUNT per MARKA_ID
+    # Step 2: rate-limited parallel COUNT per MARKA_ID
     async def _count_brand(marka_id: str) -> int:
-        sql_c = f"SELECT COUNT(*) FROM {table} WHERE {base_where} AND MARKA_ID={int(marka_id)}"
-        d = await query(sql_c, label=f"brands/cnt/{table}", gzip=False)
-        if d and isinstance(d[0], dict):
-            try:
-                return int(list(d[0].values())[0])
-            except (ValueError, TypeError):
-                pass
-        return 0
+        async with _AJES_SEM:
+            sql_c = f"SELECT COUNT(*) FROM {table} WHERE {base_where} AND MARKA_ID={int(marka_id)}"
+            return _parse_count(await query(sql_c, label=f"brands/cnt/{table}", gzip=False))
 
     counts = await asyncio.gather(*[_count_brand(mid) for mid, _ in brands])
 
-    result = []
-    for (mid, brand), cnt in zip(brands, counts):
-        if brand and cnt > 0:
-            result.append({"brand": brand, "count": cnt})
+    result = [{"brand": brand, "count": cnt}
+              for (mid, brand), cnt in zip(brands, counts) if brand and cnt > 0]
     result.sort(key=lambda x: -x["count"])
     return result
 
@@ -266,35 +276,58 @@ async def fetch_brands(table: str) -> list[dict]:
 async def fetch_colors(table: str) -> list[dict]:
     base_where = "AUCTION_TYPE!=1" if table == "main" else "1=1"
     # Step 1: distinct raw color values
-    sql = f"SELECT DISTINCT COLOR FROM {table} WHERE {base_where} AND COLOR!='' LIMIT 120"
+    sql = f"SELECT DISTINCT COLOR FROM {table} WHERE {base_where} AND COLOR!='' LIMIT 150"
     colors_data = await query(sql, label=f"colors/{table}", gzip=False)
     if not colors_data:
         return []
 
-    raw_colors = [(r.get("COLOR") or "").strip() for r in colors_data if r.get("COLOR", "").strip()]
+    raw_colors = [(r.get("COLOR") or "").strip() for r in colors_data if (r.get("COLOR") or "").strip()]
 
-    # Step 2: parallel COUNT per raw color
-    async def _count_color(raw: str) -> int:
-        escaped = raw.replace("'", "''")
-        sql_c = f"SELECT COUNT(*) FROM {table} WHERE {base_where} AND COLOR='{escaped}'"
-        d = await query(sql_c, label=f"colors/cnt/{table}", gzip=False)
-        if d and isinstance(d[0], dict):
-            try:
-                return int(list(d[0].values())[0])
-            except (ValueError, TypeError):
-                pass
-        return 0
-
-    counts = await asyncio.gather(*[_count_color(raw) for raw in raw_colors])
-
-    # Merge by normalized color name
-    merged: dict[str, int] = {}
-    for raw, cnt in zip(raw_colors, counts):
+    # Group raw colors by normalized name — reduces COUNT queries from ~120 to ~20
+    groups: dict[str, list[str]] = {}
+    for raw in raw_colors:
         norm_c = color_map.normalize(raw)
-        if norm_c and cnt > 0:
-            merged[norm_c] = merged.get(norm_c, 0) + cnt
+        if norm_c:
+            groups.setdefault(norm_c, []).append(raw)
 
-    result = [{"color": c, "count": n} for c, n in merged.items()]
+    # Step 2: one COUNT per normalized group using IN clause
+    async def _count_group(norm_name: str, raws: list[str]) -> int:
+        async with _AJES_SEM:
+            in_vals = ", ".join(f"'{r.replace(chr(39), chr(39)*2)}'" for r in raws)
+            sql_c = f"SELECT COUNT(*) FROM {table} WHERE {base_where} AND COLOR IN ({in_vals})"
+            return _parse_count(await query(sql_c, label=f"colors/cnt/{table}", gzip=False))
+
+    norm_names = list(groups.keys())
+    counts = await asyncio.gather(*[_count_group(n, groups[n]) for n in norm_names])
+
+    result = [{"color": n, "count": cnt} for n, cnt in zip(norm_names, counts) if cnt > 0]
+    result.sort(key=lambda x: -x["count"])
+    return result
+
+
+async def fetch_models(table: str, brand_name: str) -> list[dict]:
+    base_where = "AUCTION_TYPE!=1" if table == "main" else "1=1"
+    safe = brand_name.replace("'", "''")
+    # Step 1: distinct model names for this brand
+    sql = (f"SELECT MODEL_NAME FROM {table} WHERE {base_where}"
+           f" AND MARKA_NAME='{safe}' GROUP BY MODEL_NAME LIMIT 150")
+    models_data = await query(sql, label=f"models/{table}", gzip=False)
+    if not models_data:
+        return []
+
+    models = [(r.get("MODEL_NAME") or "").strip() for r in models_data if (r.get("MODEL_NAME") or "").strip()]
+
+    # Step 2: rate-limited parallel COUNT per model
+    async def _count_model(model: str) -> int:
+        async with _AJES_SEM:
+            esc = model.replace("'", "''")
+            sql_c = (f"SELECT COUNT(*) FROM {table} WHERE {base_where}"
+                     f" AND MARKA_NAME='{safe}' AND MODEL_NAME='{esc}'")
+            return _parse_count(await query(sql_c, label=f"models/cnt/{table}", gzip=False))
+
+    counts = await asyncio.gather(*[_count_model(m) for m in models])
+
+    result = [{"model": m, "count": cnt} for m, cnt in zip(models, counts) if cnt > 0]
     result.sort(key=lambda x: -x["count"])
     return result
 

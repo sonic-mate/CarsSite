@@ -4,15 +4,16 @@ Normalize raw auction color strings (English/Japanese codes) to Russian.
 import re
 
 _MAP: list[tuple[list[str], str]] = [
-    (["WHITE PEARL", "PEARL WHITE", "WHITE P", "WH/P", "W/P", "パールホワイト"], "Белый перламутр"),
+    (["WHITE PEARL", "PEARL WHITE", "WHITE P", "WH/P", "W/P", "パールホワイト", "PEARL "], "Белый перламутр"),
     (["WHITE", "БЕЛЫЙ", "WH", "W ", " W", "^W$"], "Белый"),
+    (["^PEARL$", "PEARL2", "PEARL 2"], "Белый перламутр"),
     (["BLACK", "ЧЕРНЫЙ", "BK", "^B$", "BLK"], "Чёрный"),
     (["SILVER METALLIC", "SILVER MET", "S/M", "SIL MET"], "Серебристый металлик"),
     (["SILVER", "СЕРЫЙ", "SIL", "^S$"], "Серебристый"),
     (["GRAY METALLIC", "GREY METALLIC", "GR MET", "G/M"], "Серый металлик"),
     (["DARK GRAY", "DARK GREY", "GRAPHITE", "CHARCOAL"], "Тёмно-серый"),
     (["GRAY", "GREY", "^GR$", "^G$"], "Серый"),
-    (["DARK BLUE", "NAVY", "ТЕМНО-СИНИЙ"], "Тёмно-синий"),
+    (["DARK BLUE", "NAVY", "ТЕМНО-СИНИЙ", "^CON$", "CON "], "Тёмно-синий"),
     (["BLUE METALLIC", "BL MET", "BL/M"], "Синий металлик"),
     (["BLUE", "СИНИЙ", "^BL$", "^B/B$"], "Синий"),
     (["RED METALLIC", "R/M", "RED MET"], "Красный металлик"),
@@ -29,6 +30,7 @@ _MAP: list[tuple[list[str], str]] = [
     (["YELLOW", "ЖЕЛТЫЙ", "^Y$"], "Жёлтый"),
     (["PINK", "РОЗОВЫЙ"], "Розовый"),
     (["PURPLE", "VIOLET", "ФИОЛЕТОВЫЙ"], "Фиолетовый"),
+    (["TURQUOISE", "TEAL"], "Бирюзовый"),
     (["LIGHT BLUE", "SKY BLUE"], "Голубой"),
     (["TWO TONE", "2-TONE", "2TONE", "TWO-TONE"], "Двухцветный"),
 ]

@@ -481,7 +481,31 @@ async def cars_brands(request: Request, country: Optional[str] = None, db: Sessi
 
 @app.get("/api/cars-models")
 @limiter.limit("30/minute")
-def cars_models(request: Request, brand: str, country: Optional[str] = None, db: Session = Depends(get_db)):
+async def cars_models(request: Request, brand: str, country: Optional[str] = None, db: Session = Depends(get_db)):
+    _TABLE = {"japan": "main", "korea": "korea", "china": "china"}
+    tables = [_TABLE[country]] if country in _TABLE else list(_TABLE.values())
+
+    cache_key = f"models:{brand}:{country or 'all'}"
+    cached = _meta_get(cache_key)
+    if cached is not None:
+        return cached
+
+    results = await asyncio.gather(*[ajes_client.fetch_models(t, brand) for t in tables], return_exceptions=True)
+
+    merged: dict[str, int] = {}
+    for r in results:
+        if isinstance(r, list):
+            for item in r:
+                m = item.get("model", "")
+                if m:
+                    merged[m] = merged.get(m, 0) + item.get("count", 0)
+
+    if merged:
+        data = sorted([{"model": m, "count": c} for m, c in merged.items()], key=lambda x: -x["count"])
+        _meta_set(cache_key, data)
+        return data
+
+    # Fallback to aj_bids
     from sqlalchemy import func
     q = db.query(AjBid.model, func.count(AjBid.id).label("cnt")).filter(
         AjBid.brand.ilike(f"%{brand}%"), AjBid.model.isnot(None)
@@ -496,9 +520,10 @@ def cars_models(request: Request, brand: str, country: Optional[str] = None, db:
 @limiter.limit("30/minute")
 async def cars_colors(request: Request, country: Optional[str] = None, db: Session = Depends(get_db)):
     _TABLE = {"japan": "main", "korea": "korea", "china": "china"}
-    tables = [_TABLE[country]] if country in _TABLE else ["main"]  # default: Japan only
+    tables = [_TABLE[country]] if country in _TABLE else list(_TABLE.values())
 
-    cache_key = f"colors:{country or 'all'}"
+    _norm_country = country if country in _TABLE else "all"
+    cache_key = f"colors:{_norm_country}"
     cached = _meta_get(cache_key)
     if cached is not None:
         return cached
