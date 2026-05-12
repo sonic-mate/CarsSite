@@ -218,9 +218,11 @@ async def search(
 
 
 async def fetch_one(table: str, lot_id: str) -> list[dict]:
-    val = lot_id if lot_id.isdigit() else f"'{lot_id}'"
-    sql = f"SELECT * FROM {table} WHERE ID={val}"
-    print(f"[fetch_one] sql={sql}")
+    # lot_id is the numeric LOT value; fallback to string ID for old-format IDs
+    if lot_id.isdigit():
+        sql = f"SELECT * FROM {table} WHERE LOT={lot_id}"
+    else:
+        sql = f"SELECT * FROM {table} WHERE ID='{lot_id}'"
     data = await query(sql, label=_TABLE_LABEL.get(table, "ajes"))
     if not data:
         return []
@@ -416,7 +418,8 @@ def norm(i: dict, country: str) -> dict:
     engine   = " · ".join(p for p in [f"{eng}cc" if eng else "", kpp, fuel] if p)
     engine_cc = _n(eng)
 
-    lot_id = str(i.get("ID", i.get("LOT", "")))
+    # Use numeric LOT as the stable ID — ajes WHERE ID='...' doesn't work for hash IDs
+    lot_id = str(i.get("LOT") or i.get("ID", ""))
     price  = calc.turnkey_price(auction_price_rub, engine_cc, year, fuel, country, t) \
              if auction_price_rub > 0 else 0
 
