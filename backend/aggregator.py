@@ -91,8 +91,17 @@ async def get_by_id(car_id: str) -> dict | None:
     parts = car_id.split("-", 1)
     if len(parts) != 2 or parts[0] not in prefix_table:
         return None
+
+    # 1. Search in-memory cache (user likely just loaded the catalog list)
+    for _, (_, cars) in list(_cache.items()):
+        for c in cars:
+            if c.get("id") == car_id:
+                return c
+
+    # 2. Direct ajes query (works for numeric lot IDs; hash IDs may return empty)
     table = prefix_table[parts[0]]
-    cars = await ajes_client.fetch_one(table=table, lot_id=parts[1])
+    lot_id = parts[1]
+    cars = await ajes_client.fetch_one(table=table, lot_id=lot_id)
     return cars[0] if cars else None
 
 
