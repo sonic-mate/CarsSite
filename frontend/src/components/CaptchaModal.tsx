@@ -41,12 +41,12 @@ export default function CaptchaModal({ onPass }: Props) {
         <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: "0.08em", color: "var(--gold, #c8a45c)", marginBottom: 12, textTransform: "uppercase" }}>
           Проверка
         </div>
-        <h2 style={{ margin: "0 0 8px", fontSize: 20 }}>Вы не робот?</h2>
-        <p style={{ color: "var(--fg-muted)", fontSize: 14, marginBottom: 28, lineHeight: 1.5 }}>
+        <h2 style={{ margin: "0 0 8px", fontSize: 20, color: "#f5f3ee" }}>Вы не робот?</h2>
+        <p style={{ color: "rgba(245,243,238,0.65)", fontSize: 14, marginBottom: 28, lineHeight: 1.5 }}>
           Решите пример и продолжайте пользоваться сайтом
         </p>
         <form onSubmit={submit}>
-          <div style={{ fontSize: 28, fontWeight: 700, marginBottom: 20, fontFamily: "var(--font-mono, monospace)" }}>
+          <div style={{ fontSize: 32, fontWeight: 700, marginBottom: 20, fontFamily: "var(--font-mono, monospace)", color: "#f5f3ee", letterSpacing: "0.1em" }}>
             {a} + {b} = ?
           </div>
           <input
@@ -62,9 +62,9 @@ export default function CaptchaModal({ onPass }: Props) {
               fontSize: 20,
               textAlign: "center",
               borderRadius: "var(--r-md, 10px)",
-              border: error ? "1.5px solid #e55" : "1.5px solid var(--border, rgba(255,255,255,0.12))",
-              background: "var(--bg-2, rgba(255,255,255,0.05))",
-              color: "var(--fg, #f5f3ee)",
+              border: error ? "1.5px solid #e55" : "1.5px solid rgba(255,255,255,0.35)",
+              background: "rgba(255,255,255,0.08)",
+              color: "#f5f3ee",
               marginBottom: error ? 6 : 16,
               boxSizing: "border-box",
               outline: "none",
