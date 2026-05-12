@@ -188,6 +188,7 @@ def _safe_brand(brand: str) -> str:
 async def search(
     table: str,
     brand: Optional[str] = None,
+    model: Optional[str] = None,
     year_min: Optional[int] = None,
     price_max: Optional[int] = None,
     limit: int = 20,
@@ -198,6 +199,8 @@ async def search(
     where = ["AUCTION_TYPE!=1"] if table == "main" else ["1=1"]
     if brand:
         where.append(f"MARKA_NAME LIKE '%{_safe_brand(brand)}%'")
+    if model:
+        where.append(f"MODEL_NAME LIKE '%{_safe_brand(model)}%'")
     if year_min:
         where.append(f"YEAR>={year_min}")
     if min_id:
@@ -335,19 +338,21 @@ async def fetch_models(table: str, brand_name: str) -> list[dict]:
 async def count_table(
     table: str,
     brand: Optional[str] = None,
+    model: Optional[str] = None,
     year_min: Optional[int] = None,
     **_,
 ) -> int:
     where = ["AUCTION_TYPE!=1"] if table == "main" else ["1=1"]
     if brand:
         where.append(f"MARKA_NAME LIKE '%{_safe_brand(brand)}%'")
+    if model:
+        where.append(f"MODEL_NAME LIKE '%{_safe_brand(model)}%'")
     if year_min:
         where.append(f"YEAR>={year_min}")
 
     sql = f"SELECT COUNT(*) FROM {table} WHERE {' AND '.join(where)}"
     data = await query(sql, label=_TABLE_LABEL.get(table, "ajes"), gzip=False)
-    if data and isinstance(data[0], dict):
-        return int(list(data[0].values())[0])
+    return _parse_count(data)
     return 0
 
 

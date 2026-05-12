@@ -31,20 +31,21 @@ def _set(key: str, data: list):
 async def search(
     country: Optional[str] = None,
     brand: Optional[str] = None,
+    model: Optional[str] = None,
     body: Optional[str] = None,
     price_max: Optional[int] = None,
     year_min: Optional[int] = None,
     page: int = 1,
     limit: int = 20,
 ) -> list[dict]:
-    ck = _key(country=country, brand=brand, body=body,
+    ck = _key(country=country, brand=brand, model=model, body=body,
                price_max=price_max, year_min=year_min, page=page, limit=limit)
     cached = _get(ck)
     if cached is not None:
         return cached
 
     offset = (page - 1) * limit
-    kw = dict(brand=brand, price_max=price_max, year_min=year_min,
+    kw = dict(brand=brand, model=model, price_max=price_max, year_min=year_min,
                limit=limit, offset=offset)
 
     tables = [_TABLE[country]] if country in _TABLE else list(_TABLE.values())
@@ -66,9 +67,10 @@ async def search(
 async def count(
     country: Optional[str] = None,
     brand: Optional[str] = None,
+    model: Optional[str] = None,
     year_min: Optional[int] = None,
 ) -> dict:
-    kw = dict(brand=brand, year_min=year_min)
+    kw = dict(brand=brand, model=model, year_min=year_min)
     tables = [_TABLE[country]] if country in _TABLE else list(_TABLE.values())
 
     counts = await asyncio.gather(

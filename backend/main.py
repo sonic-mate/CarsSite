@@ -402,6 +402,7 @@ async def list_cars(request: Request,
     price_max: Optional[int] = None,
     year_min: Optional[int] = None,
     brand: Optional[str] = None,
+    model: Optional[str] = None,
     sort: str = "popular",
     limit: int = 20,
     offset: int = 0,
@@ -410,7 +411,7 @@ async def list_cars(request: Request,
     import json as _json
     page = offset // max(limit, 1) + 1
     cars = await aggregator.search(
-        country=country, brand=brand, body=body,
+        country=country, brand=brand, model=model, body=body,
         price_max=price_max, year_min=year_min,
         page=page, limit=min(limit, 60),
     )
@@ -564,9 +565,10 @@ async def cars_colors(request: Request, country: Optional[str] = None, db: Sessi
 async def count_cars(request: Request,
     country: Optional[str] = None,
     brand: Optional[str] = None,
+    model: Optional[str] = None,
     year_min: Optional[int] = None,
 ):
-    return await aggregator.count(country=country, brand=brand, year_min=year_min)
+    return await aggregator.count(country=country, brand=brand, model=model, year_min=year_min)
 
 
 # ─── Car detail ───────────────────────────────────────────────────────────────
