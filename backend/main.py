@@ -390,21 +390,24 @@ async def list_cars(request: Request,
         page=page, limit=min(limit, 60),
     )
 
-    # Overlay locally-downloaded photos for cars already viewed by users
+    # Overlay photos for cars already viewed: processed=local files, else orig ajes URLs
     car_ids = [c["id"] for c in cars if c.get("id")]
     bid_map: dict = {}
     if car_ids:
-        bids = db.query(AjBid).filter(
-            AjBid.lot_id.in_(car_ids), AjBid.processed == True
-        ).all()
+        bids = db.query(AjBid).filter(AjBid.lot_id.in_(car_ids)).all()
         bid_map = {b.lot_id: b for b in bids}
 
     for c in cars:
         bid = bid_map.get(c.get("id"))
-        if bid and bid.data_json:
+        if bid and bid.processed and bid.data_json:
             bd = _json.loads(bid.data_json)
             c["photo_url"] = bd.get("photo_url")
             c["photo_urls"] = bd.get("photo_urls") or []
+        elif bid and bid.photo_urls_orig:
+            orig = _json.loads(bid.photo_urls_orig)
+            c["photo_url"] = _proxy_url(orig[0]) if orig else _proxy_url(c.get("photo_url"))
+            c["photo_urls"] = [_proxy_url(u) for u in orig if u] or \
+                              [_proxy_url(u) for u in (c.get("photo_urls") or []) if u]
         else:
             c["photo_url"] = _proxy_url(c.get("photo_url"))
             c["photo_urls"] = [_proxy_url(u) for u in (c.get("photo_urls") or []) if u]
