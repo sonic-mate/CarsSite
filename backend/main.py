@@ -196,6 +196,17 @@ def _proxy_url(url: str | None) -> str | None:
     return f"/api/img-proxy?url={quote(url, safe='')}"
 
 
+def _unproxy_url(url: str | None) -> str | None:
+    """Reverse /api/img-proxy?url=... back to the original URL."""
+    if not url:
+        return None
+    if not url.startswith("/api/img-proxy?url="):
+        return url
+    from urllib.parse import urlparse, parse_qs, unquote
+    qs = parse_qs(urlparse("http://x" + url).query)
+    return unquote(qs.get("url", [""])[0]) or None
+
+
 # ─── AjBids — lot archive for SEO ────────────────────────────────────────────
 
 def _save_to_aj_bids(lot_id: str, car_data: dict) -> None:
@@ -231,6 +242,8 @@ async def _download_photos_for_bid(bid: AjBid) -> bool:
     import json as _json, httpx
     try:
         orig_urls = _json.loads(bid.photo_urls_orig or "[]")
+        # Un-proxy any URLs that were saved as /api/img-proxy?url=... (historic bug)
+        orig_urls = [u for u in (_unproxy_url(u) for u in orig_urls) if u and u.startswith("http")]
         if not orig_urls:
             return True
 
@@ -397,22 +410,26 @@ async def list_cars(request: Request,
         bids = db.query(AjBid).filter(AjBid.lot_id.in_(car_ids)).all()
         bid_map = {b.lot_id: b for b in bids}
 
+    result = []
     for c in cars:
+        out = dict(c)  # shallow copy — never mutate aggregator cache
         bid = bid_map.get(c.get("id"))
         if bid and bid.processed and bid.data_json:
             bd = _json.loads(bid.data_json)
-            c["photo_url"] = bd.get("photo_url")
-            c["photo_urls"] = bd.get("photo_urls") or []
+            out["photo_url"] = bd.get("photo_url")
+            out["photo_urls"] = bd.get("photo_urls") or []
         elif bid and bid.photo_urls_orig:
             orig = _json.loads(bid.photo_urls_orig)
-            c["photo_url"] = _proxy_url(orig[0]) if orig else _proxy_url(c.get("photo_url"))
-            c["photo_urls"] = [_proxy_url(u) for u in orig if u] or \
+            orig = [_unproxy_url(u) for u in orig if u]
+            out["photo_url"] = _proxy_url(orig[0]) if orig else _proxy_url(c.get("photo_url"))
+            out["photo_urls"] = [_proxy_url(u) for u in orig if u] or \
                               [_proxy_url(u) for u in (c.get("photo_urls") or []) if u]
         else:
-            c["photo_url"] = _proxy_url(c.get("photo_url"))
-            c["photo_urls"] = [_proxy_url(u) for u in (c.get("photo_urls") or []) if u]
-        c.pop("auction_date", None)
-    return cars
+            out["photo_url"] = _proxy_url(c.get("photo_url"))
+            out["photo_urls"] = [_proxy_url(u) for u in (c.get("photo_urls") or []) if u]
+        out.pop("auction_date", None)
+        result.append(out)
+    return result
 
 
 @app.get("/api/cars-brands")
@@ -526,7 +543,7 @@ async def get_similar_cars(car_id: str, db: Session = Depends(get_db)):
     if not d:
         return []
     similar = await aggregator.search(brand=d.get("brand", ""), country=d.get("country", "japan"), limit=7)
-    result = [c for c in similar if c.get("id") != car_id][:6]
+    result = [dict(c) for c in similar if c.get("id") != car_id][:6]
     for c in result:
         c["photo_url"] = _proxy_url(c.get("photo_url"))
         c["photo_urls"] = [_proxy_url(u) for u in (c.get("photo_urls") or []) if u]
