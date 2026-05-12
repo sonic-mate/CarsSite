@@ -593,6 +593,40 @@ async def count_cars(request: Request,
     return await aggregator.count(country=country, brand=brand, model=model, year_min=year_min)
 
 
+async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> None:
+    import json as _json
+    try:
+        raw_id = lot_id.split("-", 1)[1] if "-" in lot_id else lot_id
+        full = await ajes_client.query(f"SELECT * FROM main WHERE id='{raw_id}'", label="sheet-fetch")
+        if not full or not full[0].get("IMAGES"):
+            return
+        all_parts = [p.strip() for p in full[0]["IMAGES"].split("#") if p.strip()]
+        atype = int(full[0].get("AUCTION_TYPE", 0) or 0)
+        if atype != 2 or not all_parts:
+            return
+        sheet_url = ajes_client._photo_url(all_parts[0], size="")
+        if not sheet_url:
+            return
+        db = SessionLocal()
+        try:
+            bid = db.query(AjBid).filter(AjBid.id == bid_id).first()
+            if not bid or not bid.data_json:
+                return
+            data = _json.loads(bid.data_json)
+            data["auction_sheet_url"] = sheet_url
+            data["auction_type"] = atype
+            db.query(AjBid).filter(AjBid.id == bid_id).update(
+                {"data_json": _json.dumps(data)},
+                synchronize_session=False,
+            )
+            db.commit()
+            print(f"[sheet-fetch] stored sheet for {lot_id}: {sheet_url[:60]}")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[sheet-fetch] error {lot_id}: {e}")
+
+
 # ─── Car detail ───────────────────────────────────────────────────────────────
 
 @app.get("/api/cars/{car_id}")
@@ -607,12 +641,8 @@ async def get_car(car_id: str, db: Session = Depends(get_db),
         if not bid.processed:
             result["photo_url"] = _proxy_url(result.get("photo_url"))
             result["photo_urls"] = [_proxy_url(u) for u in result.get("photo_urls", []) if u]
-        if result.get("country") == "japan" and not result.get("auction_sheet_url") and (result.get("auction_type") == 2 or result.get("auction_type") is None):
-            photos = result.get("photo_urls") or []
-            if photos:
-                result["auction_sheet_url"] = photos[0]
-                result["photo_urls"] = photos[1:]
-                result["photo_url"] = photos[1] if len(photos) > 1 else None
+        if result.get("country") == "japan" and not result.get("auction_sheet_url") and background_tasks is not None:
+            background_tasks.add_task(_fetch_and_store_auction_sheet, car_id, bid.id)
         return result
 
     car = await aggregator.get_by_id(car_id)
