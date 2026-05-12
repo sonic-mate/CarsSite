@@ -585,12 +585,6 @@ async def get_car(car_id: str, db: Session = Depends(get_db),
         if not bid.processed:
             result["photo_url"] = _proxy_url(result.get("photo_url"))
             result["photo_urls"] = [_proxy_url(u) for u in result.get("photo_urls", []) if u]
-        if result.get("country") == "japan" and not result.get("auction_sheet_url"):
-            photos = result.get("photo_urls") or []
-            if len(photos) > 1:
-                result["auction_sheet_url"] = photos[0]
-                result["photo_urls"] = photos[1:]
-                result["photo_url"] = photos[1]
         return result
 
     car = await aggregator.get_by_id(car_id)
