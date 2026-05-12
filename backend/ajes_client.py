@@ -6,10 +6,10 @@ Monitors rate-limit headers (API-Counter, API-Limit, API-Rest) and handles
 "daily limit" response from bot-protection system.
 """
 import os
+import re as _re
 import gzip as _gzip
 import json as _json
 import html
-import xml.etree.ElementTree as _ET
 from urllib.parse import quote
 from typing import Optional
 
@@ -42,6 +42,21 @@ def api_status() -> dict:
 def reset_daily_limit() -> None:
     global _daily_limit_hit
     _daily_limit_hit = False
+
+
+def _parse_aj_xml(text: str) -> list[dict]:
+    """
+    Regex-based parser for avto.jp XML responses.
+    Handles malformed XML (unescaped &, invalid chars in field values).
+    """
+    rows = []
+    for row_block in _re.finditer(r"<row>(.*?)</row>", text, _re.DOTALL):
+        d = {}
+        for field in _re.finditer(r"<([A-Za-z_][A-Za-z0-9_]*)>(.*?)</\1>", row_block.group(1), _re.DOTALL):
+            d[field.group(1)] = html.unescape(field.group(2))
+        if d:
+            rows.append(d)
+    return rows
 
 
 # ── Base query ────────────────────────────────────────────────────────────────
@@ -135,13 +150,7 @@ async def query(sql: str, label: str = "ajes") -> list | None:
             return []
 
         if stripped.startswith("<"):
-            try:
-                root = _ET.fromstring(body)  # pass bytes so ET reads encoding declaration
-                return [{child.tag: (child.text or "") for child in row}
-                        for row in root.findall("row")]
-            except _ET.ParseError as e:
-                print(f"[{label}] XML parse error: {e} | snippet={raw[:200]}")
-                return None
+            return _parse_aj_xml(raw)
 
         data = _json.loads(raw)
         if isinstance(data, list):
