@@ -82,6 +82,8 @@ async def query(sql: str, label: str = "ajes") -> list | None:
             print(f"[{label}] Empty response")
             return None
 
+        print(f"[{label}] raw_bytes len={len(raw_bytes)} hex={raw_bytes[:16].hex()}")
+
         # Decompress response bytes.
         # ajes sends gzip with windows-1251 XML inside.
         # CRC trailer is often wrong — bypass it when needed.
@@ -108,6 +110,8 @@ async def query(sql: str, label: str = "ajes") -> list | None:
         if body is None:
             body = raw_bytes
 
+        print(f"[{label}] body len={len(body)} hex={body[:16].hex()}")
+
         # Decode: ajes returns windows-1251 XML
         for enc in ("cp1251", "utf-8"):
             try:
@@ -127,6 +131,9 @@ async def query(sql: str, label: str = "ajes") -> list | None:
 
         # Parse: XML (avto.jp v3 format) or JSON fallback
         stripped = raw.strip()
+        if not stripped:
+            return []
+
         if stripped.startswith("<"):
             try:
                 root = _ET.fromstring(body)  # pass bytes so ET reads encoding declaration
