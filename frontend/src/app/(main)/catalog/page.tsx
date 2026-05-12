@@ -315,6 +315,9 @@ function CatalogInner() {
                   }}
                 >
                   {k === "all" ? "Все" : COUNTRY_LABEL[k]}
+                  {counts && <span style={{ marginLeft: 4, opacity: 0.7 }}>
+                    {k === "all" ? counts.total : (counts.by_country[k] ?? 0)}
+                  </span>}
                 </button>
               ))}
             </div>
