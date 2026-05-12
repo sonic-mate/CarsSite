@@ -459,7 +459,21 @@ def cars_models(request: Request, brand: str, country: Optional[str] = None, db:
 @app.get("/api/cars-colors")
 @limiter.limit("30/minute")
 def cars_colors(request: Request, country: Optional[str] = None, db: Session = Depends(get_db)):
-    return []
+    from sqlalchemy import text
+    sql = """
+        SELECT data_json::json->>'color' AS color, COUNT(*) AS cnt
+        FROM aj_bids
+        WHERE data_json IS NOT NULL
+          AND data_json::json->>'color' IS NOT NULL
+          AND trim(data_json::json->>'color') != ''
+    """
+    params: dict = {}
+    if country:
+        sql += " AND country = :country"
+        params["country"] = country
+    sql += " GROUP BY data_json::json->>'color' ORDER BY cnt DESC LIMIT 50"
+    rows = db.execute(text(sql), params).fetchall()
+    return [{"color": r.color, "count": r.cnt} for r in rows if r.color]
 
 
 @app.get("/api/cars-count")

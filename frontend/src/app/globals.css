@@ -338,6 +338,7 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-
   background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px;
 }
 .filter-select:focus { border-color: var(--accent); }
+.filter-select option { color: #1a1e26; background: #fff; }
 .filter-input {
   width: 100%; padding: 9px 12px; border-radius: var(--r-sm);
   border: 1px solid var(--border-soft); background: #fff;
