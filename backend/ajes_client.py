@@ -216,7 +216,7 @@ async def search(
 
 async def fetch_one(table: str, lot_id: str) -> list[dict]:
     val = lot_id if lot_id.isdigit() else f"'{lot_id}'"
-    sql = f"SELECT * FROM {table} WHERE ID={val} LIMIT 1"
+    sql = f"SELECT * FROM {table} WHERE ID={val}"
     data = await query(sql, label=_TABLE_LABEL.get(table, "ajes"))
     if not data:
         return []
