@@ -522,11 +522,17 @@ def norm(i: dict, country: str) -> dict:
     auction_price_rub = int(finish * rate)
 
     raw_images = i.get("IMAGES", "")
-    photo = _photo_url(raw_images)
-    photo_urls = [
-        url for p in (raw_images or "").split("#")
-        if p.strip() and (url := _photo_url(p.strip(), size="&w=320"))
-    ]
+    all_parts = [p.strip() for p in (raw_images or "").split("#") if p.strip()]
+    all_urls = [u for p in all_parts if (u := _photo_url(p, size="&w=320"))]
+
+    if country == "japan" and len(all_urls) > 1:
+        auction_sheet_url = _photo_url(all_parts[0], size="")
+        photo_urls = all_urls[1:]
+    else:
+        auction_sheet_url = None
+        photo_urls = all_urls
+
+    photo = photo_urls[0] if photo_urls else (_photo_url(raw_images) if all_urls else None)
 
     brand   = (i.get("MARKA_NAME") or "").strip()
     model   = (i.get("MODEL_NAME") or "").strip()
@@ -563,6 +569,7 @@ def norm(i: dict, country: str) -> dict:
         "is_active":           True,
         "photo_url":           photo,
         "photo_urls":          photo_urls,
+        "auction_sheet_url":   auction_sheet_url,
         "source":              "ajes",
         "source_url":          f"https://ajes.com/?lot={lot_id}",
         "auction_price":       auction_price_rub,
