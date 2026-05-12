@@ -64,7 +64,7 @@ export default function CarCard({ car }: CarCardProps) {
           <div className="car-meta">{car.year} · {formatKm(car.mileage)} · {car.engine}</div>
         </div>
         <div className="car-bottom">
-          <span className="car-price">{car.price > 0 ? formatPrice(car.price) : "По запросу"}</span>
+          <span className="car-price">{formatPrice(car.price)}</span>
         </div>
       </div>
     </Link>
