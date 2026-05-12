@@ -152,7 +152,10 @@ async def query(sql: str, label: str = "ajes", gzip: bool = True) -> list | None
 
         if stripped.startswith("<"):
             rows = _parse_aj_xml(raw)
-            print(f"[{label}] parsed {len(rows)} rows")
+            if not rows:
+                print(f"[{label}] 0 rows | raw={raw[:300]}")
+            else:
+                print(f"[{label}] parsed {len(rows)} rows")
             return rows
 
         data = _json.loads(raw)
@@ -217,6 +220,7 @@ async def search(
 async def fetch_one(table: str, lot_id: str) -> list[dict]:
     val = lot_id if lot_id.isdigit() else f"'{lot_id}'"
     sql = f"SELECT * FROM {table} WHERE ID={val}"
+    print(f"[fetch_one] sql={sql}")
     data = await query(sql, label=_TABLE_LABEL.get(table, "ajes"))
     if not data:
         return []
