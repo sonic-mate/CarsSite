@@ -183,6 +183,12 @@ def _safe_brand(brand: str) -> str:
     return brand.replace("\\", "\\\\").replace("'", "''").replace("%", "\\%").replace("_", "\\_")
 
 
+# Display name ↔ ajes value mapping for "catch-all" categories
+_BRAND_DISPLAY = {"OTHERS": "Другие"}
+_BRAND_AJES    = {v: k for k, v in _BRAND_DISPLAY.items()}  # "Другие" → "OTHERS"
+_MODEL_AJES    = {"Другие": "OTHER"}  # MODEL_NAME LIKE '%OTHER%' catches OTHER, OTHER JAPAN, etc.
+
+
 # ── Public query helpers ──────────────────────────────────────────────────────
 
 async def search(
@@ -198,9 +204,11 @@ async def search(
 ) -> list[dict]:
     where = ["AUCTION_TYPE!=1"] if table == "main" else ["1=1"]
     if brand:
-        where.append(f"MARKA_NAME LIKE '%{_safe_brand(brand)}%'")
+        ajes_brand = _BRAND_AJES.get(brand, brand)
+        where.append(f"MARKA_NAME LIKE '%{_safe_brand(ajes_brand)}%'")
     if model:
-        where.append(f"MODEL_NAME LIKE '%{_safe_brand(model)}%'")
+        ajes_model = _MODEL_AJES.get(model, model)
+        where.append(f"MODEL_NAME LIKE '%{_safe_brand(ajes_model)}%'")
     if year_min:
         where.append(f"YEAR>={year_min}")
     if min_id:
@@ -270,7 +278,7 @@ async def fetch_brands(table: str) -> list[dict]:
 
     counts = await asyncio.gather(*[_count_brand(mid) for mid, _ in brands])
 
-    result = [{"brand": brand, "count": cnt}
+    result = [{"brand": _BRAND_DISPLAY.get(brand, brand), "count": cnt}
               for (mid, brand), cnt in zip(brands, counts) if brand and cnt > 0]
     result.sort(key=lambda x: -x["count"])
     return result
@@ -310,7 +318,8 @@ async def fetch_colors(table: str) -> list[dict]:
 
 async def fetch_models(table: str, brand_name: str) -> list[dict]:
     base_where = "AUCTION_TYPE!=1" if table == "main" else "1=1"
-    safe = brand_name.replace("'", "''")
+    ajes_brand = _BRAND_AJES.get(brand_name, brand_name)
+    safe = ajes_brand.replace("'", "''")
     # Step 1: distinct model names for this brand
     sql = (f"SELECT MODEL_NAME FROM {table} WHERE {base_where}"
            f" AND MARKA_NAME='{safe}' GROUP BY MODEL_NAME LIMIT 150")
@@ -330,7 +339,14 @@ async def fetch_models(table: str, brand_name: str) -> list[dict]:
 
     counts = await asyncio.gather(*[_count_model(m) for m in models])
 
-    result = [{"model": m, "count": cnt} for m, cnt in zip(models, counts) if cnt > 0]
+    # Merge "OTHER*" models under "Другие"
+    merged: dict[str, int] = {}
+    for m, cnt in zip(models, counts):
+        if cnt <= 0:
+            continue
+        display = "Другие" if m.upper().startswith("OTHER") else m
+        merged[display] = merged.get(display, 0) + cnt
+    result = [{"model": m, "count": cnt} for m, cnt in merged.items()]
     result.sort(key=lambda x: -x["count"])
     return result
 
@@ -344,9 +360,11 @@ async def count_table(
 ) -> int:
     where = ["AUCTION_TYPE!=1"] if table == "main" else ["1=1"]
     if brand:
-        where.append(f"MARKA_NAME LIKE '%{_safe_brand(brand)}%'")
+        ajes_brand = _BRAND_AJES.get(brand, brand)
+        where.append(f"MARKA_NAME LIKE '%{_safe_brand(ajes_brand)}%'")
     if model:
-        where.append(f"MODEL_NAME LIKE '%{_safe_brand(model)}%'")
+        ajes_model = _MODEL_AJES.get(model, model)
+        where.append(f"MODEL_NAME LIKE '%{_safe_brand(ajes_model)}%'")
     if year_min:
         where.append(f"YEAR>={year_min}")
 
