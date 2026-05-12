@@ -10,6 +10,7 @@ import re as _re
 import gzip as _gzip
 import json as _json
 import html
+import asyncio
 from urllib.parse import quote
 from typing import Optional
 
@@ -231,39 +232,70 @@ async def fetch_one(table: str, lot_id: str) -> list[dict]:
 
 
 async def fetch_brands(table: str) -> list[dict]:
-    where = "AUCTION_TYPE!=1" if table == "main" else "1=1"
-    sql = f"SELECT MARKA_NAME, COUNT(*) FROM {table} WHERE {where} GROUP BY MARKA_NAME ORDER BY COUNT(*) DESC LIMIT 100"
-    data = await query(sql, label=f"brands/{table}", gzip=False)
-    if not data:
+    base_where = "AUCTION_TYPE!=1" if table == "main" else "1=1"
+    # Step 1: get brand list (GROUP BY works without COUNT)
+    sql = f"SELECT MARKA_ID, MARKA_NAME FROM {table} WHERE {base_where} GROUP BY MARKA_ID LIMIT 200"
+    brands_data = await query(sql, label=f"brands/{table}", gzip=False)
+    if not brands_data:
         return []
-    result = []
-    for r in data:
-        brand = (r.get("MARKA_NAME") or "").strip()
-        cnt_raw = r.get("cnt") or r.get("COUNT(*)") or "0"
-        if brand:
+
+    brands = [(r.get("MARKA_ID", ""), (r.get("MARKA_NAME") or "").strip())
+              for r in brands_data if r.get("MARKA_ID") and r.get("MARKA_NAME")]
+
+    # Step 2: parallel COUNT per MARKA_ID
+    async def _count_brand(marka_id: str) -> int:
+        sql_c = f"SELECT COUNT(*) FROM {table} WHERE {base_where} AND MARKA_ID={int(marka_id)}"
+        d = await query(sql_c, label=f"brands/cnt/{table}", gzip=False)
+        if d and isinstance(d[0], dict):
             try:
-                result.append({"brand": brand, "count": int(cnt_raw)})
+                return int(list(d[0].values())[0])
             except (ValueError, TypeError):
                 pass
+        return 0
+
+    counts = await asyncio.gather(*[_count_brand(mid) for mid, _ in brands])
+
+    result = []
+    for (mid, brand), cnt in zip(brands, counts):
+        if brand and cnt > 0:
+            result.append({"brand": brand, "count": cnt})
+    result.sort(key=lambda x: -x["count"])
     return result
 
 
 async def fetch_colors(table: str) -> list[dict]:
-    where = "AUCTION_TYPE!=1 AND COLOR!=''" if table == "main" else "COLOR!=''"
-    sql = f"SELECT COLOR, COUNT(*) FROM {table} WHERE {where} GROUP BY COLOR ORDER BY COUNT(*) DESC LIMIT 80"
-    data = await query(sql, label=f"colors/{table}", gzip=False)
-    if not data:
+    base_where = "AUCTION_TYPE!=1" if table == "main" else "1=1"
+    # Step 1: distinct raw color values
+    sql = f"SELECT DISTINCT COLOR FROM {table} WHERE {base_where} AND COLOR!='' LIMIT 120"
+    colors_data = await query(sql, label=f"colors/{table}", gzip=False)
+    if not colors_data:
         return []
-    result = []
-    for r in data:
-        raw_color = (r.get("COLOR") or "").strip()
-        cnt_raw = r.get("cnt") or r.get("COUNT(*)") or "0"
-        normalized = color_map.normalize(raw_color)
-        if normalized:
+
+    raw_colors = [(r.get("COLOR") or "").strip() for r in colors_data if r.get("COLOR", "").strip()]
+
+    # Step 2: parallel COUNT per raw color
+    async def _count_color(raw: str) -> int:
+        escaped = raw.replace("'", "''")
+        sql_c = f"SELECT COUNT(*) FROM {table} WHERE {base_where} AND COLOR='{escaped}'"
+        d = await query(sql_c, label=f"colors/cnt/{table}", gzip=False)
+        if d and isinstance(d[0], dict):
             try:
-                result.append({"color": normalized, "count": int(cnt_raw)})
+                return int(list(d[0].values())[0])
             except (ValueError, TypeError):
                 pass
+        return 0
+
+    counts = await asyncio.gather(*[_count_color(raw) for raw in raw_colors])
+
+    # Merge by normalized color name
+    merged: dict[str, int] = {}
+    for raw, cnt in zip(raw_colors, counts):
+        norm_c = color_map.normalize(raw)
+        if norm_c and cnt > 0:
+            merged[norm_c] = merged.get(norm_c, 0) + cnt
+
+    result = [{"color": c, "count": n} for c, n in merged.items()]
+    result.sort(key=lambda x: -x["count"])
     return result
 
 
