@@ -59,7 +59,7 @@ async def search(
         if isinstance(r, list):
             cars.extend(r)
 
-    cars = [c for c in cars if c.get("price", 0) > 0 and c.get("brand")]
+    cars = [c for c in cars if c.get("brand")]
     _set(ck, cars)
     return cars
 

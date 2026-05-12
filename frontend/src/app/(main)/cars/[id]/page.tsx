@@ -197,8 +197,8 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                     ))}
                   </div>
                 )}
-                <div className="price">{formatPrice(car.price)}</div>
-                <div className="price-note">Итого под ключ в г. Омск</div>
+                <div className="price">{car.price > 0 ? formatPrice(car.price) : "По запросу"}</div>
+                <div className="price-note">{car.price > 0 ? "Итого под ключ в г. Омск" : "Цена уточняется"}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 24 }}>
                   <a href={`tel:${PHONE.replace(/\s/g, "")}`} className="btn btn-primary btn-lg btn-block" style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center" }}>
                     <Icon name="phone" size={18}/>

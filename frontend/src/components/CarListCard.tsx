@@ -71,7 +71,7 @@ export default function CarListCard({ car }: { car: Car }) {
       <div className="car-list-price">
         <div className="car-list-price-label">Цена в г. Омск</div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div className="car-list-price-value">{formatPrice(car.price)}</div>
+          <div className="car-list-price-value">{car.price > 0 ? formatPrice(car.price) : "По запросу"}</div>
           <PriceBreakdownTooltip carId={car.id}/>
         </div>
         {formatLocalPrice(car.auction_price_local, car.country) && (

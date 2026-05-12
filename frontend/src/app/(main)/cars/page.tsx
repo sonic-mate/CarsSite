@@ -73,7 +73,7 @@ export default async function CarsIndexPage({
                 </div>
               </div>
               <div style={{ fontWeight: 700, whiteSpace: "nowrap" }}>
-                {formatPrice(car.price)}
+                {car.price > 0 ? formatPrice(car.price) : "По запросу"}
               </div>
             </Link>
           ))}
