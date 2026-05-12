@@ -150,7 +150,13 @@ async def query(sql: str, label: str = "ajes") -> list | None:
             return []
 
         if stripped.startswith("<"):
-            return _parse_aj_xml(raw)
+            rows = _parse_aj_xml(raw)
+            if rows:
+                r0 = rows[0]
+                print(f"[{label}] parsed {len(rows)} rows | first keys={list(r0.keys())[:8]} | MARKA={r0.get('MARKA_NAME')} START={r0.get('START')} FINISH={r0.get('FINISH')} AVG={r0.get('AVG_PRICE')}")
+            else:
+                print(f"[{label}] parsed 0 rows")
+            return rows
 
         data = _json.loads(raw)
         if isinstance(data, list):
