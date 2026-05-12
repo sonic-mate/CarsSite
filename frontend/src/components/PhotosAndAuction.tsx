@@ -175,53 +175,19 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
 
 export default function PhotosAndAuction({ photoUrls, alt, car }: Props) {
   const hasPhotos = photoUrls.length > 0;
-  const hasAuctionData = !!(
-    car.auction_name || car.grade || car.equip ||
-    car.kuzov || car.badge || car.auction_price_local
-  );
-  const [tab, setTab] = useState<"photos" | "auction">("photos");
 
   return (
     <div>
-      {hasAuctionData && (
-        <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.07)", marginBottom: 0, background: "#13151c" }}>
-          {(["photos", "auction"] as const).map((id) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              style={{
-                padding: "10px 18px",
-                fontSize: 13,
-                fontWeight: 600,
-                color: tab === id ? "#c8a45c" : "rgba(245,243,238,0.4)",
-                background: "none",
-                border: "none",
-                borderBottom: `2px solid ${tab === id ? "#c8a45c" : "transparent"}`,
-                cursor: "pointer",
-                fontFamily: "var(--font-sans)",
-                transition: "color 120ms ease",
-                marginBottom: -1,
-              }}
-            >
-              {id === "photos" ? "Фотографии" : "Аукционный лист"}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {tab === "photos" && (
-        hasPhotos
-          ? <PhotoGallery urls={photoUrls} alt={alt} bg={car.photo_tint}/>
-          : (
-            <div className="gallery-main" style={{ background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}>
-              <div style={{ aspectRatio: "16/10", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 10% 8%" }}>
-                <CarSilhouette kind={car.silhouette} w={480}/>
-              </div>
+      {hasPhotos
+        ? <PhotoGallery urls={photoUrls} alt={alt} bg={car.photo_tint}/>
+        : (
+          <div className="gallery-main" style={{ background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}>
+            <div style={{ aspectRatio: "16/10", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 10% 8%" }}>
+              <CarSilhouette kind={car.silhouette} w={480}/>
             </div>
-          )
-      )}
-
-      {tab === "auction" && <AuctionSheet car={car}/>}
+          </div>
+        )
+      }
     </div>
   );
 }

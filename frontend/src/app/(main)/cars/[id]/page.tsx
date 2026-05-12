@@ -125,6 +125,10 @@ export default async function CarDetailPage({ params }: { params: { id: string }
     { cache: "no-store" }
   ).then(r => r.ok ? r.json() : []).catch(() => []);
 
+  const isStock = car.country === "korea" || car.country === "china";
+  const hasFinish = ((car as any).auction_price_local ?? 0) > 0;
+  const auctionStatus = isStock ? "В наличии" : hasFinish ? "Продан" : "Предстоит";
+
   const photoUrls: string[] = (car as any).photo_urls?.length
     ? (car as any).photo_urls
     : (car as any).photo_url ? [(car as any).photo_url] : [];
@@ -216,8 +220,13 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                   <div className="spec-row"><span className="k">Доп. оборудование</span><span className="v" style={{ textAlign: "right", maxWidth: "60%" }}>{(car as any).equip}</span></div>
                 )}
                 {(car as any).badge && (
-                  <div className="spec-row" style={{ borderBottom: 0 }}><span className="k">Оценка аукциона</span><span className="v">★ {(car as any).badge}</span></div>
+                  <div className="spec-row"><span className="k">Оценка аукциона</span><span className="v">★ {(car as any).badge}</span></div>
                 )}
+                {(car as any).auction_name && (
+                  <div className="spec-row"><span className="k">Аукцион</span><span className="v">{(car as any).auction_name}</span></div>
+                )}
+                <div className="spec-row"><span className="k">Лот</span><span className="v" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{car.id}</span></div>
+                <div className="spec-row" style={{ borderBottom: 0 }}><span className="k">Статус</span><span className="v">{auctionStatus}</span></div>
               </div>
 
               {(car as any).auction_sheet_url && (
