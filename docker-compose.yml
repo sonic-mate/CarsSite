@@ -35,6 +35,7 @@ services:
     environment:
       DATABASE_URL: "postgresql://carssite:${DB_PASSWORD:-changeme_dev_only}@db:5432/carssite"
       AJES_API_KEY: "${AJES_API_KEY}"
+      AJES_IP: "${AJES_IP}"
       ADMIN_USER: "${ADMIN_USER}"
       ADMIN_PASS: "${ADMIN_PASS}"
       SECRET_KEY: "${SECRET_KEY}"
