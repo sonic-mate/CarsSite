@@ -607,7 +607,7 @@ async def get_car(car_id: str, db: Session = Depends(get_db),
         if not bid.processed:
             result["photo_url"] = _proxy_url(result.get("photo_url"))
             result["photo_urls"] = [_proxy_url(u) for u in result.get("photo_urls", []) if u]
-        if result.get("auction_type") == 2 and result.get("country") == "japan" and not result.get("auction_sheet_url"):
+        if result.get("country") == "japan" and not result.get("auction_sheet_url") and (result.get("auction_type") == 2 or result.get("auction_type") is None):
             photos = result.get("photo_urls") or []
             if photos:
                 result["auction_sheet_url"] = photos[0]
