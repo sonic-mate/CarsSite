@@ -47,21 +47,28 @@ def reset_daily_limit() -> None:
 def _parse_aj_xml(text: str) -> list[dict]:
     """
     Regex-based parser for avto.jp XML responses.
-    Handles malformed XML (unescaped &, invalid chars in field values).
+    Handles malformed XML (unescaped &, invalid chars, COUNT(*) tags).
     """
     rows = []
     for row_block in _re.finditer(r"<row>(.*?)</row>", text, _re.DOTALL):
         d = {}
-        for field in _re.finditer(r"<([A-Za-z_][A-Za-z0-9_]*)>(.*?)</\1>", row_block.group(1), _re.DOTALL):
+        for field in _re.finditer(r"<([A-Za-z_][A-Za-z0-9_()*]*?)>(.*?)</\1>", row_block.group(1), _re.DOTALL):
             d[field.group(1)] = html.unescape(field.group(2))
         if d:
             rows.append(d)
+
+    # COUNT(*) response: no <row> wrapper, just a single numeric value
+    if not rows:
+        m = _re.search(r"<[^>]+>(\d+)</[^>]+>", text)
+        if m:
+            rows = [{"cnt": m.group(1)}]
+
     return rows
 
 
 # ── Base query ────────────────────────────────────────────────────────────────
 
-async def query(sql: str, label: str = "ajes") -> list | None:
+async def query(sql: str, label: str = "ajes", gzip: bool = True) -> list | None:
     """Execute SQL against ajes API. Returns list of dicts or None on error/limit."""
     global _api_counter, _api_limit, _api_rest, _daily_limit_hit
 
@@ -69,10 +76,11 @@ async def query(sql: str, label: str = "ajes") -> list | None:
         print(f"[{label}] Daily limit hit — skipping query")
         return None
 
+    mode = "gzip" if gzip else "json"
     if API_IP:
-        url = f"http://{API_HOST}/api/?gzip&ip={quote(API_IP)}&code={API_KEY}&sql={quote(sql)}"
+        url = f"http://{API_HOST}/api/?{mode}&ip={quote(API_IP)}&code={API_KEY}&sql={quote(sql)}"
     else:
-        url = f"http://{API_HOST}/api/?gzip&code={API_KEY}&sql={quote(sql)}"
+        url = f"http://{API_HOST}/api/?{mode}&code={API_KEY}&sql={quote(sql)}"
 
     try:
         async with httpx.AsyncClient(timeout=15) as c:
@@ -97,35 +105,28 @@ async def query(sql: str, label: str = "ajes") -> list | None:
             print(f"[{label}] Empty response")
             return None
 
-        print(f"[{label}] raw_bytes len={len(raw_bytes)} hex={raw_bytes[:16].hex()}")
-
-        # Decompress response bytes.
-        # ajes sends gzip with windows-1251 XML inside.
-        # CRC trailer is often wrong — bypass it when needed.
+        # Decompress if gzip mode; plain responses need no decompression
         import zlib as _zlib
-        body = None  # decompressed bytes
-
-        try:
-            body = _gzip.decompress(raw_bytes)
-        except Exception:
-            pass
-
-        if body is None and raw_bytes[:2] == b'\x1f\x8b':
+        if gzip and raw_bytes[:2] == b'\x1f\x8b':
+            body = None
             try:
-                body = _zlib.decompress(raw_bytes[10:], wbits=-15)
-            except Exception as _e:
-                print(f"[{label}] gzip-no-crc failed: {_e}")
-
-        if body is None:
-            try:
-                body = _zlib.decompress(raw_bytes, wbits=47)
+                body = _gzip.decompress(raw_bytes)
             except Exception:
                 pass
-
-        if body is None:
+            if body is None:
+                try:
+                    body = _zlib.decompress(raw_bytes[10:], wbits=-15)
+                except Exception as _e:
+                    print(f"[{label}] gzip-no-crc failed: {_e}")
+            if body is None:
+                try:
+                    body = _zlib.decompress(raw_bytes, wbits=47)
+                except Exception:
+                    pass
+            if body is None:
+                body = raw_bytes
+        else:
             body = raw_bytes
-
-        print(f"[{label}] body len={len(body)} hex={body[:16].hex()}")
 
         # Decode: ajes returns windows-1251 XML
         for enc in ("cp1251", "utf-8"):
@@ -151,11 +152,7 @@ async def query(sql: str, label: str = "ajes") -> list | None:
 
         if stripped.startswith("<"):
             rows = _parse_aj_xml(raw)
-            if rows:
-                r0 = rows[0]
-                print(f"[{label}] parsed {len(rows)} rows | first keys={list(r0.keys())[:8]} | MARKA={r0.get('MARKA_NAME')} START={r0.get('START')} FINISH={r0.get('FINISH')} AVG={r0.get('AVG_PRICE')}")
-            else:
-                print(f"[{label}] parsed 0 rows")
+            print(f"[{label}] parsed {len(rows)} rows")
             return rows
 
         data = _json.loads(raw)
@@ -239,8 +236,8 @@ async def count_table(
     if year_min:
         where.append(f"YEAR>={year_min}")
 
-    sql = f"SELECT COUNT(*) as cnt FROM {table} WHERE {' AND '.join(where)}"
-    data = await query(sql, label=_TABLE_LABEL.get(table, "ajes"))
+    sql = f"SELECT COUNT(*) FROM {table} WHERE {' AND '.join(where)}"
+    data = await query(sql, label=_TABLE_LABEL.get(table, "ajes"), gzip=False)
     if data and isinstance(data[0], dict):
         return int(list(data[0].values())[0])
     return 0
