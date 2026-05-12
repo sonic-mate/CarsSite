@@ -230,6 +230,43 @@ async def fetch_one(table: str, lot_id: str) -> list[dict]:
     return [norm(row, country) for row in data if row]
 
 
+async def fetch_brands(table: str) -> list[dict]:
+    where = "AUCTION_TYPE!=1" if table == "main" else "1=1"
+    sql = f"SELECT MARKA_NAME, COUNT(*) FROM {table} WHERE {where} GROUP BY MARKA_NAME ORDER BY COUNT(*) DESC LIMIT 100"
+    data = await query(sql, label=f"brands/{table}", gzip=False)
+    if not data:
+        return []
+    result = []
+    for r in data:
+        brand = (r.get("MARKA_NAME") or "").strip()
+        cnt_raw = r.get("cnt") or r.get("COUNT(*)") or "0"
+        if brand:
+            try:
+                result.append({"brand": brand, "count": int(cnt_raw)})
+            except (ValueError, TypeError):
+                pass
+    return result
+
+
+async def fetch_colors(table: str) -> list[dict]:
+    where = "AUCTION_TYPE!=1 AND COLOR!=''" if table == "main" else "COLOR!=''"
+    sql = f"SELECT COLOR, COUNT(*) FROM {table} WHERE {where} GROUP BY COLOR ORDER BY COUNT(*) DESC LIMIT 80"
+    data = await query(sql, label=f"colors/{table}", gzip=False)
+    if not data:
+        return []
+    result = []
+    for r in data:
+        raw_color = (r.get("COLOR") or "").strip()
+        cnt_raw = r.get("cnt") or r.get("COUNT(*)") or "0"
+        normalized = color_map.normalize(raw_color)
+        if normalized:
+            try:
+                result.append({"color": normalized, "count": int(cnt_raw)})
+            except (ValueError, TypeError):
+                pass
+    return result
+
+
 async def count_table(
     table: str,
     brand: Optional[str] = None,

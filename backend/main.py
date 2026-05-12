@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import Optional, List
 import os
+import time
 import asyncio
 import datetime
 from contextlib import asynccontextmanager
@@ -344,6 +345,17 @@ async def lifespan(app: FastAPI):
 
 PHOTOS_DIR = os.path.join(os.path.dirname(__file__), "static", "photos")
 
+# ── Metadata cache (brands / colors from ajes) ────────────────────────────────
+_meta_cache: dict = {}
+_META_TTL = 1800  # 30 min
+
+def _meta_get(key: str) -> list | None:
+    e = _meta_cache.get(key)
+    return e[1] if e and time.time() - e[0] < _META_TTL else None
+
+def _meta_set(key: str, data: list) -> None:
+    _meta_cache[key] = (time.time(), data)
+
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(title="Восток Авто Импорт API", version="2.0.0", lifespan=lifespan)
@@ -434,12 +446,36 @@ async def list_cars(request: Request,
 
 @app.get("/api/cars-brands")
 @limiter.limit("30/minute")
-def cars_brands(request: Request, country: Optional[str] = None, db: Session = Depends(get_db)):
-    from sqlalchemy import func
-    q = db.query(AjBid.brand, func.count(AjBid.id).label("cnt")).filter(AjBid.brand.isnot(None))
+async def cars_brands(request: Request, country: Optional[str] = None, db: Session = Depends(get_db)):
+    _TABLE = {"japan": "main", "korea": "korea", "china": "china"}
+    tables = [_TABLE[country]] if country in _TABLE else list(_TABLE.values())
+
+    cache_key = f"brands:{country or 'all'}"
+    cached = _meta_get(cache_key)
+    if cached is not None:
+        return cached
+
+    results = await asyncio.gather(*[ajes_client.fetch_brands(t) for t in tables], return_exceptions=True)
+
+    merged: dict[str, int] = {}
+    for r in results:
+        if isinstance(r, list):
+            for item in r:
+                b = item.get("brand", "")
+                if b:
+                    merged[b] = merged.get(b, 0) + item.get("count", 0)
+
+    if merged:
+        data = sorted([{"brand": b, "count": c} for b, c in merged.items()], key=lambda x: -x["count"])
+        _meta_set(cache_key, data)
+        return data
+
+    # Fallback to aj_bids
+    from sqlalchemy import func as _func
+    q = db.query(AjBid.brand, _func.count(AjBid.id).label("cnt")).filter(AjBid.brand.isnot(None))
     if country:
         q = q.filter(AjBid.country == country)
-    rows = q.group_by(AjBid.brand).order_by(func.count(AjBid.id).desc()).limit(100).all()
+    rows = q.group_by(AjBid.brand).order_by(_func.count(AjBid.id).desc()).limit(100).all()
     return [{"brand": r.brand, "count": r.cnt} for r in rows if r.brand]
 
 
@@ -458,21 +494,43 @@ def cars_models(request: Request, brand: str, country: Optional[str] = None, db:
 
 @app.get("/api/cars-colors")
 @limiter.limit("30/minute")
-def cars_colors(request: Request, country: Optional[str] = None, db: Session = Depends(get_db)):
-    from sqlalchemy import text
-    sql = """
+async def cars_colors(request: Request, country: Optional[str] = None, db: Session = Depends(get_db)):
+    _TABLE = {"japan": "main", "korea": "korea", "china": "china"}
+    tables = [_TABLE[country]] if country in _TABLE else ["main"]  # default: Japan only
+
+    cache_key = f"colors:{country or 'all'}"
+    cached = _meta_get(cache_key)
+    if cached is not None:
+        return cached
+
+    results = await asyncio.gather(*[ajes_client.fetch_colors(t) for t in tables], return_exceptions=True)
+
+    merged: dict[str, int] = {}
+    for r in results:
+        if isinstance(r, list):
+            for item in r:
+                c = item.get("color", "")
+                if c:
+                    merged[c] = merged.get(c, 0) + item.get("count", 0)
+
+    if merged:
+        data = sorted([{"color": c, "count": cnt} for c, cnt in merged.items()], key=lambda x: -x["count"])
+        _meta_set(cache_key, data)
+        return data
+
+    # Fallback: extract from data_json
+    sql_fb = """
         SELECT data_json::json->>'color' AS color, COUNT(*) AS cnt
-        FROM aj_bids
-        WHERE data_json IS NOT NULL
+        FROM aj_bids WHERE data_json IS NOT NULL
           AND data_json::json->>'color' IS NOT NULL
           AND trim(data_json::json->>'color') != ''
     """
     params: dict = {}
     if country:
-        sql += " AND country = :country"
+        sql_fb += " AND country = :country"
         params["country"] = country
-    sql += " GROUP BY data_json::json->>'color' ORDER BY cnt DESC LIMIT 50"
-    rows = db.execute(text(sql), params).fetchall()
+    sql_fb += " GROUP BY data_json::json->>'color' ORDER BY cnt DESC LIMIT 50"
+    rows = db.execute(text(sql_fb), params).fetchall()
     return [{"color": r.color, "count": r.cnt} for r in rows if r.color]
 
 
