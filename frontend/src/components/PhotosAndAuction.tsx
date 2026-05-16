@@ -173,21 +173,23 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
   );
 }
 
-export default function PhotosAndAuction({ photoUrls, alt, car }: Props) {
-  const hasPhotos = photoUrls.length > 0;
+const Silhouette = ({ car }: { car: AuctionInfo }) => (
+  <div className="gallery-main" style={{ background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}>
+    <div style={{ aspectRatio: "16/10", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 10% 8%" }}>
+      <CarSilhouette kind={car.silhouette} w={480}/>
+    </div>
+  </div>
+);
 
+export default function PhotosAndAuction({ photoUrls, alt, car }: Props) {
   return (
     <div>
-      {hasPhotos
-        ? <PhotoGallery urls={photoUrls} alt={alt} bg={car.photo_tint}/>
-        : (
-          <div className="gallery-main" style={{ background: `radial-gradient(ellipse at 50% 70%, ${car.photo_tint} 0%, #08090C 100%)` }}>
-            <div style={{ aspectRatio: "16/10", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 10% 8%" }}>
-              <CarSilhouette kind={car.silhouette} w={480}/>
-            </div>
-          </div>
-        )
-      }
+      <PhotoGallery
+        urls={photoUrls}
+        alt={alt}
+        bg={car.photo_tint}
+        fallback={<Silhouette car={car}/>}
+      />
     </div>
   );
 }

@@ -5,9 +5,10 @@ interface Props {
   urls: string[];
   alt: string;
   bg?: string;
+  fallback?: React.ReactNode;
 }
 
-export default function PhotoGallery({ urls, alt, bg }: Props) {
+export default function PhotoGallery({ urls, alt, bg, fallback }: Props) {
   const [failed, setFailed] = useState<Set<number>>(new Set());
   const validUrls = urls.filter((_, i) => !failed.has(i));
   const [active, setActive] = useState(0);
@@ -44,7 +45,7 @@ export default function PhotoGallery({ urls, alt, bg }: Props) {
     };
   }, [lightbox, prev, next]);
 
-  if (validUrls.length === 0) return null;
+  if (validUrls.length === 0) return <>{fallback ?? null}</>;
 
   const clampedActive = Math.min(active, validUrls.length - 1);
 
