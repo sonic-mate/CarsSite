@@ -238,6 +238,27 @@ def _save_to_aj_bids(lot_id: str, car_data: dict) -> None:
         db.close()
 
 
+# Perceptual hash of the ajes NO FOTO placeholder image (dhash, 8x8)
+_NOFOTO_DHASH = 0xfe6ece8c9a94b0e0
+_NOFOTO_THRESHOLD = 15  # hamming distance ≤ this → treat as placeholder
+
+
+def _is_nofoto_image(data: bytes) -> bool:
+    """Return True if image matches the ajes NO FOTO placeholder by perceptual hash."""
+    try:
+        from PIL import Image
+        import io as _io
+        img = Image.open(_io.BytesIO(data)).convert("L").resize((9, 8), Image.LANCZOS)
+        pixels = list(img.getdata())
+        h = 0
+        for row in range(8):
+            for col in range(8):
+                h = (h << 1) | (1 if pixels[row * 9 + col] > pixels[row * 9 + col + 1] else 0)
+        return bin(h ^ _NOFOTO_DHASH).count("1") <= _NOFOTO_THRESHOLD
+    except Exception:
+        return False
+
+
 async def _download_photos_for_bid(bid: AjBid) -> bool:
     """Download and cache photos for one bid. Returns True on success."""
     import json as _json, httpx
@@ -273,17 +294,27 @@ async def _download_photos_for_bid(bid: AjBid) -> bool:
         lot_dir = os.path.join(PHOTOS_DIR, bid.lot_id)
         os.makedirs(lot_dir, exist_ok=True)
         local_urls = []
+        nofoto_skipped = 0
 
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
             for idx, url in enumerate(orig_urls[:5]):
                 ext = "jpg"
                 local_path = os.path.join(lot_dir, f"{idx}.{ext}")
                 if os.path.exists(local_path):
+                    with open(local_path, "rb") as fh:
+                        cached = fh.read()
+                    if _is_nofoto_image(cached):
+                        os.remove(local_path)
+                        nofoto_skipped += 1
+                        continue
                     local_urls.append(f"/api/photos/{bid.lot_id}/{idx}.{ext}")
                     continue
                 try:
                     r = await client.get(url, headers={"Referer": "https://ajes.com/"})
                     if r.status_code != 200 or len(r.content) < 5000:
+                        continue
+                    if _is_nofoto_image(r.content):
+                        nofoto_skipped += 1
                         continue
                     loop = asyncio.get_event_loop()
                     content, _ = await loop.run_in_executor(None, _compress_image, r.content, "")
@@ -304,6 +335,20 @@ async def _download_photos_for_bid(bid: AjBid) -> bool:
                     synchronize_session=False,
                 )
                 db.commit()
+            finally:
+                db.close()
+        elif nofoto_skipped > 0 and nofoto_skipped >= len(orig_urls):
+            # All photos were NO FOTO placeholders — mark processed with empty list
+            db = SessionLocal()
+            try:
+                data = _json.loads(bid.data_json or "{}")
+                data["photo_urls"] = []
+                db.query(AjBid).filter(AjBid.id == bid.id).update(
+                    {"processed": True, "data_json": _json.dumps(data)},
+                    synchronize_session=False,
+                )
+                db.commit()
+                print(f"[nofoto] all photos placeholder for {bid.lot_id}, cleared photo_urls")
             finally:
                 db.close()
         return True
