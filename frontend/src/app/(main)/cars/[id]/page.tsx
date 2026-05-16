@@ -86,10 +86,10 @@ function AuctionSheetSection({ sheetUrl }: { sheetUrl: string }) {
   return (
     <div style={{ marginTop: 48 }}>
       <h3 style={{ marginBottom: 24 }}>Аукционный лист</h3>
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, alignItems: "start" }}>
-        <div style={{ background: "#13151c", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "var(--r)", overflow: "hidden" }}>
-          <a href={sheetUrl} target="_blank" rel="noopener noreferrer">
-            <img src={sheetUrl} alt="Аукционный лист" style={{ width: "100%", height: "auto", display: "block" }}/>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "stretch" }}>
+        <div style={{ background: "#13151c", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "var(--r)", overflow: "hidden", display: "flex" }}>
+          <a href={sheetUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", width: "100%" }}>
+            <img src={sheetUrl} alt="Аукционный лист" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}/>
           </a>
         </div>
         <div style={{ background: "#13151c", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "var(--r)", padding: 24 }}>
