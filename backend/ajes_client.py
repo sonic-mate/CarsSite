@@ -526,7 +526,11 @@ def norm(i: dict, country: str) -> dict:
     all_parts = [p.strip() for p in (raw_images or "").split("#") if p.strip()]
     all_urls  = [u for p in all_parts if (u := _photo_url(p, size="&w=320"))]
 
-    if country == "japan" and auction_type == 2 and len(all_urls) > 1:
+    # List query returns &h=50 previews (car photos only, no sheet).
+    # By-ID query returns full URLs without size suffix — first is auction sheet.
+    is_full_query = not any("&h=50" in p for p in all_parts)
+
+    if country == "japan" and auction_type == 2 and len(all_urls) > 1 and is_full_query:
         auction_sheet_url = _photo_url(all_parts[0], size="")
         photo_urls = all_urls[1:]
     else:

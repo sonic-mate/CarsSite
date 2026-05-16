@@ -607,6 +607,9 @@ async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> None:
         sheet_url = ajes_client._photo_url(all_parts[0], size="")
         if not sheet_url:
             return
+        car_parts = all_parts[1:]
+        car_urls = [u for p in car_parts if (u := ajes_client._photo_url(p, size="&w=320"))]
+
         db = SessionLocal()
         try:
             bid = db.query(AjBid).filter(AjBid.id == bid_id).first()
@@ -615,12 +618,22 @@ async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> None:
             data = _json.loads(bid.data_json)
             data["auction_sheet_url"] = sheet_url
             data["auction_type"] = atype
+
+            update_fields: dict = {"data_json": _json.dumps(data)}
+
+            # Fix photo_urls for unprocessed bids miscached from list query (≤1 photo)
+            existing = data.get("photo_urls") or []
+            if not bid.processed and car_urls and len(existing) <= 1:
+                data["photo_urls"] = [_proxy_url(u) for u in car_urls if u]
+                data["photo_url"] = data["photo_urls"][0] if data["photo_urls"] else data.get("photo_url")
+                update_fields["data_json"] = _json.dumps(data)
+                update_fields["photo_urls_orig"] = _json.dumps(car_urls)
+
             db.query(AjBid).filter(AjBid.id == bid_id).update(
-                {"data_json": _json.dumps(data)},
-                synchronize_session=False,
+                update_fields, synchronize_session=False,
             )
             db.commit()
-            print(f"[sheet-fetch] stored sheet for {lot_id}: {sheet_url[:60]}")
+            print(f"[sheet-fetch] stored sheet for {lot_id}: {sheet_url[:60]}, car_photos={len(car_urls)}")
         finally:
             db.close()
     except Exception as e:
@@ -642,7 +655,12 @@ async def get_car(car_id: str, db: Session = Depends(get_db),
             result["photo_url"] = _proxy_url(result.get("photo_url"))
             result["photo_urls"] = [_proxy_url(u) for u in result.get("photo_urls", []) if u]
         _sheet = result.get("auction_sheet_url") or ""
-        if result.get("country") == "japan" and background_tasks is not None and (not _sheet or _sheet.startswith("/static/")):
+        _atype = result.get("auction_type", 0)
+        _nphoto = len(result.get("photo_urls") or [])
+        _wrong_list_cache = _atype == 2 and _nphoto <= 1
+        if result.get("country") == "japan" and background_tasks is not None and (
+            not _sheet or _sheet.startswith("/static/") or _wrong_list_cache
+        ):
             background_tasks.add_task(_fetch_and_store_auction_sheet, car_id, bid.id)
         return result
 
