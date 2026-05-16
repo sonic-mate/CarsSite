@@ -82,17 +82,25 @@ const DAMAGE_LEGEND = [
   { code: "C2", label: "Заметная коррозия" },
 ];
 
-function AuctionSheetSection({ sheetUrl }: { sheetUrl: string }) {
+function AuctionSheetSection({ sheetUrl }: { sheetUrl: string | null }) {
+  const hasImage = !!sheetUrl;
   return (
     <div style={{ marginTop: 48 }}>
       <h3 style={{ marginBottom: 24 }}>Аукционный лист</h3>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "stretch" }}>
-        <div style={{ background: "#13151c", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "var(--r)", overflow: "hidden", display: "flex" }}>
-          <a href={sheetUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", width: "100%" }}>
-            <img src={sheetUrl} alt="Аукционный лист" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}/>
-          </a>
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: hasImage ? "1fr 1fr" : "1fr", gap: 16, alignItems: "stretch" }}>
+        {hasImage && (
+          <div style={{ background: "#13151c", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "var(--r)", overflow: "hidden", display: "flex" }}>
+            <a href={sheetUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", width: "100%" }}>
+              <img src={sheetUrl} alt="Аукционный лист" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}/>
+            </a>
+          </div>
+        )}
         <div style={{ background: "#13151c", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "var(--r)", padding: 24 }}>
+          {!hasImage && (
+            <div style={{ fontSize: 12, color: "rgba(245,243,238,0.35)", marginBottom: 16, fontStyle: "italic" }}>
+              Изображение аукционного листа для этого лота недоступно
+            </div>
+          )}
           <div style={{ fontSize: 10, letterSpacing: "0.2em", color: "#c8a45c", fontWeight: 700, textTransform: "uppercase", marginBottom: 20 }}>
             Обозначения повреждений
           </div>
@@ -229,8 +237,8 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                 <div className="spec-row" style={{ borderBottom: 0 }}><span className="k">Статус</span><span className="v">{auctionStatus}</span></div>
               </div>
 
-              {(car as any).auction_sheet_url && (
-                <AuctionSheetSection sheetUrl={(car as any).auction_sheet_url} />
+              {car.country === "japan" && (
+                <AuctionSheetSection sheetUrl={(car as any).auction_sheet_url ?? null} />
               )}
             </div>
 
