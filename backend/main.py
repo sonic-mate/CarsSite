@@ -283,7 +283,7 @@ async def _download_photos_for_bid(bid: AjBid) -> bool:
                     continue
                 try:
                     r = await client.get(url, headers={"Referer": "https://ajes.com/"})
-                    if r.status_code != 200:
+                    if r.status_code != 200 or len(r.content) < 5000:
                         continue
                     loop = asyncio.get_event_loop()
                     content, _ = await loop.run_in_executor(None, _compress_image, r.content, "")
@@ -641,7 +641,8 @@ async def get_car(car_id: str, db: Session = Depends(get_db),
         if not bid.processed:
             result["photo_url"] = _proxy_url(result.get("photo_url"))
             result["photo_urls"] = [_proxy_url(u) for u in result.get("photo_urls", []) if u]
-        if result.get("country") == "japan" and not result.get("auction_sheet_url") and background_tasks is not None:
+        _sheet = result.get("auction_sheet_url") or ""
+        if result.get("country") == "japan" and background_tasks is not None and (not _sheet or _sheet.startswith("/static/")):
             background_tasks.add_task(_fetch_and_store_auction_sheet, car_id, bid.id)
         return result
 
@@ -779,9 +780,13 @@ async def img_proxy(request: Request, url: str):
     webp = "image/webp" in accept
     cache_path = _img_cache_path(url, webp)
 
+    _MIN_PHOTO_BYTES = 5000
+
     if os.path.exists(cache_path):
         with open(cache_path, "rb") as f:
             cached = f.read()
+        if len(cached) < _MIN_PHOTO_BYTES:
+            raise HTTPException(status_code=404, detail="Placeholder image")
         ct = "image/webp" if webp else "image/jpeg"
         return Response(content=cached, media_type=ct,
             headers={"Cache-Control": "public, max-age=604800", "X-Cache": "HIT"})
@@ -792,6 +797,8 @@ async def img_proxy(request: Request, url: str):
             r = await c.get(url, headers={"Referer": "https://ajes.com/"})
             if r.status_code != 200:
                 raise HTTPException(status_code=502, detail="Upstream error")
+            if len(r.content) < _MIN_PHOTO_BYTES:
+                raise HTTPException(status_code=404, detail="Placeholder image")
         loop = asyncio.get_event_loop()
         content, content_type = await loop.run_in_executor(None, _compress_image, r.content, accept)
         try:

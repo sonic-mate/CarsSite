@@ -8,11 +8,26 @@ interface Props {
 }
 
 export default function PhotoGallery({ urls, alt, bg }: Props) {
+  const [failed, setFailed] = useState<Set<number>>(new Set());
+  const validUrls = urls.filter((_, i) => !failed.has(i));
   const [active, setActive] = useState(0);
   const [lightbox, setLightbox] = useState(false);
 
-  const prev = useCallback(() => setActive(i => (i - 1 + urls.length) % urls.length), [urls.length]);
-  const next = useCallback(() => setActive(i => (i + 1) % urls.length), [urls.length]);
+  useEffect(() => { setActive(0); setFailed(new Set()); }, [urls]);
+
+  const onError = useCallback((i: number) => {
+    setFailed(prev => {
+      const next = new Set(prev).add(i);
+      return next;
+    });
+    setActive(a => {
+      const newValid = urls.filter((_, j) => j !== i && !failed.has(j));
+      return Math.min(a, Math.max(0, newValid.length - 1));
+    });
+  }, [urls, failed]);
+
+  const prev = useCallback(() => setActive(i => (i - 1 + validUrls.length) % validUrls.length), [validUrls.length]);
+  const next = useCallback(() => setActive(i => (i + 1) % validUrls.length), [validUrls.length]);
 
   useEffect(() => {
     if (!lightbox) return;
@@ -29,7 +44,9 @@ export default function PhotoGallery({ urls, alt, bg }: Props) {
     };
   }, [lightbox, prev, next]);
 
-  if (urls.length === 0) return null;
+  if (validUrls.length === 0) return null;
+
+  const clampedActive = Math.min(active, validUrls.length - 1);
 
   const bgStyle = bg
     ? { background: `radial-gradient(ellipse at 50% 70%, ${bg} 0%, #08090C 100%)` }
@@ -39,24 +56,26 @@ export default function PhotoGallery({ urls, alt, bg }: Props) {
     <>
       <div className="gallery-main" style={bgStyle}>
         <img
-          src={urls[active]}
+          src={validUrls[clampedActive]}
           alt={alt}
           onClick={() => setLightbox(true)}
+          onError={() => onError(urls.indexOf(validUrls[clampedActive]))}
           style={{ display: "block", width: "100%", height: "auto", cursor: "zoom-in" }}
         />
       </div>
 
-      {urls.length > 1 && (
+      {validUrls.length > 1 && (
         <div className="gallery-thumbs">
-          {urls.map((url, i) => (
+          {validUrls.map((url, i) => (
             <div
-              key={i}
-              className={`gallery-thumb${i === active ? " active" : ""}`}
+              key={url}
+              className={`gallery-thumb${i === clampedActive ? " active" : ""}`}
               onClick={() => setActive(i)}
             >
               <img
                 src={url}
                 alt={`фото ${i + 1}`}
+                onError={() => onError(urls.indexOf(url))}
                 style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
               />
             </div>
@@ -74,7 +93,7 @@ export default function PhotoGallery({ urls, alt, bg }: Props) {
           }}
         >
           <img
-            src={urls[active]}
+            src={validUrls[clampedActive]}
             alt={alt}
             onClick={e => e.stopPropagation()}
             style={{
@@ -86,7 +105,7 @@ export default function PhotoGallery({ urls, alt, bg }: Props) {
             }}
           />
 
-          {urls.length > 1 && (
+          {validUrls.length > 1 && (
             <>
               <button
                 onClick={e => { e.stopPropagation(); prev(); }}
@@ -112,13 +131,13 @@ export default function PhotoGallery({ urls, alt, bg }: Props) {
             aria-label="Закрыть"
           >×</button>
 
-          {urls.length > 1 && (
+          {validUrls.length > 1 && (
             <div style={{
               position: "absolute", bottom: 16,
               fontSize: 13, color: "rgba(255,255,255,0.5)",
               pointerEvents: "none",
             }}>
-              {active + 1} / {urls.length}
+              {clampedActive + 1} / {validUrls.length}
             </div>
           )}
         </div>
