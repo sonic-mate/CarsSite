@@ -1235,6 +1235,40 @@ def delete_user(user_id: int, db: Session = Depends(get_db), me: str = Depends(_
     return {"ok": True}
 
 
+@app.post("/api/admin/fix-japan-sheets")
+async def fix_japan_sheets(_: str = Depends(_require_admin)):
+    """Bulk-fix japan TYPE=2 bids with wrong/missing auction_sheet_url or too few photos."""
+    import json as _json
+    db = SessionLocal()
+    try:
+        bids = db.query(AjBid).filter(
+            AjBid.lot_id.like("jp-%"),
+            AjBid.data_json.isnot(None),
+        ).all()
+    finally:
+        db.close()
+
+    needs_fix = []
+    for bid in bids:
+        try:
+            data = _json.loads(bid.data_json)
+        except Exception:
+            continue
+        if data.get("country") != "japan":
+            continue
+        atype = data.get("auction_type", 0)
+        sheet = data.get("auction_sheet_url") or ""
+        nphoto = len(data.get("photo_urls") or [])
+        wrong = (not sheet) or sheet.startswith("/static/") or (atype == 2 and nphoto <= 1)
+        if wrong:
+            needs_fix.append((bid.lot_id, bid.id))
+
+    for lot_id, bid_id in needs_fix:
+        await _fetch_and_store_auction_sheet(lot_id, bid_id)
+
+    return {"fixed": len(needs_fix), "total_japan": len(bids)}
+
+
 @app.get("/health")
 def health(db: Session = Depends(get_db)):
     try:
