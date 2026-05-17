@@ -234,7 +234,7 @@ async def fetch_one(table: str, lot_id: str) -> list[dict]:
     if lot_id.isdigit():
         sql = f"SELECT * FROM {table} WHERE LOT={lot_id}"
     else:
-        sql = f"SELECT * FROM {table} WHERE ID='{lot_id}'"
+        sql = f"SELECT * FROM {table} WHERE id='{lot_id}'"
     data = await query(sql, label=_TABLE_LABEL.get(table, "ajes"))
     if not data:
         return []
