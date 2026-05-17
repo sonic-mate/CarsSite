@@ -609,12 +609,9 @@ async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> None:
             return
         import httpx as _httpx
         try:
-            async with _httpx.AsyncClient(timeout=10, follow_redirects=True) as _hc:
-                _hr = await _hc.head(sheet_url, headers={"Referer": "https://ajes.com/"})
-                _size = int(_hr.headers.get("content-length", 0))
-                if _size == 0:
-                    _gr = await _hc.get(sheet_url, headers={"Referer": "https://ajes.com/"})
-                    _size = len(_gr.content)
+            async with _httpx.AsyncClient(timeout=15, follow_redirects=True) as _hc:
+                _gr = await _hc.get(sheet_url, headers={"Referer": "https://ajes.com/"})
+                _size = len(_gr.content)
             if _size < 10_000:
                 print(f"[sheet-fetch] skip NO FOTO sheet for {lot_id}: {_size}b")
                 return
