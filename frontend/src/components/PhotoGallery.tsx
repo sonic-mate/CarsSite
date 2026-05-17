@@ -63,7 +63,7 @@ export default function PhotoGallery({ urls, alt, bg, fallback }: Props) {
     <>
       <div className="gallery-main" style={bgStyle}>
         <img
-          src={validUrls[clampedActive]}
+          src={toBigUrl(validUrls[clampedActive])}
           alt={alt}
           onClick={() => setLightbox(true)}
           onError={() => onError(urls.indexOf(validUrls[clampedActive]))}
