@@ -87,7 +87,7 @@ function AuctionSheetSection({ sheetUrl }: { sheetUrl: string | null }) {
   return (
     <div style={{ marginTop: 48 }}>
       <h3 style={{ marginBottom: 24 }}>Аукционный лист</h3>
-      <div style={{ display: "grid", gridTemplateColumns: hasImage ? "1fr 1fr" : "1fr", gap: 16, alignItems: "stretch" }}>
+      <div className="auction-sheet-grid" style={{ display: "grid", gridTemplateColumns: hasImage ? "1fr 1fr" : "1fr", gap: 16, alignItems: "stretch" }}>
         {hasImage && (
           <div style={{ background: "#13151c", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "var(--r)", overflow: "hidden", display: "flex" }}>
             <a href={sheetUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", width: "100%" }}>
