@@ -275,7 +275,7 @@ async def _download_photos_for_bid(bid: AjBid) -> bool:
         local_urls = []
 
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-            for idx, url in enumerate(orig_urls[:5]):
+            for idx, url in enumerate(orig_urls):
                 ext = "jpg"
                 local_path = os.path.join(lot_dir, f"{idx}.{ext}")
                 if os.path.exists(local_path):
@@ -670,6 +670,9 @@ async def get_car(car_id: str, db: Session = Depends(get_db),
         elif bid.photo_urls_orig:
             orig = _json.loads(bid.photo_urls_orig or "[]")
             result["photo_urls_ajes"] = [_proxy_url(u) for u in orig if u]
+            local = result.get("photo_urls") or []
+            if len(local) < len(orig):
+                result["photo_urls"] = local + [_proxy_url(u) for u in orig[len(local):] if u]
         _sheet = result.get("auction_sheet_url") or ""
         _atype = result.get("auction_type", 0)
         _nphoto = len(result.get("photo_urls") or [])

@@ -172,6 +172,7 @@ export default async function CarDetailPage({ params }: { params: { id: string }
               <PhotosAndAuction
                 photoUrls={photoUrls}
                 photoUrlsAjes={(car as any).photo_urls_ajes}
+                auctionSheetUrl={(car as any).auction_sheet_url ?? null}
                 alt={`${car.brand} ${car.model}`}
                 car={{
                   id: car.id,
