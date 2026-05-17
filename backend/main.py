@@ -593,20 +593,21 @@ async def count_cars(request: Request,
     return await aggregator.count(country=country, brand=brand, model=model, year_min=year_min)
 
 
-async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> None:
+async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> str | None:
+    """Returns validated sheet_url on success, None otherwise."""
     import json as _json
     try:
         raw_id = lot_id.split("-", 1)[1] if "-" in lot_id else lot_id
         full = await ajes_client.query(f"SELECT * FROM main WHERE id='{raw_id}'", label="sheet-fetch")
         if not full or not full[0].get("IMAGES"):
-            return
+            return None
         all_parts = [p.strip() for p in full[0]["IMAGES"].split("#") if p.strip()]
         atype = int(full[0].get("AUCTION_TYPE", 0) or 0)
         if atype != 2 or not all_parts:
-            return
+            return None
         sheet_url = ajes_client._photo_url(all_parts[0], size="")
         if not sheet_url:
-            return
+            return None
         import httpx as _httpx
         try:
             async with _httpx.AsyncClient(timeout=10, follow_redirects=True) as _hc:
@@ -618,9 +619,9 @@ async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> None:
             # NO FOTO placeholder is 166b HTML redirect; real sheets are JPEG (start with \xff\xd8)
             if len(_data) < 100 or not _data[:3] == b'\xff\xd8\xff':
                 print(f"[sheet-fetch] skip NO FOTO sheet for {lot_id}: {len(_data)}b")
-                return
+                return None
         except Exception:
-            pass
+            return None
         car_parts = all_parts[1:]
         car_urls = [u for p in car_parts if (u := ajes_client._photo_url(p, size="&w=320"))]
 
@@ -628,7 +629,7 @@ async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> None:
         try:
             bid = db.query(AjBid).filter(AjBid.id == bid_id).first()
             if not bid or not bid.data_json:
-                return
+                return sheet_url
             data = _json.loads(bid.data_json)
             data["auction_sheet_url"] = sheet_url
             data["auction_type"] = atype
@@ -650,8 +651,10 @@ async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> None:
             print(f"[sheet-fetch] stored sheet for {lot_id}: {sheet_url[:60]}, car_photos={len(car_urls)}")
         finally:
             db.close()
+        return sheet_url
     except Exception as e:
         print(f"[sheet-fetch] error {lot_id}: {e}")
+        return None
 
 
 # ─── Car detail ───────────────────────────────────────────────────────────────
@@ -678,10 +681,12 @@ async def get_car(car_id: str, db: Session = Depends(get_db),
         _atype = result.get("auction_type", 0)
         _nphoto = len(result.get("photo_urls") or [])
         _wrong_list_cache = _atype == 2 and _nphoto <= 1
-        if result.get("country") == "japan" and background_tasks is not None and (
+        if result.get("country") == "japan" and (
             not _sheet or _sheet.startswith("/static/") or _wrong_list_cache
         ):
-            background_tasks.add_task(_fetch_and_store_auction_sheet, car_id, bid.id)
+            fetched = await _fetch_and_store_auction_sheet(car_id, bid.id)
+            if fetched:
+                result["auction_sheet_url"] = fetched
         return result
 
     car = await aggregator.get_by_id(car_id)
