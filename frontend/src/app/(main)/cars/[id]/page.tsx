@@ -239,9 +239,6 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                 <div className="spec-row" style={{ borderBottom: 0 }}><span className="k">Статус</span><span className="v">{auctionStatus}</span></div>
               </div>
 
-              {car.country === "japan" && (
-                <AuctionSheetSection sheetUrl={(car as any).auction_sheet_url ?? null} />
-              )}
             </div>
 
             <div>
@@ -290,6 +287,10 @@ export default async function CarDetailPage({ params }: { params: { id: string }
               </div>
             </div>
           </div>
+
+          {car.country === "japan" && (
+            <AuctionSheetSection sheetUrl={(car as any).auction_sheet_url ?? null} />
+          )}
         </div>
       </section>
 
