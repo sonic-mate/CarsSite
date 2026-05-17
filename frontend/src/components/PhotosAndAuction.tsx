@@ -185,7 +185,7 @@ const Silhouette = ({ car }: { car: AuctionInfo }) => (
 
 export default function PhotosAndAuction({ photoUrls, photoUrlsAjes, auctionSheetUrl, alt, car }: Props) {
   const galleryUrls = auctionSheetUrl
-    ? [...photoUrls, auctionSheetUrl + "&w=320"]
+    ? [...photoUrls, auctionSheetUrl]
     : photoUrls;
   const galleryUrlsBig = auctionSheetUrl
     ? [...(photoUrlsAjes ?? photoUrls), auctionSheetUrl]

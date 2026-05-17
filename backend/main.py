@@ -687,6 +687,8 @@ async def get_car(car_id: str, db: Session = Depends(get_db),
             fetched = await _fetch_and_store_auction_sheet(car_id, bid.id)
             if fetched:
                 result["auction_sheet_url"] = fetched
+        if result.get("auction_sheet_url"):
+            result["auction_sheet_url"] = _proxy_url(result["auction_sheet_url"])
         return result
 
     car = await aggregator.get_by_id(car_id)
