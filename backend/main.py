@@ -191,8 +191,8 @@ async def _daily_limit_reset_loop():
 def _proxy_url(url: str | None) -> str | None:
     if not url:
         return None
-    if url.startswith("/api/img-proxy"):
-        return url  # already proxied
+    if url.startswith("/"):
+        return url  # local path — no proxy needed
     from urllib.parse import quote
     return f"/api/img-proxy?url={quote(url, safe='')}"
 
@@ -594,8 +594,27 @@ async def count_cars(request: Request,
 
 
 async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> str | None:
-    """Returns validated sheet_url on success, None otherwise."""
+    """Downloads auction sheet locally. Returns /api/photos/{lot_id}/sheet.jpg or None."""
     import json as _json
+    local_path = os.path.join(PHOTOS_DIR, lot_id, "sheet.jpg")
+    local_url = f"/api/photos/{lot_id}/sheet.jpg"
+
+    # Already downloaded — just ensure DB is up to date
+    if os.path.exists(local_path) and os.path.getsize(local_path) > 10_000:
+        db = SessionLocal()
+        try:
+            bid = db.query(AjBid).filter(AjBid.id == bid_id).first()
+            if bid and bid.data_json:
+                data = _json.loads(bid.data_json)
+                if data.get("auction_sheet_url") != local_url:
+                    data["auction_sheet_url"] = local_url
+                    db.query(AjBid).filter(AjBid.id == bid_id).update(
+                        {"data_json": _json.dumps(data)}, synchronize_session=False)
+                    db.commit()
+        finally:
+            db.close()
+        return local_url
+
     try:
         raw_id = lot_id.split("-", 1)[1] if "-" in lot_id else lot_id
         full = await ajes_client.query(f"SELECT * FROM main WHERE id='{raw_id}'", label="sheet-fetch")
@@ -608,20 +627,34 @@ async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> str | None
         sheet_url = ajes_client._photo_url(all_parts[0], size="")
         if not sheet_url:
             return None
+
         import httpx as _httpx
         try:
-            async with _httpx.AsyncClient(timeout=10, follow_redirects=True) as _hc:
-                _gr = await _hc.get(
+            async with _httpx.AsyncClient(timeout=30, follow_redirects=True) as _hc:
+                # Probe first 1KB to validate JPEG before downloading full image
+                _probe = await _hc.get(
                     sheet_url,
                     headers={"Referer": "https://ajes.com/", "Range": "bytes=0-999"},
                 )
-                _data = _gr.content
-            # NO FOTO placeholder is 166b HTML redirect; real sheets are JPEG (start with \xff\xd8)
-            if len(_data) < 100 or not _data[:3] == b'\xff\xd8\xff':
-                print(f"[sheet-fetch] skip NO FOTO sheet for {lot_id}: {len(_data)}b")
-                return None
+                _probe_data = _probe.content
+                if len(_probe_data) < 100 or _probe_data[:3] != b'\xff\xd8\xff':
+                    print(f"[sheet-fetch] skip NO FOTO sheet for {lot_id}: {len(_probe_data)}b")
+                    return None
+                # If server ignored Range header and returned full image
+                if _probe.status_code == 200 and len(_probe_data) > 10_000:
+                    _full_data = _probe_data
+                else:
+                    _r = await _hc.get(sheet_url, headers={"Referer": "https://ajes.com/"})
+                    if _r.status_code != 200 or len(_r.content) < 10_000:
+                        return None
+                    _full_data = _r.content
         except Exception:
             return None
+
+        os.makedirs(os.path.join(PHOTOS_DIR, lot_id), exist_ok=True)
+        with open(local_path, "wb") as f:
+            f.write(_full_data)
+
         car_parts = all_parts[1:]
         car_urls = [u for p in car_parts if (u := ajes_client._photo_url(p, size="&w=320"))]
 
@@ -629,14 +662,13 @@ async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> str | None
         try:
             bid = db.query(AjBid).filter(AjBid.id == bid_id).first()
             if not bid or not bid.data_json:
-                return sheet_url
+                return local_url
             data = _json.loads(bid.data_json)
-            data["auction_sheet_url"] = sheet_url
+            data["auction_sheet_url"] = local_url
             data["auction_type"] = atype
 
             update_fields: dict = {"data_json": _json.dumps(data)}
 
-            # Fix photo_urls for unprocessed bids miscached from list query (≤1 photo)
             existing = data.get("photo_urls") or []
             if not bid.processed and car_urls and len(existing) <= 1:
                 data["photo_urls"] = [_proxy_url(u) for u in car_urls if u]
@@ -648,10 +680,10 @@ async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> str | None
                 update_fields, synchronize_session=False,
             )
             db.commit()
-            print(f"[sheet-fetch] stored sheet for {lot_id}: {sheet_url[:60]}, car_photos={len(car_urls)}")
+            print(f"[sheet-fetch] saved sheet locally for {lot_id}: {len(_full_data)}b, car_photos={len(car_urls)}")
         finally:
             db.close()
-        return sheet_url
+        return local_url
     except Exception as e:
         print(f"[sheet-fetch] error {lot_id}: {e}")
         return None
@@ -682,13 +714,11 @@ async def get_car(car_id: str, db: Session = Depends(get_db),
         _nphoto = len(result.get("photo_urls") or [])
         _wrong_list_cache = _atype == 2 and _nphoto <= 1
         if result.get("country") == "japan" and (
-            not _sheet or _sheet.startswith("/static/") or _wrong_list_cache
+            not _sheet or _sheet.startswith("/static/") or _sheet.startswith("http") or _wrong_list_cache
         ):
             fetched = await _fetch_and_store_auction_sheet(car_id, bid.id)
             if fetched:
                 result["auction_sheet_url"] = fetched
-        if result.get("auction_sheet_url"):
-            result["auction_sheet_url"] = _proxy_url(result["auction_sheet_url"])
         return result
 
     car = await aggregator.get_by_id(car_id)
