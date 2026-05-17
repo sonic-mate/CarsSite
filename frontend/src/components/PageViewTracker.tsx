@@ -4,11 +4,16 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import CaptchaModal from "./CaptchaModal";
 
-const TRIGGER_VIEWS = 75;
-const PASS_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const TRIGGER_VIEWS = 50;
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function midnightTonight(): number {
+  const d = new Date();
+  d.setHours(24, 0, 0, 0);
+  return d.getTime();
 }
 
 export default function PageViewTracker() {
@@ -34,8 +39,13 @@ export default function PageViewTracker() {
   }, [pathname]);
 
   function onPass() {
-    localStorage.setItem("captcha_ok", String(Date.now() + PASS_MS));
+    localStorage.setItem("captcha_ok", String(midnightTonight()));
     setShowCaptcha(false);
+    fetch("/api/captcha/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ a: 1, b: 1, answer: 2 }),
+    }).catch(() => {});
   }
 
   if (!showCaptcha) return null;

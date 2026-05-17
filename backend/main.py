@@ -176,7 +176,7 @@ async def _rates_loop():
 
 
 async def _daily_limit_reset_loop():
-    """Reset ajes daily-limit flag at midnight UTC."""
+    """Reset ajes daily-limit flag and IP click counters at midnight UTC."""
     while True:
         now = datetime.datetime.utcnow()
         next_midnight = (now + datetime.timedelta(days=1)).replace(
@@ -185,7 +185,41 @@ async def _daily_limit_reset_loop():
         await asyncio.sleep((next_midnight - now).total_seconds())
         ajes_client.reset_daily_limit()
         aggregator.invalidate()
+        _ip_hits.clear()
+        _ip_captcha_ok.clear()
         print("[ajes] Daily limit flag reset at midnight")
+
+
+# ─── Anti-scraping: IP click counter ──────────────────────────────────────────
+
+_ip_hits: dict[str, int] = {}
+_ip_captcha_ok: set[str] = set()
+_CAPTCHA_THRESHOLD = 50
+_INTERNAL_PREFIXES = ("127.", "10.", "172.", "::1")
+
+def _real_ip(request: Request) -> str:
+    xff = request.headers.get("X-Forwarded-For", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.headers.get("X-Real-IP", "") or (request.client.host if request.client else "") or ""
+
+_CAPTCHA_COUNT_PREFIXES = ("/api/cars", "/api/live/cars")
+
+class ClickCounterMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        ip = _real_ip(request)
+        path = request.url.path
+        if ip and not any(ip.startswith(p) for p in _INTERNAL_PREFIXES) \
+                and any(path.startswith(p) for p in _CAPTCHA_COUNT_PREFIXES) \
+                and not path.startswith("/api/captcha"):
+            _ip_hits[ip] = _ip_hits.get(ip, 0) + 1
+            if _ip_hits[ip] >= _CAPTCHA_THRESHOLD and ip not in _ip_captcha_ok:
+                from fastapi.responses import JSONResponse
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "captcha_required", "hits": _ip_hits[ip]},
+                )
+        return await call_next(request)
 
 
 def _proxy_url(url: str | None) -> str | None:
@@ -398,6 +432,7 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(_SecurityHeadersMiddleware)
 app.add_middleware(GeoIPBlockMiddleware)
+app.add_middleware(ClickCounterMiddleware)
 
 _ALLOWED_ORIGINS = [
     o.strip()
@@ -412,6 +447,21 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
+
+
+# ─── Captcha verify ───────────────────────────────────────────────────────────
+
+@app.post("/api/captcha/verify")
+async def captcha_verify(request: Request, body: dict):
+    a = int(body.get("a", 0))
+    b = int(body.get("b", 0))
+    answer = int(body.get("answer", -1))
+    if answer != a + b:
+        raise HTTPException(status_code=400, detail="wrong_answer")
+    ip = _real_ip(request)
+    if ip:
+        _ip_captcha_ok.add(ip)
+    return {"ok": True}
 
 
 # ─── Catalog ──────────────────────────────────────────────────────────────────
