@@ -731,6 +731,10 @@ async def get_car(car_id: str, db: Session = Depends(get_db),
     car.pop("auction_date", None)
     car["photo_url"] = _proxy_url(car.get("photo_url"))
     car["photo_urls"] = [_proxy_url(u) for u in (car.get("photo_urls") or []) if u]
+    if car.get("country") == "japan" and not car.get("auction_sheet_url"):
+        fetched = await _fetch_and_store_auction_sheet(car_id, 0)
+        if fetched:
+            car["auction_sheet_url"] = fetched
     return car
 
 
