@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 function toBigUrl(url: string): string {
   if (url.includes("%26w%3D320")) return url.replace("%26w%3D320", "");
@@ -17,7 +17,7 @@ interface Props {
 
 export default function PhotoGallery({ urls, alt, bg, fallback, urlsBig }: Props) {
   const [failed, setFailed] = useState<Set<number>>(new Set());
-  const validUrls = urls.filter((_, i) => !failed.has(i));
+  const validUrls = useMemo(() => urls.filter((_, i) => !failed.has(i)), [urls, failed]);
   const [active, setActive] = useState(0);
   const [lightbox, setLightbox] = useState(false);
   const [bigSrc, setBigSrc] = useState<string | null>(null);
