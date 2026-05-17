@@ -607,6 +607,19 @@ async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> None:
         sheet_url = ajes_client._photo_url(all_parts[0], size="")
         if not sheet_url:
             return
+        import httpx as _httpx
+        try:
+            async with _httpx.AsyncClient(timeout=10, follow_redirects=True) as _hc:
+                _hr = await _hc.head(sheet_url, headers={"Referer": "https://ajes.com/"})
+                _size = int(_hr.headers.get("content-length", 0))
+                if _size == 0:
+                    _gr = await _hc.get(sheet_url, headers={"Referer": "https://ajes.com/"})
+                    _size = len(_gr.content)
+            if _size < 10_000:
+                print(f"[sheet-fetch] skip NO FOTO sheet for {lot_id}: {_size}b")
+                return
+        except Exception:
+            pass
         car_parts = all_parts[1:]
         car_urls = [u for p in car_parts if (u := ajes_client._photo_url(p, size="&w=320"))]
 
