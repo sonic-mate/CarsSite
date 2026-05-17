@@ -115,7 +115,7 @@ export default function PhotoGallery({ urls, alt, bg, fallback, urlsBig }: Props
           }}
         >
           <img
-            src={toBigUrl(validUrls[clampedActive])}
+            src={bigSrc ?? validUrls[clampedActive]}
             alt={alt}
             onClick={e => e.stopPropagation()}
             style={{
