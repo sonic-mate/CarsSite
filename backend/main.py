@@ -654,6 +654,9 @@ async def get_car(car_id: str, db: Session = Depends(get_db),
         if not bid.processed:
             result["photo_url"] = _proxy_url(result.get("photo_url"))
             result["photo_urls"] = [_proxy_url(u) for u in result.get("photo_urls", []) if u]
+        elif bid.photo_urls_orig:
+            orig = _json.loads(bid.photo_urls_orig or "[]")
+            result["photo_urls_ajes"] = [_proxy_url(u) for u in orig if u]
         _sheet = result.get("auction_sheet_url") or ""
         _atype = result.get("auction_type", 0)
         _nphoto = len(result.get("photo_urls") or [])

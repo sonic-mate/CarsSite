@@ -34,6 +34,7 @@ export interface AuctionInfo {
 
 interface Props {
   photoUrls: string[];
+  photoUrlsAjes?: string[];
   alt: string;
   car: AuctionInfo;
 }
@@ -181,7 +182,7 @@ const Silhouette = ({ car }: { car: AuctionInfo }) => (
   </div>
 );
 
-export default function PhotosAndAuction({ photoUrls, alt, car }: Props) {
+export default function PhotosAndAuction({ photoUrls, photoUrlsAjes, alt, car }: Props) {
   return (
     <div>
       <PhotoGallery
@@ -189,6 +190,7 @@ export default function PhotosAndAuction({ photoUrls, alt, car }: Props) {
         alt={alt}
         bg={car.photo_tint}
         fallback={<Silhouette car={car}/>}
+        urlsBig={photoUrlsAjes}
       />
     </div>
   );

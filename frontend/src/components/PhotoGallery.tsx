@@ -12,9 +12,10 @@ interface Props {
   alt: string;
   bg?: string;
   fallback?: React.ReactNode;
+  urlsBig?: string[];
 }
 
-export default function PhotoGallery({ urls, alt, bg, fallback }: Props) {
+export default function PhotoGallery({ urls, alt, bg, fallback, urlsBig }: Props) {
   const [failed, setFailed] = useState<Set<number>>(new Set());
   const validUrls = urls.filter((_, i) => !failed.has(i));
   const [active, setActive] = useState(0);
@@ -57,14 +58,15 @@ export default function PhotoGallery({ urls, alt, bg, fallback }: Props) {
   useEffect(() => {
     if (validUrls.length === 0) return;
     const medium = validUrls[clampedActive];
-    const big = toBigUrl(medium);
+    const ajesUrl = urlsBig?.[clampedActive] ?? medium;
+    const big = toBigUrl(ajesUrl);
     if (big === medium) { setBigSrc(medium); return; }
     setBigSrc(null);
     const img = new Image();
     img.onload = () => setBigSrc(big);
     img.src = big;
     return () => { img.onload = null; };
-  }, [clampedActive, validUrls]);
+  }, [clampedActive, validUrls, urlsBig]);
 
   if (validUrls.length === 0) return <>{fallback ?? null}</>;
 
