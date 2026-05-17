@@ -119,7 +119,7 @@ export default function PhotoGallery({ urls, alt, bg, fallback, urlsBig }: Props
             alt={alt}
             onClick={e => e.stopPropagation()}
             style={{
-              maxWidth: "94vw", maxHeight: "92vh",
+              width: "94vw", height: "92vh",
               objectFit: "contain",
               borderRadius: 4,
               boxShadow: "0 8px 48px rgba(0,0,0,0.8)",
