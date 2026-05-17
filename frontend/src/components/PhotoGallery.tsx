@@ -19,10 +19,9 @@ export default function PhotoGallery({ urls, alt, bg, fallback }: Props) {
   const validUrls = urls.filter((_, i) => !failed.has(i));
   const [active, setActive] = useState(0);
   const [lightbox, setLightbox] = useState(false);
-  const [bigReady, setBigReady] = useState(false);
+  const [bigSrc, setBigSrc] = useState<string | null>(null);
 
   useEffect(() => { setActive(0); setFailed(new Set()); }, [urls]);
-  useEffect(() => { setBigReady(false); }, [active]);
 
   const onError = useCallback((i: number) => {
     setFailed(prev => {
@@ -53,9 +52,21 @@ export default function PhotoGallery({ urls, alt, bg, fallback }: Props) {
     };
   }, [lightbox, prev, next]);
 
-  if (validUrls.length === 0) return <>{fallback ?? null}</>;
-
   const clampedActive = Math.min(active, validUrls.length - 1);
+
+  useEffect(() => {
+    if (validUrls.length === 0) return;
+    const medium = validUrls[clampedActive];
+    const big = toBigUrl(medium);
+    if (big === medium) { setBigSrc(medium); return; }
+    setBigSrc(null);
+    const img = new Image();
+    img.onload = () => setBigSrc(big);
+    img.src = big;
+    return () => { img.onload = null; };
+  }, [clampedActive, validUrls]);
+
+  if (validUrls.length === 0) return <>{fallback ?? null}</>;
 
   const bgStyle = bg
     ? { background: `radial-gradient(ellipse at 50% 70%, ${bg} 0%, #08090C 100%)` }
@@ -64,29 +75,12 @@ export default function PhotoGallery({ urls, alt, bg, fallback }: Props) {
   return (
     <>
       <div className="gallery-main" style={{ ...bgStyle, position: "relative" }}>
-        {/* medium — показывается сразу */}
         <img
-          src={validUrls[clampedActive]}
+          src={bigSrc ?? validUrls[clampedActive]}
           alt={alt}
           onClick={() => setLightbox(true)}
           onError={() => onError(urls.indexOf(validUrls[clampedActive]))}
           style={{ display: "block", width: "100%", height: "auto", cursor: "zoom-in" }}
-        />
-        {/* BIG — загружается поверх, появляется когда готово */}
-        <img
-          key={validUrls[clampedActive]}
-          src={toBigUrl(validUrls[clampedActive])}
-          alt=""
-          aria-hidden
-          onLoad={() => setBigReady(true)}
-          onClick={() => setLightbox(true)}
-          style={{
-            display: "block", position: "absolute", inset: 0,
-            width: "100%", height: "100%", objectFit: "contain",
-            cursor: "zoom-in",
-            opacity: bigReady ? 1 : 0,
-            transition: "opacity 0.25s",
-          }}
         />
       </div>
 
