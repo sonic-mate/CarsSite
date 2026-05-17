@@ -1,6 +1,12 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 
+function toBigUrl(url: string): string {
+  if (url.includes("%26w%3D320")) return url.replace("%26w%3D320", "");
+  if (url.includes("&w=320")) return url.replace("&w=320", "");
+  return url;
+}
+
 interface Props {
   urls: string[];
   alt: string;
@@ -94,7 +100,7 @@ export default function PhotoGallery({ urls, alt, bg, fallback }: Props) {
           }}
         >
           <img
-            src={validUrls[clampedActive]}
+            src={toBigUrl(validUrls[clampedActive])}
             alt={alt}
             onClick={e => e.stopPropagation()}
             style={{
