@@ -556,6 +556,7 @@ def norm(i: dict, country: str) -> dict:
 
     lot_id = str(i.get("ID") or i.get("LOT", ""))
     lot_num = int(i.get("LOT") or 0) or None
+    chassis_number = (i.get("SERIAL") or "").strip() or None
     auction_status_raw = (i.get("STATUS") or "").strip().lower()
     auction_sold = True if "sold" in auction_status_raw else (False if auction_status_raw else None)
     price  = calc.turnkey_price(auction_price_rub, engine_cc, year, fuel, country, t) \
@@ -586,6 +587,7 @@ def norm(i: dict, country: str) -> dict:
         "engine_cc":           engine_cc,
         "auction_name":        (i.get("AUCTION") or "").strip() or None,
         "lot_number":          lot_num,
+        "chassis_number":      chassis_number,
         "auction_sold":        auction_sold,
     }
 

@@ -136,7 +136,7 @@ export default async function CarDetailPage({ params }: { params: { id: string }
   const isStock = car.country === "korea" || car.country === "china";
   const isSold = (car as any).auction_sold === true;
   const auctionStatus = isStock ? "В наличии" : isSold ? "Продан" : "На торгах";
-  const lotDisplay = (car as any).lot_number ? String((car as any).lot_number) : car.id;
+  const lotDisplay = [(car as any).lot_number ?? car.id, (car as any).chassis_number].filter(Boolean).join(" · ");
   const sourceUrl: string | null = (car as any).source_url ?? null;
 
   const photoUrls: string[] = (car as any).photo_urls?.length
@@ -202,6 +202,7 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                   auction_price: (car as any).auction_price,
                   auction_price_local: (car as any).auction_price_local,
                   lot_number: (car as any).lot_number,
+                  chassis_number: (car as any).chassis_number,
                   auction_sold: (car as any).auction_sold,
                 }}
               />

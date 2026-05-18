@@ -31,6 +31,7 @@ export interface AuctionInfo {
   auction_price?: number | null;
   auction_price_local?: number | null;
   lot_number?: number | null;
+  chassis_number?: string | null;
   auction_sold?: boolean | null;
 }
 
@@ -70,7 +71,7 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
     car.kuzov ? { k: "Оценка кузова", v: car.kuzov } : null,
     car.town ? { k: "Город", v: car.town } : null,
     car.auction_name ? { k: "Аукцион", v: car.auction_name } : null,
-    { k: "Лот", v: car.lot_number ? String(car.lot_number) : car.id },
+    { k: "Лот", v: [car.lot_number ?? car.id, car.chassis_number].filter(Boolean).join(" · ") },
     { k: "Статус", v: status },
   ].filter(Boolean) as { k: string; v: string }[];
 
