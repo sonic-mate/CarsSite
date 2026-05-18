@@ -228,6 +228,9 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                 {(car as any).steering && (
                   <div className="spec-row"><span className="k">Руль</span><span className="v">{(car as any).steering}</span></div>
                 )}
+                {(car as any).kuzov && (
+                  <div className="spec-row"><span className="k">Код кузова</span><span className="v">{(car as any).kuzov}</span></div>
+                )}
                 {(car as any).town && (
                   <div className="spec-row"><span className="k">Город</span><span className="v">{(car as any).town}</span></div>
                 )}

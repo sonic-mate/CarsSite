@@ -68,7 +68,7 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
     car.drive ? { k: "Привод", v: car.drive } : null,
     car.steering ? { k: "Руль", v: car.steering } : null,
     car.color ? { k: "Цвет", v: car.color } : null,
-    car.kuzov ? { k: "Оценка кузова", v: car.kuzov } : null,
+    car.kuzov ? { k: "Код кузова", v: car.kuzov } : null,
     car.town ? { k: "Город", v: car.town } : null,
     car.auction_name ? { k: "Аукцион", v: car.auction_name } : null,
     { k: "Лот", v: car.chassis_number || (car.lot_number ? String(car.lot_number) : car.id) },
