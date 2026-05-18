@@ -660,17 +660,20 @@ async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> str | None
                 if data.get("auction_sheet_url") != local_url:
                     data["auction_sheet_url"] = local_url
                     changed = True
-                if not data.get("lot_number"):
-                    # fetch ajes to get LOT number
+                if not data.get("lot_number") or "chassis_number" not in data:
                     raw_id = lot_id.split("-", 1)[1] if "-" in lot_id else lot_id
-                    _full = await ajes_client.query(f"SELECT LOT,STATUS FROM main WHERE id='{raw_id}'", label="lot-meta")
-                    if _full and _full[0].get("LOT"):
-                        data["lot_number"] = int(_full[0]["LOT"])
-                        changed = True
-                    if _full and _full[0].get("STATUS") is not None and data.get("auction_sold") is None:
-                        s = (_full[0]["STATUS"] or "").strip().lower()
-                        data["auction_sold"] = "sold" in s if s else None
-                        changed = True
+                    _full = await ajes_client.query(f"SELECT LOT,STATUS,SERIAL FROM main WHERE id='{raw_id}'", label="lot-meta")
+                    if _full:
+                        if _full[0].get("LOT") and not data.get("lot_number"):
+                            data["lot_number"] = int(_full[0]["LOT"])
+                            changed = True
+                        if "chassis_number" not in data:
+                            data["chassis_number"] = (_full[0].get("SERIAL") or "").strip() or None
+                            changed = True
+                        if _full[0].get("STATUS") is not None and data.get("auction_sold") is None:
+                            s = (_full[0]["STATUS"] or "").strip().lower()
+                            data["auction_sold"] = "sold" in s if s else None
+                            changed = True
                 if changed:
                     db.query(AjBid).filter(AjBid.id == bid_id).update(
                         {"data_json": _json.dumps(data)}, synchronize_session=False)
@@ -786,6 +789,7 @@ async def get_car(car_id: str, db: Session = Depends(get_db),
         if result.get("country") == "japan" and (
             not _sheet or _sheet.startswith("/static/") or _sheet.startswith("http")
             or _wrong_list_cache or not result.get("lot_number")
+            or "chassis_number" not in result
         ):
             fetched = await _fetch_and_store_auction_sheet(car_id, bid.id)
             if fetched:
