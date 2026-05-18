@@ -739,6 +739,7 @@ async def _fetch_and_store_auction_sheet(lot_id: str, bid_id: int) -> str | None
             _status_raw = (full[0].get("STATUS") or "").strip().lower()
             if _status_raw:
                 data["auction_sold"] = "sold" in _status_raw
+            data["chassis_number"] = (full[0].get("SERIAL") or "").strip() or None
 
             update_fields: dict = {"data_json": _json.dumps(data)}
 
