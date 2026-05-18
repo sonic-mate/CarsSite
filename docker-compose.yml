@@ -73,7 +73,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
-    command: sh -c "NODE_OPTIONS='--max-old-space-size=512' npm run build && npm start"
+    command: sh -c "[ -d node_modules/.bin ] || npm ci && NODE_OPTIONS='--max-old-space-size=512' npm run build && npm start"
     restart: unless-stopped
 
 volumes:
