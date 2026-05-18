@@ -71,7 +71,7 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
     car.kuzov ? { k: "Оценка кузова", v: car.kuzov } : null,
     car.town ? { k: "Город", v: car.town } : null,
     car.auction_name ? { k: "Аукцион", v: car.auction_name } : null,
-    { k: "Лот", v: [car.lot_number ?? car.id, car.chassis_number].filter(Boolean).join(" · ") },
+    { k: "Лот", v: car.chassis_number || (car.lot_number ? String(car.lot_number) : car.id) },
     { k: "Статус", v: status },
   ].filter(Boolean) as { k: string; v: string }[];
 
@@ -94,7 +94,7 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
           {car.brand} {car.model} {car.year}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", fontSize: 12, color: "rgba(245,243,238,0.45)" }}>
-          <span style={{ fontFamily: "var(--font-mono)" }}>Лот: {car.lot_number ?? car.id}</span>
+          <span style={{ fontFamily: "var(--font-mono)" }}>Лот: {car.chassis_number || car.lot_number || car.id}</span>
         </div>
       </div>
 
