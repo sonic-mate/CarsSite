@@ -30,6 +30,8 @@ export interface AuctionInfo {
   auction_date?: string | null;
   auction_price?: number | null;
   auction_price_local?: number | null;
+  lot_number?: number | null;
+  auction_sold?: boolean | null;
 }
 
 interface Props {
@@ -53,9 +55,9 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
   const isBadgeGrade = car.badge && /^[0-9]/.test(car.badge);
 
   const isStock = car.country === "korea" || car.country === "china";
-  const hasFinish = (car.auction_price_local ?? 0) > 0;
-  const status = isStock ? "В наличии" : hasFinish ? "Продан" : "Предстоит";
-  const priceLabel = isStock ? "Стоимость" : hasFinish ? "Последняя ставка" : "Стартовая цена";
+  const isSold = car.auction_sold === true;
+  const status = isStock ? "В наличии" : isSold ? "Продан" : "Предстоит";
+  const priceLabel = isStock ? "Стоимость" : isSold ? "Последняя ставка" : "Стартовая цена";
 
   const specs: { k: string; v: string }[] = [
     car.engine_cc && car.engine_cc > 0 ? { k: "Объём двигателя", v: `${car.engine_cc.toLocaleString("ru-RU")} куб.см` } : null,
@@ -68,7 +70,7 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
     car.kuzov ? { k: "Оценка кузова", v: car.kuzov } : null,
     car.town ? { k: "Город", v: car.town } : null,
     car.auction_name ? { k: "Аукцион", v: car.auction_name } : null,
-    { k: "Лот", v: car.id },
+    { k: "Лот", v: car.lot_number ? String(car.lot_number) : car.id },
     { k: "Статус", v: status },
   ].filter(Boolean) as { k: string; v: string }[];
 
@@ -91,7 +93,7 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
           {car.brand} {car.model} {car.year}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", fontSize: 12, color: "rgba(245,243,238,0.45)" }}>
-          <span style={{ fontFamily: "var(--font-mono)" }}>Лот: {car.id}</span>
+          <span style={{ fontFamily: "var(--font-mono)" }}>Лот: {car.lot_number ?? car.id}</span>
         </div>
       </div>
 
