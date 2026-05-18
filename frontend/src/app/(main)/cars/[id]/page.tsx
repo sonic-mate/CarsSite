@@ -135,8 +135,9 @@ export default async function CarDetailPage({ params }: { params: { id: string }
 
   const isStock = car.country === "korea" || car.country === "china";
   const isSold = (car as any).auction_sold === true;
-  const auctionStatus = isStock ? "В наличии" : isSold ? "Продан" : "Предстоит";
+  const auctionStatus = isStock ? "В наличии" : isSold ? "Продан" : "На торгах";
   const lotDisplay = (car as any).lot_number ? String((car as any).lot_number) : car.id;
+  const sourceUrl: string | null = (car as any).source_url ?? null;
 
   const photoUrls: string[] = (car as any).photo_urls?.length
     ? (car as any).photo_urls
@@ -238,7 +239,14 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                 {(car as any).auction_name && (
                   <div className="spec-row"><span className="k">Аукцион</span><span className="v">{(car as any).auction_name}</span></div>
                 )}
-                <div className="spec-row"><span className="k">Лот</span><span className="v" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{lotDisplay}</span></div>
+                <div className="spec-row">
+                  <span className="k">Лот</span>
+                  <span className="v" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+                    {sourceUrl
+                      ? <a href={sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)", textDecoration: "none" }}>{lotDisplay} ↗</a>
+                      : lotDisplay}
+                  </span>
+                </div>
                 <div className="spec-row" style={{ borderBottom: 0 }}><span className="k">Статус</span><span className="v">{auctionStatus}</span></div>
               </div>
 
@@ -260,7 +268,7 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                         ]
                     ).map(item => (
                       <div key={item.label} className="price-breakdown-row">
-                        <span>{item.label}</span>
+                        <span>{!isSold && item.label === "Цена аукциона" ? "Начальная цена" : item.label}</span>
                         <span>{formatPrice(item.value)}</span>
                       </div>
                     ))}

@@ -56,8 +56,8 @@ function AuctionSheet({ car }: { car: AuctionInfo }) {
 
   const isStock = car.country === "korea" || car.country === "china";
   const isSold = car.auction_sold === true;
-  const status = isStock ? "В наличии" : isSold ? "Продан" : "Предстоит";
-  const priceLabel = isStock ? "Стоимость" : isSold ? "Последняя ставка" : "Стартовая цена";
+  const status = isStock ? "В наличии" : isSold ? "Продан" : "На торгах";
+  const priceLabel = isStock ? "Стоимость" : isSold ? "Последняя ставка" : "Начальная цена";
 
   const specs: { k: string; v: string }[] = [
     car.engine_cc && car.engine_cc > 0 ? { k: "Объём двигателя", v: `${car.engine_cc.toLocaleString("ru-RU")} куб.см` } : null,
