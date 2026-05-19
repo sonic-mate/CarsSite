@@ -54,6 +54,7 @@ import Icon from "@/components/Icon";
 import CallbackModal from "@/components/CallbackModal";
 import SimilarStrip from "@/components/SimilarStrip";
 import PhotosAndAuction from "@/components/PhotosAndAuction";
+import BackToCatalogButton from "@/components/BackToCatalogButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -145,9 +146,7 @@ export default async function CarDetailPage({ params }: { params: { id: string }
   return (
     <main>
       <div className="container" style={{ paddingTop: 32, paddingBottom: 16 }}>
-        <Link href="/catalog" className="btn btn-ghost" style={{ padding: 0, display: "inline-flex", gap: 6, alignItems: "center" }}>
-          ← Назад в каталог
-        </Link>
+        <BackToCatalogButton />
       </div>
 
       <section style={{ paddingBottom: 48 }}>

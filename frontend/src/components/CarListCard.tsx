@@ -13,7 +13,10 @@ export default function CarListCard({ car }: { car: Car }) {
     <Link
       href={`/cars/${car.id}`}
       className="car-list-card"
-      onClick={() => sessionStorage.setItem("catalog_scroll", String(window.scrollY))}
+      onClick={() => {
+        sessionStorage.setItem("catalog_scroll", String(window.scrollY));
+        sessionStorage.setItem("catalog_back_url", window.location.pathname + window.location.search);
+      }}
     >
       <div className="car-list-photo">
         {currentPhoto ? (
