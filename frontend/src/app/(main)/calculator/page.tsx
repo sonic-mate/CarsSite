@@ -41,7 +41,7 @@ function formatLocalAmount(amount: number, currency: string): string {
 export default function CalculatorPage() {
   const [country, setCountry] = useState<"japan" | "korea" | "china">("japan");
   const [priceInput, setPriceInput] = useState("");
-  const [currency, setCurrency] = useState("RUB");
+  const [currency, setCurrency] = useState(COUNTRY_DEFAULT_CURRENCY["japan"]);
   const [engineCC, setEngineCC] = useState("");
   const [power, setPower] = useState("");
   const [year, setYear] = useState("");
