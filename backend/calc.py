@@ -162,20 +162,42 @@ def get_items(auction_price: int, customs: int, country: str, t,
               city_delivery: int = 0, city_name: str = "Омск", year: int = 2020) -> list:
     delivery = get_delivery(country, t)
     recycling = _recycling_fee(t, year)
-    return [
-        {"label": "Цена аукциона", "value": auction_price},
-        {"label": "Доставка в порт Японии + Фрахт до Владивостока", "value": delivery},
-        {"label": "Льготный утилизационный сбор", "value": recycling},
-        {"label": "Таможенная пошлина", "value": customs},
-        {"label": "Услуги брокера", "value": getattr(t, "broker_fee", 25_000)},
+
+    items: list = [{"label": "Цена аукциона", "value": auction_price}]
+
+    if country == "japan":
+        freight_jpy = getattr(t, "freight_japan_jpy", 175_000)
+        items.append({
+            "label": "Доставка в порт Японии + Фрахт до Владивостока",
+            "value": delivery,
+            "value_local": freight_jpy,
+            "local_currency": "JPY",
+        })
+        loading_jpy = getattr(t, "loading_fee_jpy", 40_000)
+        loading_rub = round(loading_jpy * t.jpy_to_rub)
+        items.append({
+            "label": "Погрузо-разгрузочные работы",
+            "value": loading_rub,
+            "value_local": loading_jpy,
+            "local_currency": "JPY",
+        })
+    else:
+        items.append({"label": "Доставка до Владивостока", "value": delivery})
+
+    items.extend([
         {"label": "Комиссия за банковские переводы", "value": getattr(t, "bank_commission", 7_300)},
+        {"label": "Таможенная пошлина", "value": customs},
+        {"label": "Льготный утилизационный сбор", "value": recycling},
+        {"label": "Услуги брокера", "value": getattr(t, "broker_fee", 25_000)},
         {"label": "Лаборатория, ЕПТС, СБКТС", "value": getattr(t, "lab_docs", 25_000)},
         {"label": "Склад Временного Хранения", "value": getattr(t, "storage_fee", 35_000)},
         {"label": "Перегон по Владивостоку", "value": getattr(t, "local_delivery", 7_000)},
         {"label": "Прописка, ИНН", "value": getattr(t, "registration_fee", 10_000)},
         {"label": f"Доставка до {city_name}", "value": city_delivery},
         {"label": "Комиссия компании и подготовка к выдаче", "value": getattr(t, "company_commission", 60_000)},
-    ]
+    ])
+
+    return items
 
 
 def turnkey_price(auction_price_rub: int, engine_cc: int, year: int, fuel_type: str,

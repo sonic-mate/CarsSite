@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { formatPrice } from "@/lib/types";
 
-interface BreakdownItem { label: string; value: number; }
+interface BreakdownItem { label: string; value: number; value_local?: number; local_currency?: string; }
 
 interface Breakdown {
   auction_price: number;
@@ -87,7 +87,11 @@ export default function PriceBreakdownTooltip({ carId }: { carId: string }) {
           ).map(r => (
             <div key={r.label} className="price-info-row">
               <span>{r.label}</span>
-              <span>{formatPrice(r.value)}</span>
+              <span>
+                {r.value_local && r.local_currency === "JPY"
+                  ? `¥ ${r.value_local.toLocaleString("ru-RU")} / ${formatPrice(r.value)}`
+                  : formatPrice(r.value)}
+              </span>
             </div>
           ))}
           <div className="price-info-total">

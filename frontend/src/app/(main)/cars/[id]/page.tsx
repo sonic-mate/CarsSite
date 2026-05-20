@@ -40,7 +40,7 @@ export async function generateMetadata(
   };
 }
 
-interface BreakdownItem { label: string; value: number; }
+interface BreakdownItem { label: string; value: number; value_local?: number; local_currency?: string; }
 interface PriceBreakdown {
   auction_price: number;
   customs: number;
@@ -267,7 +267,11 @@ export default async function CarDetailPage({ params }: { params: { id: string }
                     ).map(item => (
                       <div key={item.label} className="price-breakdown-row">
                         <span>{!isSold && item.label === "Цена аукциона" ? "Начальная цена" : item.label}</span>
-                        <span>{formatPrice(item.value)}</span>
+                        <span>
+                          {item.value_local && item.local_currency === "JPY"
+                            ? `¥ ${item.value_local.toLocaleString("ru-RU")} / ${formatPrice(item.value)}`
+                            : formatPrice(item.value)}
+                        </span>
                       </div>
                     ))}
                   </div>

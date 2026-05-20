@@ -57,6 +57,8 @@ class CalculatorIn(BaseModel):
 class BreakdownItem(BaseModel):
     label: str
     value: int
+    value_local: Optional[int] = None
+    local_currency: Optional[str] = None
 
 
 class CalculatorOut(BaseModel):
@@ -95,6 +97,7 @@ class TariffsSchema(BaseModel):
     delivery_china: int
     services: int
     freight_japan_jpy: int = 175_000
+    loading_fee_jpy: int = 40_000
     recycling_fee_new: int = 3_400
     recycling_fee_old: int = 5_200
     broker_fee: int = 25_000

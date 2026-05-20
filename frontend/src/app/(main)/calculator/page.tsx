@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { calculate } from "@/lib/api";
-import { COUNTRY_LABEL, PHONE, formatPrice } from "@/lib/types";
+import { COUNTRY_LABEL, PHONE, formatPrice, BreakdownItem } from "@/lib/types";
 import Icon from "@/components/Icon";
 
 const COUNTRIES = ["japan", "korea", "china"] as const;
@@ -17,9 +17,9 @@ const CURRENCIES = [
 ] as const;
 
 const COUNTRY_DEFAULT_CURRENCY: Record<string, string> = {
-  japan: "RUB",
-  korea: "RUB",
-  china: "RUB",
+  japan: "JPY",
+  korea: "KRW",
+  china: "CNY",
 };
 
 interface Rates { jpy_to_rub: number; krw_to_rub: number; cny_to_rub: number; }
@@ -53,7 +53,7 @@ export default function CalculatorPage() {
     auction_price: number; delivery: number; customs: number;
     customs_fee: number; services: number; total: number;
     eur_rate?: number; price_eur?: number; customs_method?: string;
-    items?: { label: string; value: number }[];
+    items?: BreakdownItem[];
   } | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -234,7 +234,9 @@ export default function CalculatorPage() {
                       <span className="v">
                         {item.label === "Цена аукциона" && currency !== "RUB"
                           ? formatLocalAmount(+priceInput, currency) + " / " + formatPrice(item.value)
-                          : formatPrice(item.value)}
+                          : item.value_local && item.local_currency
+                            ? formatLocalAmount(item.value_local, item.local_currency) + " / " + formatPrice(item.value)
+                            : formatPrice(item.value)}
                       </span>
                     </div>
                   ))

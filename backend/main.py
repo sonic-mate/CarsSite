@@ -36,6 +36,7 @@ def _migrate():
         ("tariffs", "freight_vlad_china",        "INTEGER DEFAULT 40000"),
         ("tariffs", "recycling_fee",             "INTEGER DEFAULT 3366"),
         ("tariffs", "freight_japan_jpy",         "INTEGER DEFAULT 175000"),
+        ("tariffs", "loading_fee_jpy",           "INTEGER DEFAULT 40000"),
         ("tariffs", "recycling_fee_new",         "INTEGER DEFAULT 3400"),
         ("tariffs", "recycling_fee_old",         "INTEGER DEFAULT 5200"),
         ("tariffs", "broker_fee",                "INTEGER DEFAULT 25000"),

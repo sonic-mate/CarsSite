@@ -25,6 +25,7 @@ class Tariffs(Base):
     freight_vlad_korea = Column(Integer, default=28_000)
     freight_vlad_china = Column(Integer, default=40_000)
     freight_japan_jpy = Column(Integer, default=175_000)
+    loading_fee_jpy = Column(Integer, default=40_000)
     recycling_fee = Column(Integer, default=3_366)
     recycling_fee_new = Column(Integer, default=3_400)
     recycling_fee_old = Column(Integer, default=5_200)

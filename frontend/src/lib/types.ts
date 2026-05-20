@@ -30,6 +30,13 @@ export interface Car {
   auction_sheet_url?: string | null;
 }
 
+export interface BreakdownItem {
+  label: string;
+  value: number;
+  value_local?: number;
+  local_currency?: string;
+}
+
 export interface CalculatorResult {
   auction_price: number;
   delivery: number;
@@ -40,6 +47,7 @@ export interface CalculatorResult {
   eur_rate?: number;
   price_eur?: number;
   customs_method?: string;
+  items?: BreakdownItem[];
 }
 
 export const COUNTRY_LABEL: Record<string, string> = {
