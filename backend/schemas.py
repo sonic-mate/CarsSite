@@ -73,6 +73,10 @@ class CalculatorOut(BaseModel):
     price_eur: int = 0
     customs_method: str = ""
     items: List[BreakdownItem] = []
+    jpy_rate: float = 0.0
+    cny_rate: float = 0.0
+    krw_rate: float = 0.0
+    usd_rate: float = 0.0
 
 
 class CityDeliveryOut(BaseModel):
@@ -88,7 +92,11 @@ class TariffsSchema(BaseModel):
     jpy_to_rub: float
     krw_to_rub: float
     cny_to_rub: float
+    usd_to_rub: float = 90.0
     eur_to_rub: float = 95.0
+    jpy_coef: float = 1.075
+    cny_coef: float = 1.075
+    krw_coef: float = 1.0
     customs_rate: float
     customs_coef_new: float
     customs_coef_mid: float

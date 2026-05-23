@@ -48,6 +48,10 @@ export interface CalculatorResult {
   price_eur?: number;
   customs_method?: string;
   items?: BreakdownItem[];
+  jpy_rate?: number;
+  cny_rate?: number;
+  krw_rate?: number;
+  usd_rate?: number;
 }
 
 export const COUNTRY_LABEL: Record<string, string> = {

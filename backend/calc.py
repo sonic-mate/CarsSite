@@ -129,9 +129,7 @@ def calc_customs_detail(auction_price: int, engine_cc: int, year: int, fuel_type
     eur = t.eur_to_rub
     price_eur = round(auction_price / eur)
 
-    rates_new = _load_rates(getattr(t, "customs_rates_new_json", None), _RATES_NEW_BY_PRICE)
-    rates_mid = _load_rates(getattr(t, "customs_rates_mid_json", None), _RATES_MID)
-    rates_old = _load_rates(getattr(t, "customs_rates_old_json", None), _RATES_OLD)
+    age = datetime.date.today().year - year
 
     if fuel_type == "Электро":
         customs = round(auction_price * 0.15)
@@ -139,12 +137,17 @@ def calc_customs_detail(auction_price: int, engine_cc: int, year: int, fuel_type
                 "method": "15% от ТС (электромобиль)",
                 "eur_rate": eur, "price_eur": price_eur}
 
-    age = datetime.date.today().year - year
+    if age < 3:
+        customs = round(auction_price * 0.48)
+        return {"customs": customs,
+                "method": "до 3 лет: 48% от ТС",
+                "eur_rate": eur, "price_eur": price_eur}
+
+    rates_mid = _load_rates(getattr(t, "customs_rates_mid_json", None), _RATES_MID)
+    rates_old = _load_rates(getattr(t, "customs_rates_old_json", None), _RATES_OLD)
 
     if engine_cc <= 0:
-        if age < 3:
-            coef = t.customs_coef_new
-        elif age < 5:
+        if age < 5:
             coef = t.customs_coef_mid
         else:
             coef = t.customs_coef_old
@@ -153,24 +156,7 @@ def calc_customs_detail(auction_price: int, engine_cc: int, year: int, fuel_type
                 "method": f"{round(t.customs_rate * coef * 100)}% от ТС (объём неизвестен)",
                 "eur_rate": eur, "price_eur": price_eur}
 
-    if age < 3:
-        for price_max, pct, min_ecc in rates_new:
-            if price_eur <= price_max:
-                by_percent = round(auction_price * pct)
-                by_cc = round(engine_cc * min_ecc * eur)
-                customs = max(by_percent, by_cc)
-                chosen = "% от ТС" if by_percent >= by_cc else f"{min_ecc} €/куб.см"
-                return {"customs": customs,
-                        "method": f"до 3 лет: max({round(pct*100)}%={_fmt(by_percent)}, {min_ecc}€/cc={_fmt(by_cc)}) → {chosen}",
-                        "eur_rate": eur, "price_eur": price_eur}
-        by_percent = round(auction_price * 0.48)
-        by_cc = round(engine_cc * 20.0 * eur)
-        customs = max(by_percent, by_cc)
-        return {"customs": customs,
-                "method": "до 3 лет (>169k€): max(48%, 20€/куб.см)",
-                "eur_rate": eur, "price_eur": price_eur}
-
-    elif age < 5:
+    if age < 5:
         ecc = _eur_per_cc_from_table(engine_cc, rates_mid)
         customs = round(engine_cc * ecc * eur)
         return {"customs": customs,
@@ -189,15 +175,19 @@ def calc_customs(auction_price: int, engine_cc: int, year: int, fuel_type: str, 
     return calc_customs_detail(auction_price, engine_cc, year, fuel_type, t)["customs"]
 
 
+def _jpy_rate(t) -> float:
+    return t.jpy_to_rub * getattr(t, "jpy_coef", 1.075)
+
+
 def get_delivery(country: str, t) -> int:
     if country == "japan":
         jpy_amount = getattr(t, "freight_japan_jpy", 175_000)
-        return round(jpy_amount * t.jpy_to_rub)
+        return round(jpy_amount * _jpy_rate(t))
     if country == "korea":
         return getattr(t, "freight_vlad_korea", 28_000)
     if country == "china":
         return getattr(t, "freight_vlad_china", 40_000)
-    return round(getattr(t, "freight_japan_jpy", 175_000) * t.jpy_to_rub)
+    return round(getattr(t, "freight_japan_jpy", 175_000) * _jpy_rate(t))
 
 
 def _recycling_fee(t, year: int, power_hp: int = 0, engine_cc: int = 0, fuel_type: str = "Бензин") -> int:
@@ -227,7 +217,6 @@ def get_services_total(t, year: int = 2020, city_delivery: int = 0,
             getattr(t, "lab_docs", 25_000) +
             getattr(t, "storage_fee", 35_000) +
             getattr(t, "local_delivery", 7_000) +
-            getattr(t, "registration_fee", 10_000) +
             city_delivery +
             getattr(t, "company_commission", 60_000))
 
@@ -249,7 +238,7 @@ def get_items(auction_price: int, customs: int, country: str, t,
             "local_currency": "JPY",
         })
         loading_jpy = getattr(t, "loading_fee_jpy", 40_000)
-        loading_rub = round(loading_jpy * t.jpy_to_rub)
+        loading_rub = round(loading_jpy * _jpy_rate(t))
         items.append({
             "label": "Погрузо-разгрузочные работы",
             "value": loading_rub,
@@ -267,7 +256,6 @@ def get_items(auction_price: int, customs: int, country: str, t,
         {"label": "Лаборатория, ЕПТС, СБКТС", "value": getattr(t, "lab_docs", 25_000)},
         {"label": "Склад Временного Хранения", "value": getattr(t, "storage_fee", 35_000)},
         {"label": "Перегон по Владивостоку", "value": getattr(t, "local_delivery", 7_000)},
-        {"label": "Прописка, ИНН", "value": getattr(t, "registration_fee", 10_000)},
         {"label": f"Доставка до {city_name}", "value": city_delivery},
         {"label": "Комиссия компании и подготовка к выдаче", "value": getattr(t, "company_commission", 60_000)},
     ])

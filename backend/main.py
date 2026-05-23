@@ -50,6 +50,10 @@ def _migrate():
         ("tariffs", "customs_rates_new_json",    "VARCHAR"),
         ("tariffs", "customs_rates_mid_json",    "VARCHAR"),
         ("tariffs", "customs_rates_old_json",    "VARCHAR"),
+        ("tariffs", "usd_to_rub",                "FLOAT DEFAULT 90.0"),
+        ("tariffs", "jpy_coef",                  "FLOAT DEFAULT 1.075"),
+        ("tariffs", "cny_coef",                  "FLOAT DEFAULT 1.075"),
+        ("tariffs", "krw_coef",                  "FLOAT DEFAULT 1.0"),
     ]:
         try:
             with engine.connect() as conn:
@@ -1059,9 +1063,9 @@ def update_city(city_id: int, cost_rub: int, db: Session = Depends(get_db),
 # ─── Calculator ───────────────────────────────────────────────────────────────
 
 def _to_rub(amount: float, currency: str, t) -> int:
-    if currency == "JPY": return round(amount * t.jpy_to_rub)
-    if currency == "KRW": return round(amount * t.krw_to_rub)
-    if currency == "CNY": return round(amount * t.cny_to_rub)
+    if currency == "JPY": return round(amount * t.jpy_to_rub * getattr(t, "jpy_coef", 1.075))
+    if currency == "KRW": return round(amount * t.krw_to_rub * getattr(t, "krw_coef", 1.0))
+    if currency == "CNY": return round(amount * t.cny_to_rub * getattr(t, "cny_coef", 1.075))
     return round(amount)
 
 
@@ -1098,6 +1102,10 @@ def calculate(request: Request, data: CalculatorIn, db: Session = Depends(get_db
         price_eur=detail["price_eur"],
         customs_method=detail["method"],
         items=items,
+        jpy_rate=t.jpy_to_rub,
+        cny_rate=t.cny_to_rub,
+        krw_rate=t.krw_to_rub,
+        usd_rate=getattr(t, "usd_to_rub", 90.0),
     )
 
 

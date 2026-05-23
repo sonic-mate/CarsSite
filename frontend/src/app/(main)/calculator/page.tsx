@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { calculate } from "@/lib/api";
 import { COUNTRY_LABEL, PHONE, formatPrice, BreakdownItem } from "@/lib/types";
 import Icon from "@/components/Icon";
+import CallbackModal from "@/components/CallbackModal";
 
 const COUNTRIES = ["japan", "korea", "china"] as const;
 const FUELS = ["Бензин", "Гибрид", "Электро", "Дизель", "Газ"] as const;
@@ -56,6 +57,7 @@ export default function CalculatorPage() {
     items?: BreakdownItem[];
   } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [yearWarning, setYearWarning] = useState(false);
 
   useEffect(() => {
     fetch("/api/tariffs").then(r => r.ok ? r.json() : null).then(d => {
@@ -157,7 +159,12 @@ export default function CalculatorPage() {
                 {/* Year */}
                 <div className="field">
                   <label className="field-label">Год выпуска</label>
-                  <select className="select" value={year} onChange={e => { setYear(e.target.value); recalc({ year: e.target.value }); }}>
+                  <select className="select" value={year} onChange={e => {
+                    const val = e.target.value;
+                    setYear(val);
+                    if (+val > 0 && +val < 2009) setYearWarning(true);
+                    recalc({ year: val });
+                  }}>
                     <option value="">Выберите год</option>
                     {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
@@ -264,23 +271,23 @@ export default function CalculatorPage() {
                   </div>
                 </>)}
 
-                {(result.eur_rate || result.customs_method) && (
+                {result.eur_rate != null && (
                   <div style={{ marginTop: 20, padding: "14px 16px", background: "rgba(245,243,238,0.05)", borderRadius: "var(--r-sm)", border: "1px solid rgba(200,164,92,0.15)" }}>
                     <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 600, marginBottom: 10 }}>
-                      Детали расчёта
+                      Курсы ЦБ
                     </div>
-                    {result.eur_rate && (
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "5px 0", borderBottom: "1px solid rgba(245,243,238,0.08)" }}>
-                        <span style={{ color: "rgba(245,243,238,0.55)" }}>Курс EUR/RUB (ЦБ)</span>
-                        <span style={{ fontFamily: "var(--font-mono)", color: "rgba(245,243,238,0.85)" }}>{result.eur_rate.toFixed(2)} ₽</span>
-                      </div>
-                    )}
-                    {result.price_eur != null && result.price_eur > 0 && (
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "5px 0" }}>
-                        <span style={{ color: "rgba(245,243,238,0.55)" }}>Цена в EUR</span>
-                        <span style={{ fontFamily: "var(--font-mono)", color: "rgba(245,243,238,0.85)" }}>≈ {result.price_eur?.toLocaleString("ru-RU")} €</span>
-                      </div>
-                    )}
+                    {(() => {
+                      const rateRow = (label: string, val: number, decimals: number) => val > 0 ? (
+                        <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "5px 0", borderBottom: "1px solid rgba(245,243,238,0.06)" }}>
+                          <span style={{ color: "rgba(245,243,238,0.55)" }}>{label}</span>
+                          <span style={{ fontFamily: "var(--font-mono)", color: "rgba(245,243,238,0.85)" }}>{val.toFixed(decimals)} ₽</span>
+                        </div>
+                      ) : null;
+                      if (country === "japan") return <>{rateRow("JPY / ₽", result.jpy_rate ?? 0, 4)}{rateRow("EUR / ₽", result.eur_rate ?? 0, 2)}</>;
+                      if (country === "china") return <>{rateRow("CNY / ₽", result.cny_rate ?? 0, 2)}{rateRow("EUR / ₽", result.eur_rate ?? 0, 2)}</>;
+                      if (country === "korea") return <>{rateRow("KRW / ₽", result.krw_rate ?? 0, 4)}{rateRow("USD / ₽", result.usd_rate ?? 0, 2)}{rateRow("EUR / ₽", result.eur_rate ?? 0, 2)}</>;
+                      return null;
+                    })()}
                   </div>
                 )}
               </>)}
@@ -297,6 +304,35 @@ export default function CalculatorPage() {
           </div>
         </div>
       </section>
+      {yearWarning && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+          onClick={() => setYearWarning(false)}
+        >
+          <div
+            style={{ background: "#1a1d24", border: "1px solid rgba(200,164,92,0.35)", borderRadius: "var(--r)", padding: 32, maxWidth: 460, width: "100%" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 10, letterSpacing: "0.2em", color: "#c8a45c", fontWeight: 700, marginBottom: 16, textTransform: "uppercase" }}>
+              Ограничение ввоза
+            </div>
+            <p style={{ marginBottom: 20, lineHeight: 1.6, color: "var(--fg-soft)" }}>
+              По Российскому законодательству ввоз автомобилей старше 2009 года невозможен.
+              Для уточнения информации свяжитесь с менеджером или сотрудником компании.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <a href={`tel:${PHONE.replace(/\s/g, "")}`} className="btn btn-primary btn-block" style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center" }}>
+                <Icon name="phone" size={16}/>
+                {PHONE}
+              </a>
+              <CallbackModal />
+              <button onClick={() => setYearWarning(false)} className="btn btn-ghost btn-block">
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

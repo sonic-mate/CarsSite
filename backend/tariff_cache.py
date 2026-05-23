@@ -10,7 +10,12 @@ class TariffSnapshot:
     jpy_to_rub: float = 0.60
     krw_to_rub: float = 0.065
     cny_to_rub: float = 12.5
+    usd_to_rub: float = 90.0
     eur_to_rub: float = 95.0
+    jpy_coef: float = 1.075
+    cny_coef: float = 1.075
+    krw_coef: float = 1.0
+    loading_fee_jpy: int = 40_000
     customs_rate: float = 0.18
     customs_coef_new: float = 1.0
     customs_coef_mid: float = 1.4
@@ -53,7 +58,12 @@ def update(t) -> None:
         jpy_to_rub=t.jpy_to_rub,
         krw_to_rub=t.krw_to_rub,
         cny_to_rub=t.cny_to_rub,
+        usd_to_rub=getattr(t, "usd_to_rub", 90.0),
         eur_to_rub=t.eur_to_rub,
+        jpy_coef=getattr(t, "jpy_coef", 1.075),
+        cny_coef=getattr(t, "cny_coef", 1.075),
+        krw_coef=getattr(t, "krw_coef", 1.0),
+        loading_fee_jpy=getattr(t, "loading_fee_jpy", 40_000),
         customs_rate=t.customs_rate,
         customs_coef_new=t.customs_coef_new,
         customs_coef_mid=t.customs_coef_mid,
