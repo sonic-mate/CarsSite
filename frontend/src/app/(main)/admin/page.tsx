@@ -5,7 +5,8 @@ import React, { useState, useEffect } from "react";
 const API = "";
 
 interface Tariffs {
-  jpy_to_rub: number; krw_to_rub: number; cny_to_rub: number; eur_to_rub: number;
+  jpy_to_rub: number; krw_to_rub: number; cny_to_rub: number; usd_to_rub: number; eur_to_rub: number;
+  jpy_coef: number; cny_coef: number; krw_coef: number;
   customs_rate: number; customs_coef_new: number; customs_coef_mid: number; customs_coef_old: number;
   freight_japan_jpy: number; freight_vlad_korea: number; freight_vlad_china: number;
   recycling_fee_new: number; recycling_fee_old: number;
@@ -27,7 +28,14 @@ const RATE_FIELDS: { key: keyof Tariffs; label: string; step: number; note: stri
   { key: "jpy_to_rub", label: "JPY → ₽", step: 0.001,  note: "1 японская иена" },
   { key: "krw_to_rub", label: "KRW → ₽", step: 0.0001, note: "1 корейская вона" },
   { key: "cny_to_rub", label: "CNY → ₽", step: 0.01,   note: "1 китайский юань" },
+  { key: "usd_to_rub", label: "USD → ₽", step: 0.1,    note: "1 американский доллар" },
   { key: "eur_to_rub", label: "EUR → ₽", step: 0.1,    note: "Для расчёта таможни ФТС" },
+];
+
+const COEF_FIELDS: { key: keyof Tariffs; label: string; note: string }[] = [
+  { key: "jpy_coef", label: "Коэффициент JPY", note: "Применяется к курсу иены во всех расчётах" },
+  { key: "cny_coef", label: "Коэффициент CNY", note: "Применяется к курсу юаня во всех расчётах" },
+  { key: "krw_coef", label: "Коэффициент KRW", note: "Применяется к курсу воны во всех расчётах" },
 ];
 
 const FREIGHT_FIELDS: { key: keyof Tariffs; label: string; step: number; note?: string }[] = [
@@ -44,7 +52,6 @@ const SERVICE_FIELDS: { key: keyof Tariffs; label: string; step: number; note?: 
   { key: "lab_docs",           label: "Лаборатория, ЕПТС, СБКТС, ₽",       step: 1000 },
   { key: "storage_fee",        label: "Склад Временного Хранения (СВХ), ₽", step: 1000 },
   { key: "local_delivery",     label: "Перегон по Владивостоку, ₽",         step: 500 },
-  { key: "registration_fee",   label: "Прописка, ИНН, ₽",                   step: 500 },
   { key: "company_commission", label: "Комиссия компании и подготовка, ₽",  step: 1000 },
 ];
 
@@ -355,6 +362,7 @@ export default function AdminPage() {
                 { label: "1 JPY", val: `${tariffs.jpy_to_rub.toFixed(4)} ₽` },
                 { label: "1 KRW", val: `${tariffs.krw_to_rub.toFixed(5)} ₽` },
                 { label: "1 CNY", val: `${tariffs.cny_to_rub.toFixed(3)} ₽` },
+                { label: "1 USD", val: `${(tariffs.usd_to_rub ?? 90).toFixed(2)} ₽` },
                 { label: "1 EUR", val: `${tariffs.eur_to_rub.toFixed(2)} ₽` },
               ].map(({ label, val }) => (
                 <div key={label} style={{ ...s.card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -373,8 +381,28 @@ export default function AdminPage() {
             <p style={{ fontSize: 13, color: "rgba(245,243,238,0.4)", marginBottom: 24 }}>Курсы обновляются автоматически каждые 60 сек с ЦБ РФ.</p>
             {tariffs && (
               <form onSubmit={saveTariffs}>
-                <h3 style={s.sectionTitle as any}>Курсы валют</h3>
+                <h3 style={s.sectionTitle as any}>Курсы валют (ЦБ РФ)</h3>
                 <FieldGroup fields={RATE_FIELDS} tariffs={tariffs} onChange={change}/>
+
+                <h3 style={s.sectionTitle as any}>Коэффициенты конвертации</h3>
+                <p style={{ fontSize: 12, color: "rgba(245,243,238,0.35)", marginBottom: 12 }}>
+                  Итоговый курс = курс ЦБ × коэффициент. Применяется ко всем расчётам: цена аукциона, доставка, погрузка.
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 8 }}>
+                  {COEF_FIELDS.map(({ key, label, note }) => (
+                    <div key={key} style={s.card}>
+                      <label style={s.label}>{label}{note && <span style={{ opacity: 0.5 }}> — {note}</span>}</label>
+                      <input type="number" step={0.001} min={1} max={2} value={(tariffs as any)[key] ?? 1} onChange={e => change(key, e.target.value)} style={s.input}/>
+                      {tariffs && (
+                        <div style={{ fontSize: 11, color: "rgba(200,164,92,0.7)", marginTop: 6 }}>
+                          {key === "jpy_coef" && `Эффективный: 1 JPY = ${(tariffs.jpy_to_rub * ((tariffs as any).jpy_coef ?? 1)).toFixed(4)} ₽`}
+                          {key === "cny_coef" && `Эффективный: 1 CNY = ${(tariffs.cny_to_rub * ((tariffs as any).cny_coef ?? 1)).toFixed(3)} ₽`}
+                          {key === "krw_coef" && `Эффективный: 1 KRW = ${(tariffs.krw_to_rub * ((tariffs as any).krw_coef ?? 1)).toFixed(5)} ₽`}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
 
                 <h3 style={s.sectionTitle as any}>Логистика (фрахт и доставка)</h3>
                 <FieldGroup fields={FREIGHT_FIELDS} tariffs={tariffs} onChange={change}/>
