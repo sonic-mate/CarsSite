@@ -35,6 +35,67 @@ _RATES_OLD = [
 ]
 
 
+# ─── Утилизационный сбор (физлица, с 1 января 2026) ──────────────────────────
+# Формат строки: (max_hp_включительно, сумма_0-3_лет, сумма_3+_лет)
+# None = "более X" (последняя строка)
+
+_RECYCLING_EV = [          # EV и последовательные гибриды
+    (80,   3_400,     5_200),
+    (100,  991_200,   1_641_600),
+    (130,  1_317_600, 1_912_800),
+    (160,  1_560_000, 2_227_200),
+    (190,  1_848_000, 2_594_400),
+    (220,  2_193_600, 3_024_000),
+    (250,  2_599_200, 3_523_200),
+    (280,  3_079_200, 4_104_000),
+    (None, 3_648_000, 4_780_800),
+]
+
+_RECYCLING_1_2 = [         # Объём 1.0–2.0 л
+    (160,  3_400,     5_200),
+    (190,  900_000,   1_492_800),
+    (220,  952_800,   1_584_000),
+    (250,  1_010_400, 1_677_600),
+    (280,  1_142_400, 1_838_400),
+    (310,  1_291_200, 2_011_200),
+    (340,  1_459_200, 2_203_200),
+    (370,  1_663_200, 2_412_000),
+    (400,  1_896_000, 2_640_000),
+    (430,  2_160_000, 2_892_000),
+    (460,  2_464_800, 3_168_000),
+    (500,  2_808_000, 3_468_000),
+    (None, 3_201_600, 3_796_800),
+]
+
+_RECYCLING_2_3 = [         # Объём 2.0–3.0 л
+    (160,  3_400,     5_200),
+    (190,  2_306_800, 3_456_000),
+    (220,  2_364_000, 3_501_600),
+    (250,  2_402_400, 3_552_000),
+    (280,  2_520_000, 3_660_000),
+    (310,  2_620_800, 3_770_400),
+    (340,  2_726_400, 3_873_600),
+    (370,  2_834_400, 3_981_600),
+    (400,  2_949_600, 4_094_400),
+    (430,  3_067_200, 4_209_600),
+    (460,  3_189_600, 4_327_200),
+    (500,  3_316_800, 4_447_200),
+    (None, 3_448_800, 4_572_000),
+]
+
+# >3.0 л — обязательный коммерческий утильсбор, мощность значения не имеет
+_RECYCLING_3_35 = (2_584_000, 3_956_200)   # 3.0–3.5 л: (0-3 лет, 3+ лет)
+_RECYCLING_35P  = (3_290_600, 4_325_800)   # 3.5+ л:    (0-3 лет, 3+ лет)
+
+
+def _lookup_recycle(table: list, hp: int, is_new: bool) -> int:
+    for max_hp, new_amt, old_amt in table:
+        if max_hp is None or hp <= max_hp:
+            return new_amt if is_new else old_amt
+    last = table[-1]
+    return last[1] if is_new else last[2]
+
+
 def _load_rates(json_str, fallback):
     if json_str:
         try:
@@ -139,15 +200,28 @@ def get_delivery(country: str, t) -> int:
     return round(getattr(t, "freight_japan_jpy", 175_000) * t.jpy_to_rub)
 
 
-def _recycling_fee(t, year: int) -> int:
+def _recycling_fee(t, year: int, power_hp: int = 0, engine_cc: int = 0, fuel_type: str = "Бензин") -> int:
     age = datetime.date.today().year - year
-    if age < 3:
-        return getattr(t, "recycling_fee_new", 3_400)
-    return getattr(t, "recycling_fee_old", 5_200)
+    is_new = age < 3
+
+    if fuel_type == "Электро":
+        return _lookup_recycle(_RECYCLING_EV, power_hp, is_new)
+
+    if engine_cc <= 0:
+        return getattr(t, "recycling_fee_new", 3_400) if is_new else getattr(t, "recycling_fee_old", 5_200)
+
+    if engine_cc <= 2000:
+        return _lookup_recycle(_RECYCLING_1_2, power_hp, is_new)
+    if engine_cc <= 3000:
+        return _lookup_recycle(_RECYCLING_2_3, power_hp, is_new)
+    if engine_cc <= 3500:
+        return _RECYCLING_3_35[0] if is_new else _RECYCLING_3_35[1]
+    return _RECYCLING_35P[0] if is_new else _RECYCLING_35P[1]
 
 
-def get_services_total(t, year: int = 2020, city_delivery: int = 0) -> int:
-    return (_recycling_fee(t, year) +
+def get_services_total(t, year: int = 2020, city_delivery: int = 0,
+                       power_hp: int = 0, engine_cc: int = 0, fuel_type: str = "Бензин") -> int:
+    return (_recycling_fee(t, year, power_hp, engine_cc, fuel_type) +
             getattr(t, "broker_fee", 25_000) +
             getattr(t, "bank_commission", 7_300) +
             getattr(t, "lab_docs", 25_000) +
@@ -159,9 +233,10 @@ def get_services_total(t, year: int = 2020, city_delivery: int = 0) -> int:
 
 
 def get_items(auction_price: int, customs: int, country: str, t,
-              city_delivery: int = 0, city_name: str = "Омск", year: int = 2020) -> list:
+              city_delivery: int = 0, city_name: str = "Омск", year: int = 2020,
+              power_hp: int = 0, engine_cc: int = 0, fuel_type: str = "Бензин") -> list:
     delivery = get_delivery(country, t)
-    recycling = _recycling_fee(t, year)
+    recycling = _recycling_fee(t, year, power_hp, engine_cc, fuel_type)
 
     items: list = [{"label": "Цена аукциона", "value": auction_price}]
 

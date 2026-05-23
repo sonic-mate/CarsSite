@@ -49,6 +49,7 @@ class CalculatorIn(BaseModel):
     auction_price: float = Field(..., gt=0)
     currency: str = Field("RUB", pattern="^(RUB|JPY|KRW|CNY)$")
     engine_cc: int = Field(..., ge=0, le=12000)
+    power_hp: int = Field(0, ge=0, le=2000)
     year: int = Field(..., ge=1900, le=2030)
     fuel_type: str = Field("Бензин")
     city: Optional[str] = None

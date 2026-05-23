@@ -30,6 +30,7 @@ export async function calculate(data: {
   auction_price: number;
   currency?: string;
   engine_cc: number;
+  power_hp?: number;
   year: number;
   fuel_type?: string;
   city?: string;

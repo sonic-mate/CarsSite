@@ -831,10 +831,17 @@ async def get_car_breakdown(car_id: str, db: Session = Depends(get_db)):
     cc = d.get("engine_cc", 0) or 0
     if ap <= 0:
         return None
-    detail = _calc.calc_customs_detail(ap, cc, d.get("year", 2020), d.get("engine") or "Бензин", t)
-    delivery = _calc.get_delivery(d.get("country", "japan"), t)
-    services = _calc.get_services_total(t, d.get("year", 2020))
-    items = _calc.get_items(ap, detail["customs"], d.get("country", "japan"), t, 0, "Омск", d.get("year", 2020))
+    import re as _re
+    _pwr_str = str(d.get("power") or "")
+    _pwr_m = _re.search(r"(\d+)", _pwr_str)
+    power_hp = int(_pwr_m.group(1)) if _pwr_m else 0
+    fuel_type = d.get("fuel_type") or "Бензин"
+    year = d.get("year", 2020)
+    country = d.get("country", "japan")
+    detail = _calc.calc_customs_detail(ap, cc, year, d.get("engine") or "Бензин", t)
+    delivery = _calc.get_delivery(country, t)
+    services = _calc.get_services_total(t, year, 0, power_hp, cc, fuel_type)
+    items = _calc.get_items(ap, detail["customs"], country, t, 0, "Омск", year, power_hp, cc, fuel_type)
     total = sum(i["value"] for i in items)
     return {
         "auction_price": ap,
@@ -1078,8 +1085,8 @@ def calculate(request: Request, data: CalculatorIn, db: Session = Depends(get_db
     detail = _calc.calc_customs_detail(auction_price_rub, data.engine_cc, data.year, data.fuel_type, t)
     customs = detail["customs"]
     delivery = _calc.get_delivery(data.country, t)
-    services = _calc.get_services_total(t, data.year, city_delivery)
-    items = _calc.get_items(auction_price_rub, customs, data.country, t, city_delivery, city_name, data.year)
+    services = _calc.get_services_total(t, data.year, city_delivery, data.power_hp, data.engine_cc, data.fuel_type)
+    items = _calc.get_items(auction_price_rub, customs, data.country, t, city_delivery, city_name, data.year, data.power_hp, data.engine_cc, data.fuel_type)
     total = sum(i["value"] for i in items)
     return CalculatorOut(
         auction_price=auction_price_rub,

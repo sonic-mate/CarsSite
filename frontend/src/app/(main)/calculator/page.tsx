@@ -66,23 +66,24 @@ export default function CalculatorPage() {
 
   const recalc = useCallback(async (overrides: {
     country?: string; priceInput?: string; currency?: string;
-    engineCC?: string; year?: string; fuel?: string; city?: string;
+    engineCC?: string; power?: string; year?: string; fuel?: string; city?: string;
   } = {}) => {
     const c = overrides.country ?? country;
     const pi = +(overrides.priceInput ?? priceInput) || 0;
     const cur = overrides.currency ?? currency;
     const cc = +(overrides.engineCC ?? engineCC) || 0;
+    const pw = +(overrides.power ?? power) || 0;
     const y = overrides.year ?? year;
     const f = overrides.fuel ?? fuel;
     const ct = overrides.city ?? city;
     if (pi <= 0 || !y || !f) return;
     setLoading(true);
     try {
-      const r = await calculate({ country: c, auction_price: pi, currency: cur, engine_cc: cc, year: +y, fuel_type: f, city: ct || undefined });
+      const r = await calculate({ country: c, auction_price: pi, currency: cur, engine_cc: cc, power_hp: pw, year: +y, fuel_type: f, city: ct || undefined });
       setResult(r);
     } catch {}
     setLoading(false);
-  }, [country, priceInput, currency, engineCC, year, fuel, city, rates]);
+  }, [country, priceInput, currency, engineCC, power, year, fuel, city, rates]);
 
   function handleCountryChange(k: "japan" | "korea" | "china") {
     const newCur = COUNTRY_DEFAULT_CURRENCY[k];
@@ -194,6 +195,7 @@ export default function CalculatorPage() {
                         value={power}
                         placeholder="0"
                         onChange={e => setPower(e.target.value)}
+                        onBlur={() => recalc()}
                       />
                       <span className="input-unit-label">л.с.</span>
                     </div>
