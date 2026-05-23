@@ -55,6 +55,7 @@ export default function CalculatorPage() {
     customs_fee: number; services: number; total: number;
     eur_rate?: number; price_eur?: number; customs_method?: string;
     items?: BreakdownItem[];
+    jpy_rate?: number; cny_rate?: number; krw_rate?: number; usd_rate?: number;
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [yearWarning, setYearWarning] = useState(false);
