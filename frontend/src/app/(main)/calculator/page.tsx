@@ -59,6 +59,7 @@ export default function CalculatorPage() {
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [yearWarning, setYearWarning] = useState(false);
+  const [touched, setTouched] = useState(false);
 
   useEffect(() => {
     fetch("/api/tariffs").then(r => r.ok ? r.json() : null).then(d => {
@@ -96,6 +97,9 @@ export default function CalculatorPage() {
   }
 
   const auctionPriceRub = +priceInput > 0 ? toRub(+priceInput, currency, rates) : 0;
+  const missingPrice = touched && !(+priceInput > 0);
+  const missingYear = touched && !year;
+  const missingFuel = touched && !fuel;
 
   return (
     <main>
@@ -131,8 +135,10 @@ export default function CalculatorPage() {
 
                 {/* Price + currency — moved to top */}
                 <div className="field">
-                  <label className="field-label">Стоимость авто на аукционе</label>
-                  <div className="input-currency-wrap">
+                  <label className="field-label" style={missingPrice ? { color: "#e05c5c" } : {}}>
+                    Стоимость авто на аукционе{missingPrice && " — обязательное поле"}
+                  </label>
+                  <div className="input-currency-wrap" style={missingPrice ? { outline: "1px solid #e05c5c", borderRadius: "var(--r-sm)" } : {}}>
                     <input
                       className="input input-with-select" type="number" min={0}
                       value={priceInput}
@@ -159,8 +165,10 @@ export default function CalculatorPage() {
 
                 {/* Year */}
                 <div className="field">
-                  <label className="field-label">Год выпуска</label>
-                  <select className="select" value={year} onChange={e => {
+                  <label className="field-label" style={missingYear ? { color: "#e05c5c" } : {}}>
+                    Год выпуска{missingYear && " — обязательное поле"}
+                  </label>
+                  <select className="select" style={missingYear ? { outline: "1px solid #e05c5c" } : {}} value={year} onChange={e => {
                     const val = e.target.value;
                     setYear(val);
                     if (+val > 0 && +val < 2009) setYearWarning(true);
@@ -173,8 +181,10 @@ export default function CalculatorPage() {
 
                 {/* Fuel */}
                 <div className="field">
-                  <label className="field-label">Тип двигателя</label>
-                  <select className="select" value={fuel} onChange={e => { setFuel(e.target.value); recalc({ fuel: e.target.value }); }}>
+                  <label className="field-label" style={missingFuel ? { color: "#e05c5c" } : {}}>
+                    Тип двигателя{missingFuel && " — обязательное поле"}
+                  </label>
+                  <select className="select" style={missingFuel ? { outline: "1px solid #e05c5c" } : {}} value={fuel} onChange={e => { setFuel(e.target.value); recalc({ fuel: e.target.value }); }}>
                     <option value="">Выберите тип</option>
                     {FUELS.map(f => <option key={f} value={f}>{f}</option>)}
                   </select>
@@ -223,7 +233,7 @@ export default function CalculatorPage() {
                   </select>
                 </div>
 
-                <button className="btn btn-dark btn-block btn-lg" onClick={() => recalc()} disabled={loading}>
+                <button className="btn btn-dark btn-block btn-lg" onClick={() => { setTouched(true); recalc(); }} disabled={loading}>
                   {loading ? "Считаем…" : "Рассчитать"}
                 </button>
               </div>
